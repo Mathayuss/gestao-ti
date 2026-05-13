@@ -1053,7 +1053,7 @@ async function gerarLinkAssinatura(aid){
                  font-size:12px;font-family:var(--mono);color:var(--text);background:var(--bg3)">
         <button class="btn btn-primary btn-sm" onclick="copiarLink()">Copiar</button>
       </div>
-      <a href="${esc(r.url)}" target="_blank" style="font-size:12px;color:var(--primary)">
+      <a href="${esc(r.url)}" target="_blank" style="font-size:12px;color:var(--blue)">
         Abrir em nova aba para testar →
       </a>
     </div>
@@ -1104,7 +1104,7 @@ function tiInitCanvas(){
   _tiHasSig=false;
   function pos(e){const r=cv.getBoundingClientRect(),s=e.touches?e.touches[0]:e;return{x:s.clientX-r.left,y:s.clientY-r.top};}
   cv.onmousedown=cv.ontouchstart=e=>{e.preventDefault();_tiDrawing=true;const p=pos(e);_tiCtx.beginPath();_tiCtx.moveTo(p.x,p.y);};
-  cv.onmousemove=cv.ontouchmove=e=>{if(!_tiDrawing)return;e.preventDefault();const p=pos(e);_tiCtx.lineTo(p.x,p.y);_tiCtx.stroke();_tiHasSig=true;cv.style.borderStyle='solid';cv.style.borderColor='var(--primary)';};
+  cv.onmousemove=cv.ontouchmove=e=>{if(!_tiDrawing)return;e.preventDefault();const p=pos(e);_tiCtx.lineTo(p.x,p.y);_tiCtx.stroke();_tiHasSig=true;cv.style.borderStyle='solid';cv.style.borderColor='var(--blue)';};
   cv.onmouseup=cv.onmouseleave=cv.ontouchend=()=>{_tiDrawing=false;};
 }
 function tiClearCanvas(){
@@ -1132,6 +1132,7 @@ async function saveSignTi(aid){
 // QR CODE & ETIQUETAS
 // ══════════════════════════════════════════════════════════════════════════
 let _qrSel=null;
+let _cfgTab='geral';
 let _lblCfg={
   size:'media',
   campos:{hostname:true,patrimonio:true,serviceTag:true,setor:true,colaborador:false,ip:false,garantia:false},
@@ -1641,27 +1642,7 @@ const PERFIL_COR={Administrador:'red','Técnico TI':'blue',Gestor:'amber',Visual
 const MODULO_LABEL={dashboard:'Dashboard',ativos:'Ativos de TI',insumos:'Insumos & Periféricos',colaboradores:'Colaboradores',alocacoes:'Alocações',qrcode:'QR Code',licencas:'Licenças',alertas:'Alertas',system_users:'Usuários do Sistema'};
 
 async function renderSystemUsers(){
-  const [data,perfis]=await Promise.all([api('/system-users'),api('/system-users/perfis')]);
-  const cfg_cats = _settings.categorias_config || {};
-  const perfilCards=Object.entries(perfis).map(([p,info])=>`
-  <div class="card" style="border-top:3px solid var(--${info.cor}-text)">
-    <div class="flex-between" style="margin-bottom:8px">
-      <span style="font-weight:700;font-size:14px">${p}</span>
-      <div class="flex-gap">
-        ${badge(data.filter(u=>u.perfil===p&&u.status==='Ativo').length+' usuário(s)','gray')}
-        <button class="btn btn-default btn-icon btn-sm" onclick='editPerfilPerms(${JSON.stringify(p)},${JSON.stringify(info)})' title="Editar permissões">Editar</button>
-      </div>
-    </div>
-    <div style="font-size:12px;color:var(--text2);margin-bottom:10px">${esc(info.label)}</div>
-    <div class="perm-grid">
-      ${['pode_editar','pode_excluir','pode_exportar'].map(k=>`
-      <div class="perm-item ${info[k]?'on':'off'}">${info[k]?'OK':'x'} ${k.replace('pode_','').replace('_',' ')}</div>`).join('')}
-    </div>
-    <div style="font-size:11px;font-weight:600;color:var(--text2);margin-bottom:6px">MÓDULOS LIBERADOS:</div>
-    <div style="display:flex;flex-wrap:wrap;gap:4px">
-      ${info.modulos.map(m=>`<span class="badge badge-${info.cor}" style="font-size:10px">${MODULO_LABEL[m]||m}</span>`).join('')}
-    </div>
-  </div>`).join('');
+  const data = await api('/system-users');
 
   $('content').innerHTML=`
   <div class="flex-between mb-16">
@@ -1685,32 +1666,7 @@ async function renderSystemUsers(){
       </div></td>
     </tr>`).join('')}
     </tbody>
-  </table></div></div>
-  <!-- CATEGORIA CONFIG -->
-  <div class="card" style="grid-column:span 2;margin-top:16px">
-    <div class="flex-between" style="margin-bottom:14px">
-      <div class="section-title" style="margin-bottom:0">Tipo de Alocação por Categoria</div>
-      <div style="font-size:12px;color:var(--text2)">Define se o ativo vai para <strong>Colaborador</strong> (uso pessoal) ou <strong>Unidade</strong> (infraestrutura)</div>
-    </div>
-    <div id="cats-config-list" class="form-grid-2">
-      ${ASSET_CATS.map(cat=>{
-        const cfg = cfg_cats[cat] || {tipo_alocacao:'colaborador'};
-        return `<div style="display:flex;align-items:center;justify-content:space-between;padding:9px 12px;border:1px solid var(--border);border-radius:var(--r);background:var(--bg3)">
-          <span style="font-size:13px;font-weight:600">${esc(cat)}</span>
-          <select data-cat="${esc(cat)}" style="width:auto;font-size:12px;border:1px solid var(--border2);padding:3px 6px;border-radius:5px" onchange="saveCatConfig()">
-            <option value="colaborador" ${cfg.tipo_alocacao==='colaborador'?'selected':''}>Colaborador</option>
-            <option value="unidade"    ${cfg.tipo_alocacao==='unidade'   ?'selected':''}>Unidade</option>
-          </select>
-        </div>`;
-      }).join('')}
-    </div>
-    <div class="info-box blue" style="margin-top:12px;font-size:12px">
-      Nota: Categorias definidas como <strong>Unidade</strong> não exibem campo Colaborador no formulário de ativo — apenas Responsável Técnico (opcional) e Unidade.
-    </div>
-  </div>
-
-  <div style="font-size:14px;font-weight:700;margin-bottom:12px;margin-top:4px">Perfis de Acesso</div>
-  <div class="grid-4">${perfilCards}</div>`;
+  </table></div></div>`;
 }
 
 function openNewSysUser(){
@@ -1787,17 +1743,48 @@ async function doResetSenha(id){
 // ══════════════════════════════════════════════════════════════════════════
 
 async function renderConfiguracoes(){
-  const cfg = await api('/settings');
+  const [cfg, perfis, sysUsers] = await Promise.all([api('/settings'), api('/system-users/perfis'), api('/system-users')]);
   const {empresa, setores, unidades, alertas, regras_usuario, campos_ativo_obrigatorios} = cfg;
   const cfg_cats   = cfg.categorias_config    || {};
   const cfg_email  = cfg.email                || {};
   const cfg_tr     = cfg.termo_recebimento    || {};
   const cfg_td     = cfg.termo_devolucao      || {};
+  const perfilCards = Object.entries(perfis).map(([p,info])=>`
+  <div class="card" style="border-top:3px solid var(--${info.cor}-text)">
+    <div class="flex-between" style="margin-bottom:8px">
+      <span style="font-weight:700;font-size:14px">${p}</span>
+      <div class="flex-gap">
+        ${badge(sysUsers.filter(u=>u.perfil===p&&u.status==='Ativo').length+' usuário(s)','gray')}
+        <button class="btn btn-default btn-icon btn-sm" onclick='editPerfilPerms(${JSON.stringify(p)},${JSON.stringify(info)})' title="Editar permissões">Editar</button>
+      </div>
+    </div>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:10px">${esc(info.label)}</div>
+    <div class="perm-grid">
+      ${['pode_editar','pode_excluir','pode_exportar'].map(k=>`
+      <div class="perm-item ${info[k]?'on':'off'}">${info[k]?'OK':'x'} ${k.replace('pode_','').replace('_',' ')}</div>`).join('')}
+    </div>
+    <div style="font-size:11px;font-weight:600;color:var(--text2);margin-bottom:6px">MÓDULOS LIBERADOS:</div>
+    <div style="display:flex;flex-wrap:wrap;gap:4px">
+      ${info.modulos.map(m=>`<span class="badge badge-${info.cor}" style="font-size:10px">${MODULO_LABEL[m]||m}</span>`).join('')}
+    </div>
+  </div>`).join('');
 
-  $('content').innerHTML = `
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+  // tab bar
+  const CFG_TABS_DEF = [
+    ['geral',   'Geral'],
+    ['operacao','Operação'],
+    ['perfis',  'Perfis'],
+    ['email',   'E-mail'],
+    ['termos',  'Termos'],
+    ['backup',  'Backup'],
+  ];
+  const tabBar = `<div style="display:flex;gap:0;margin-bottom:20px;border-bottom:2px solid var(--border);overflow-x:auto">
+    ${CFG_TABS_DEF.map(([id,label])=>`<button id="cfg-tab-${id}" onclick="cfgTab('${id}')"
+      style="padding:9px 20px;font-size:13px;font-weight:600;border:none;background:none;cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent;margin-bottom:-2px;color:var(--text2)">${label}</button>`).join('')}
+  </div>`;
 
-    <!-- EMPRESA -->
+  // ── painéis ──────────────────────────────────────────────────────────────
+  const panelGeral = `<div id="cfg-panel-geral" style="display:none;grid-template-columns:1fr 1fr;gap:16px">
     <div class="card" style="grid-column:span 2">
       <div class="section-title">Dados da Empresa</div>
       <div class="form-grid-2">
@@ -1810,8 +1797,6 @@ async function renderConfiguracoes(){
         <button class="btn btn-primary" onclick="saveEmpresa()">Salvar Empresa</button>
       </div>
     </div>
-
-    <!-- SETORES -->
     <div class="card">
       <div class="flex-between" style="margin-bottom:12px">
         <div class="section-title" style="margin-bottom:0">Setores</div>
@@ -1828,8 +1813,6 @@ async function renderConfiguracoes(){
         </div>`).join('')}
       </div>
     </div>
-
-    <!-- UNIDADES -->
     <div class="card">
       <div class="flex-between" style="margin-bottom:12px">
         <div class="section-title" style="margin-bottom:0">Unidades / Locais</div>
@@ -1847,8 +1830,9 @@ async function renderConfiguracoes(){
         </div>`).join('')}
       </div>
     </div>
+  </div>`;
 
-    <!-- ALERTAS -->
+  const panelOperacao = `<div id="cfg-panel-operacao" style="display:none;grid-template-columns:1fr 1fr;gap:16px">
     <div class="card">
       <div class="section-title">Configurações de Alertas</div>
       <div class="form-group"><label>Dias de antecedência — Garantia</label>
@@ -1867,8 +1851,6 @@ async function renderConfiguracoes(){
       </div>
       <button class="btn btn-primary btn-sm" onclick="saveAlertas()">Salvar Alertas</button>
     </div>
-
-    <!-- REGRAS DE USUÁRIO -->
     <div class="card">
       <div class="section-title">Regras de Operação</div>
       <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px">
@@ -1887,9 +1869,35 @@ async function renderConfiguracoes(){
       </div>
       <button class="btn btn-primary btn-sm" onclick="saveRegras()">Salvar Regras</button>
     </div>
-
-    <!-- E-MAIL / SMTP -->
     <div class="card" style="grid-column:span 2">
+      <div class="flex-between" style="margin-bottom:14px">
+        <div class="section-title" style="margin-bottom:0">Tipo de Alocação por Categoria</div>
+        <div style="font-size:12px;color:var(--text2)">Define se o ativo vai para <strong>Colaborador</strong> (uso pessoal) ou <strong>Unidade</strong> (infraestrutura)</div>
+      </div>
+      <div id="cats-config-list" class="form-grid-2">
+        ${ASSET_CATS.map(cat=>{
+          const cfg_cat = cfg_cats[cat] || {tipo_alocacao:'colaborador'};
+          return `<div style="display:flex;align-items:center;justify-content:space-between;padding:9px 12px;border:1px solid var(--border);border-radius:var(--r);background:var(--bg3)">
+            <span style="font-size:13px;font-weight:600">${esc(cat)}</span>
+            <select data-cat="${esc(cat)}" style="width:auto;font-size:12px;border:1px solid var(--border2);padding:3px 6px;border-radius:5px" onchange="saveCatConfig()">
+              <option value="colaborador" ${cfg_cat.tipo_alocacao==='colaborador'?'selected':''}>Colaborador</option>
+              <option value="unidade"    ${cfg_cat.tipo_alocacao==='unidade'   ?'selected':''}>Unidade</option>
+            </select>
+          </div>`;
+        }).join('')}
+      </div>
+      <div class="info-box blue" style="margin-top:12px;font-size:12px">
+        Nota: Categorias definidas como <strong>Unidade</strong> não exibem campo Colaborador no formulário de ativo — apenas Responsável Técnico (opcional) e Unidade.
+      </div>
+    </div>
+  </div>`;
+
+  const panelPerfis = `<div id="cfg-panel-perfis" style="display:none">
+    <div class="grid-4">${perfilCards}</div>
+  </div>`;
+
+  const panelEmail = `<div id="cfg-panel-email" style="display:none">
+    <div class="card">
       <div class="section-title">Configurações de E-mail (SMTP)</div>
       <div class="info-box blue" style="margin-bottom:14px">
         Usado para enviar links de assinatura e notificações. Senha segura via variável de ambiente <code>SMTP_PASSWORD</code> (recomendado).
@@ -1917,9 +1925,10 @@ async function renderConfiguracoes(){
         <button class="btn btn-default btn-sm" onclick="testEmailCfg()">Testar Conexão</button>
       </div>
     </div>
+  </div>`;
 
-    <!-- TERMOS — RECEBIMENTO -->
-    <div class="card" style="grid-column:span 2">
+  const panelTermos = `<div id="cfg-panel-termos" style="display:none;flex-direction:column;gap:16px">
+    <div class="card">
       <div class="section-title">Personalização — Termo de Recebimento</div>
       <div class="info-box blue" style="margin-bottom:14px">
         Variáveis disponíveis: <code>{colaborador}</code> <code>{setor}</code> <code>{unidade}</code> <code>{ativo}</code> <code>{data}</code> <code>{empresa}</code> <code>{termo}</code>
@@ -1940,9 +1949,7 @@ async function renderConfiguracoes(){
       </div>
       <button class="btn btn-primary btn-sm" onclick="saveTermoRecebimento()">Salvar Termo de Recebimento</button>
     </div>
-
-    <!-- TERMOS — DEVOLUÇÃO -->
-    <div class="card" style="grid-column:span 2">
+    <div class="card">
       <div class="section-title">Personalização — Termo de Devolução</div>
       <div class="form-grid-2">
         <div class="form-group" style="grid-column:span 2"><label>Título</label>
@@ -1963,9 +1970,10 @@ async function renderConfiguracoes(){
       </div>
       <button class="btn btn-primary btn-sm" onclick="saveTermoDevolucao()">Salvar Termo de Devolução</button>
     </div>
+  </div>`;
 
-    <!-- BACKUP -->
-    <div class="card" style="grid-column:span 2">
+  const panelBackup = `<div id="cfg-panel-backup" style="display:none">
+    <div class="card">
       <div class="section-title">Backup e Exportação</div>
       <div class="info-box blue">Gera uma cópia JSON dos principais cadastros e movimentos. Use antes de alterações grandes ou migrações.</div>
       <div class="flex-gap" style="flex-wrap:wrap">
@@ -1975,8 +1983,27 @@ async function renderConfiguracoes(){
         <a class="btn btn-default" href="/api/export/alocacoes.csv" download>Alocações CSV</a>
       </div>
     </div>
-
   </div>`;
+
+  $('content').innerHTML = tabBar + panelGeral + panelOperacao + panelPerfis + panelEmail + panelTermos + panelBackup;
+  cfgTab(_cfgTab);
+}
+
+function cfgTab(tab){
+  _cfgTab = tab;
+  const panels = {
+    geral: 'grid', operacao: 'grid', perfis: 'block', email: 'block', termos: 'flex', backup: 'block'
+  };
+  Object.keys(panels).forEach(t=>{
+    const panel = document.getElementById('cfg-panel-'+t);
+    const btn   = document.getElementById('cfg-tab-'+t);
+    if(!panel||!btn) return;
+    const active = t===tab;
+    panel.style.display        = active ? panels[t] : 'none';
+    btn.style.color            = active ? 'var(--blue)' : 'var(--text2)';
+    btn.style.borderBottomColor = active ? 'var(--blue)' : 'transparent';
+    btn.style.fontWeight       = active ? '700' : '600';
+  });
 }
 
 async function saveCatConfig(){
