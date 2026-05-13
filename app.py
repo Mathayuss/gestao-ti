@@ -4,12 +4,12 @@ TI Control SRE — Sistema de Gestão de Ativos de TI com práticas de confiabil
 Inclui autenticação, persistência em SQLite, métricas Prometheus, health checks,
 request-id, endpoints operacionais e documentação SRE para operação do serviço.
 """
-import os, io, uuid, warnings, csv, json, re, time as _time, hashlib, smtplib, base64
+import os, io, uuid, warnings, csv, json, re, time as _time, hashlib, smtplib, base64, logging, html as _html
 from collections import defaultdict
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from time import perf_counter
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 # Suppress Flask-Login's internal datetime.utcnow() deprecation (Python 3.12)
 warnings.filterwarnings('ignore', message='.*utcnow.*', category=DeprecationWarning)
 from functools import wraps
@@ -32,14 +32,14 @@ except ImportError:
     METRICS_OK = False
 
 load_dotenv()
+logger = logging.getLogger("ti_control")
 
 # Falha rápida se SECRET_KEY não estiver definida explicitamente
 _secret_key = os.environ.get("SECRET_KEY", "")
 if not _secret_key:
-    import sys
     if os.environ.get("FLASK_DEBUG", "0") == "1":
         _secret_key = "ticontrol-dev-only-secret-DO-NOT-USE-IN-PROD"
-        print("⚠️  AVISO: SECRET_KEY não definida — usando chave de desenvolvimento insegura", file=sys.stderr)
+        logger.warning("SECRET_KEY não definida; usando chave de desenvolvimento insegura")
     else:
         raise RuntimeError(
             "SECRET_KEY não definida. Configure a variável de ambiente SECRET_KEY antes de iniciar em produção."
@@ -83,7 +83,7 @@ app.config.update(
         "pool_recycle":  300,
     },
     JSON_SORT_KEYS               = False,
-    APP_BASE_URL                 = os.environ.get("APP_BASE_URL", "http://localhost:5000").rstrip("/"),
+    APP_BASE_URL                 = os.environ.get("APP_BASE_URL", "http://localhost").rstrip("/"),
     SERVICE_NAME                 = os.environ.get("SERVICE_NAME", "ti-control-sre"),
     BUILD_VERSION                = os.environ.get("BUILD_VERSION", "dev"),
     ENVIRONMENT                  = os.environ.get("ENVIRONMENT", "development"),
@@ -172,6 +172,8 @@ def sre_before_request():
     g.request_started_at = perf_counter()
     g.request_id = request.headers.get("X-Request-ID") or uuid.uuid4().hex[:16]
     g.metrics_active_request_tracked = False
+    if request.endpoint not in {"health_live", "health_ready", "health_startup", "metrics", "ping"}:
+        _maybe_run_scheduled_backup()
     if METRICS_OK:
         HTTP_ACTIVE_REQUESTS.inc()
         g.metrics_active_request_tracked = True
@@ -622,6 +624,28 @@ def parse_float(value, default=0.0, minimum=None):
     if minimum is not None and number < minimum:
         number = minimum
     return number
+
+
+def parse_bool(value, default=False):
+    """Converte valores comuns de formulários/API para booleano."""
+    if isinstance(value, bool):
+        return value
+    if value is None:
+        return default
+    if isinstance(value, (int, float)):
+        return value != 0
+    normalized = str(value).strip().lower()
+    if normalized in {"1", "true", "t", "yes", "y", "sim", "s", "on"}:
+        return True
+    if normalized in {"0", "false", "f", "no", "n", "nao", "não", "off"}:
+        return False
+    return default
+
+
+def json_payload():
+    """Retorna payload JSON como dict; payload vazio/inválido vira dict vazio."""
+    payload = request.get_json(silent=True)
+    return payload if isinstance(payload, dict) else {}
 
 
 def wants_json_response():
@@ -2019,6 +2043,34 @@ def gerar_link_assinatura(aid):
                     "emailEnviado": email_enviado})
 
 
+@app.route("/api/allocations/<aid>/qrcode-termo")
+@login_required
+def allocation_qrcode_termo(aid):
+    """Gera QR Code PNG do link de assinatura. Cria token automaticamente se ausente/expirado."""
+    al = db.get_or_404(Allocation, aid)
+    if al.status != "Ativo" or al.termo_status == "Assinado":
+        abort(404)
+    from datetime import timedelta
+    now = datetime.now()
+    if not al.sign_token or (al.sign_token_expiry and al.sign_token_expiry < now):
+        al.sign_token = uuid.uuid4().hex + uuid.uuid4().hex
+        al.sign_token_expiry = now + timedelta(days=7)
+        db.session.commit()
+    url = f"{app.config['APP_BASE_URL']}/assinar/{al.sign_token}"
+    if QR_OK:
+        img = qrcode.make(url)
+        buf = io.BytesIO()
+        img.save(buf, format="PNG")
+        buf.seek(0)
+        return send_file(buf, mimetype="image/png")
+    svg = (f'<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200">'
+           f'<rect width="200" height="200" fill="white"/>'
+           f'<text x="100" y="90" text-anchor="middle" font-size="11" fill="#333">QR não disponível</text>'
+           f'<text x="100" y="112" text-anchor="middle" font-size="8" fill="#666">instale qrcode[pil]</text>'
+           f'</svg>')
+    return svg, 200, {"Content-Type": "image/svg+xml"}
+
+
 @app.route("/assinar/<token>", methods=["GET"])
 def pagina_assinatura(token):
     al = db.session.execute(
@@ -2312,7 +2364,8 @@ def create_system_user():
         return jsonify({"error":"Username obrigatório."}), 400
     if len(senha) < 8:
         return jsonify({"error":"Senha deve ter ao menos 8 caracteres."}), 400
-    if clean_text(d.get("perfil", "Visualizador")) not in PERFIL_PERMISSOES:
+    _perfis_validos = _get_setting("perfil_permissoes", PERFIL_PERMISSOES) or PERFIL_PERMISSOES
+    if clean_text(d.get("perfil", "Visualizador")) not in _perfis_validos:
         return jsonify({"error":"Perfil inválido."}), 400
     if db.session.execute(db.select(SystemUser).filter_by(username=username)).scalar_one_or_none():
         return jsonify({"error":"Username já existe."}), 409
@@ -2380,17 +2433,47 @@ def update_perfil_perms(perfil):
 # E-MAIL
 # ═══════════════════════════════════════════════════════════════════════════
 
+SMTP_ENV_KEYS = (
+    "SMTP_HOST", "SMTP_PORT", "SMTP_TLS", "SMTP_USER", "SMTP_PASSWORD",
+    "SMTP_FROM_NAME", "SMTP_FROM_EMAIL", "SMTP_ENABLED",
+)
+
+
+def _smtp_env_available() -> bool:
+    return any(os.environ.get(key) for key in SMTP_ENV_KEYS)
+
+
 def _get_email_config() -> dict:
-    """Lê configuração de e-mail: prioriza variáveis de ambiente sobre settings do DB."""
+    """Lê configuração de e-mail do banco da aplicação ou das variáveis do servidor."""
+    source = clean_text(_get_setting("email.source", ""), 20)
+    if source not in ("app", "env"):
+        source = "env" if _smtp_env_available() else "app"
+
+    app_cfg = {
+        "host":       _get_setting("email.host", ""),
+        "port":       parse_int(_get_setting("email.port", 587), default=587, minimum=1),
+        "tls":        parse_bool(_get_setting("email.tls", True), default=True),
+        "user":       _get_setting("email.user", ""),
+        "password":   _get_setting("email.password", ""),
+        "from_name":  _get_setting("email.from_name", "TI Control"),
+        "from_email": _get_setting("email.from_email", ""),
+        "enabled":    parse_bool(_get_setting("email.enabled", False), default=False),
+    }
+
+    if source == "app":
+        return {**app_cfg, "source": "app", "env_available": _smtp_env_available()}
+
     return {
-        "host":         os.environ.get("SMTP_HOST")         or _get_setting("email.host", ""),
-        "port":         int(os.environ.get("SMTP_PORT")     or _get_setting("email.port", 587)),
-        "tls":          (os.environ.get("SMTP_TLS", "")     or _get_setting("email.tls", "1")) in ("1", "true", True),
-        "user":         os.environ.get("SMTP_USER")         or _get_setting("email.user", ""),
-        "password":     os.environ.get("SMTP_PASSWORD")     or _get_setting("email.password", ""),
-        "from_name":    os.environ.get("SMTP_FROM_NAME")    or _get_setting("email.from_name", "TI Control"),
-        "from_email":   os.environ.get("SMTP_FROM_EMAIL")   or _get_setting("email.from_email", ""),
-        "enabled":      (os.environ.get("SMTP_ENABLED", "") or _get_setting("email.enabled", "0")) in ("1", "true", True),
+        "host":         os.environ.get("SMTP_HOST") or app_cfg["host"],
+        "port":         parse_int(os.environ.get("SMTP_PORT") or app_cfg["port"], default=587, minimum=1),
+        "tls":          parse_bool(os.environ.get("SMTP_TLS"), default=app_cfg["tls"]),
+        "user":         os.environ.get("SMTP_USER") or app_cfg["user"],
+        "password":     os.environ.get("SMTP_PASSWORD") or app_cfg["password"],
+        "from_name":    os.environ.get("SMTP_FROM_NAME") or app_cfg["from_name"],
+        "from_email":   os.environ.get("SMTP_FROM_EMAIL") or app_cfg["from_email"],
+        "enabled":      parse_bool(os.environ.get("SMTP_ENABLED"), default=app_cfg["enabled"]),
+        "source":       "env",
+        "env_available": _smtp_env_available(),
     }
 
 
@@ -2427,26 +2510,108 @@ def send_email(to: str, subject: str, body_html: str, body_text: str = "") -> di
         return {"ok": False, "error": str(exc)}
 
 
+DEFAULT_EMAIL_TEMPLATES = {
+    "assinatura": {
+        "subject": "[{empresa}] Termo de Responsabilidade - assinatura necessária",
+        "body": (
+            "Olá, {colaborador}!\n\n"
+            "Você recebeu o equipamento {ativo}.\n\n"
+            "Para confirmar o recebimento, clique no botão abaixo e assine digitalmente "
+            "o Termo de Responsabilidade.\n\n"
+            "Este link expira em 7 dias. Em caso de dúvidas, contate o setor de TI."
+        ),
+        "button_label": "Assinar Termo",
+        "footer": "{empresa} - Sistema de Gestão de TI",
+    },
+    "devolucao": {
+        "subject": "[{empresa}] Termo de Devolução - assinatura necessária",
+        "body": (
+            "Olá, {colaborador}!\n\n"
+            "Foi registrada a devolução dos equipamentos sob sua responsabilidade.\n\n"
+            "Por favor, acesse o link abaixo e assine o Termo de Devolução.\n\n"
+            "Este link expira em 7 dias."
+        ),
+        "button_label": "Assinar Devolução",
+        "footer": "{empresa} - Sistema de Gestão de TI",
+    },
+}
+
+
+def _get_email_templates():
+    saved = _get_setting("email_templates", {})
+    saved = saved if isinstance(saved, dict) else {}
+    merged = {}
+    for key, defaults in DEFAULT_EMAIL_TEMPLATES.items():
+        custom = saved.get(key, {})
+        custom = custom if isinstance(custom, dict) else {}
+        merged[key] = {**defaults, **{k: v for k, v in custom.items() if k in defaults}}
+    return merged
+
+
+def _normalize_email_templates(value):
+    if not isinstance(value, dict):
+        return None, "Templates de e-mail precisam ser um objeto."
+    current = _get_email_templates()
+    limits = {"subject": 180, "body": 4000, "button_label": 80, "footer": 500}
+    for kind in DEFAULT_EMAIL_TEMPLATES:
+        if kind not in value:
+            continue
+        incoming = value.get(kind)
+        if not isinstance(incoming, dict):
+            return None, f"Template '{kind}' precisa ser um objeto."
+        for field, max_len in limits.items():
+            if field in incoming:
+                current[kind][field] = clean_text(incoming.get(field), max_len)
+        if not current[kind]["subject"]:
+            return None, f"Assunto do template '{kind}' é obrigatório."
+        if not current[kind]["body"]:
+            return None, f"Corpo do template '{kind}' é obrigatório."
+        if not current[kind]["button_label"]:
+            return None, f"Texto do botão do template '{kind}' é obrigatório."
+    return current, None
+
+
+def _render_email_template(kind: str, ctx: dict):
+    templates = _get_email_templates()
+    tpl = templates.get(kind, DEFAULT_EMAIL_TEMPLATES[kind])
+    empresa = ctx.get("empresa") or "TI Control"
+    full_ctx = {**ctx, "empresa": empresa}
+    subject = clean_text(_render_termo_text(tpl["subject"], full_ctx), 180)
+    body_text = _render_termo_text(tpl["body"], full_ctx)
+    footer_text = _render_termo_text(tpl.get("footer", ""), full_ctx)
+    button_label = _render_termo_text(tpl.get("button_label", "Abrir"), full_ctx)
+    link = full_ctx.get("link", "")
+    accent = "#059669" if kind == "devolucao" else "#1e40af"
+
+    html_body = _html.escape(body_text).replace("\n", "<br>")
+    html_footer = _html.escape(footer_text).replace("\n", "<br>")
+    html_button = _html.escape(button_label)
+    html_link = _html.escape(link, quote=True)
+    html = f"""
+    <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;color:#111827">
+      <div style="line-height:1.6;font-size:14px">{html_body}</div>
+      <p style="text-align:center;margin:30px 0">
+        <a href="{html_link}" style="background:{accent};color:white;padding:12px 28px;border-radius:6px;
+           text-decoration:none;font-weight:bold;display:inline-block">{html_button}</a>
+      </p>
+      <p style="word-break:break-all;color:#6b7280;font-size:12px">{html_link}</p>
+      <hr style="border:none;border-top:1px solid #e5e7eb;margin-top:24px">
+      <p style="color:#9ca3af;font-size:11px">{html_footer}</p>
+    </div>"""
+    text = f"{body_text}\n\n{button_label}: {link}\n\n{footer_text}"
+    return subject, html, text
+
+
 def send_email_link_assinatura(to: str, colaborador: str, ativo_nome: str, link: str) -> dict:
     """Atalho: envia link de assinatura de termo."""
     empresa = _get_setting("empresa", {})
     nome_empresa = empresa.get("nome", "TI Control") if isinstance(empresa, dict) else "TI Control"
-    subject = f"[{nome_empresa}] Termo de Responsabilidade — assinatura necessária"
-    html = f"""
-    <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto">
-      <h2 style="color:#1e40af">Termo de Responsabilidade de Equipamento</h2>
-      <p>Olá, <strong>{colaborador}</strong>!</p>
-      <p>Você recebeu o equipamento <strong>{ativo_nome}</strong>.</p>
-      <p>Para confirmar o recebimento, clique no botão abaixo e assine digitalmente o Termo de Responsabilidade:</p>
-      <p style="text-align:center;margin:30px 0">
-        <a href="{link}" style="background:#1e40af;color:white;padding:12px 28px;border-radius:6px;
-           text-decoration:none;font-weight:bold">Assinar Termo</a>
-      </p>
-      <p style="color:#6b7280;font-size:12px">Este link expira em 7 dias. Em caso de dúvidas, contate o setor de TI.</p>
-      <hr style="border:none;border-top:1px solid #e5e7eb">
-      <p style="color:#9ca3af;font-size:11px">{nome_empresa} — Sistema de Gestão de TI</p>
-    </div>"""
-    text = f"Olá {colaborador}! Acesse o link para assinar o Termo de Responsabilidade: {link}"
+    subject, html, text = _render_email_template("assinatura", {
+        "empresa": nome_empresa,
+        "colaborador": colaborador,
+        "ativo": ativo_nome,
+        "link": link,
+    })
     return send_email(to, subject, html, text)
 
 
@@ -2454,22 +2619,11 @@ def send_email_link_devolucao(to: str, colaborador: str, link: str) -> dict:
     """Atalho: envia link de assinatura do termo de devolução."""
     empresa = _get_setting("empresa", {})
     nome_empresa = empresa.get("nome", "TI Control") if isinstance(empresa, dict) else "TI Control"
-    subject = f"[{nome_empresa}] Termo de Devolução — assinatura necessária"
-    html = f"""
-    <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto">
-      <h2 style="color:#1e40af">Termo de Devolução de Equipamentos</h2>
-      <p>Olá, <strong>{colaborador}</strong>!</p>
-      <p>Foi registrada a devolução dos equipamentos sob sua responsabilidade.</p>
-      <p>Por favor, acesse o link abaixo e assine o Termo de Devolução:</p>
-      <p style="text-align:center;margin:30px 0">
-        <a href="{link}" style="background:#059669;color:white;padding:12px 28px;border-radius:6px;
-           text-decoration:none;font-weight:bold">Assinar Devolução</a>
-      </p>
-      <p style="color:#6b7280;font-size:12px">Este link expira em 7 dias.</p>
-      <hr style="border:none;border-top:1px solid #e5e7eb">
-      <p style="color:#9ca3af;font-size:11px">{nome_empresa} — Sistema de Gestão de TI</p>
-    </div>"""
-    text = f"Olá {colaborador}! Acesse o link para assinar o Termo de Devolução: {link}"
+    subject, html, text = _render_email_template("devolucao", {
+        "empresa": nome_empresa,
+        "colaborador": colaborador,
+        "link": link,
+    })
     return send_email(to, subject, html, text)
 
 
@@ -2489,6 +2643,338 @@ def _set_setting(key, value):
     if s: s.value = raw
     else: db.session.add(Setting(key=key, value=raw))
 
+
+ASSET_REQUIRED_FIELDS_ALLOWED = {
+    "hostname", "ip", "mac", "serviceTag", "os", "fabricante", "modelo",
+    "patrimonio", "nf", "categoria", "status", "colaborador", "setor",
+    "unidade", "garantia",
+}
+
+
+def _clean_list_setting(values, max_len=80):
+    if not isinstance(values, list):
+        return None
+    cleaned, seen = [], set()
+    for raw in values:
+        item = clean_text(raw, max_len)
+        key = item.casefold()
+        if item and key not in seen:
+            cleaned.append(item)
+            seen.add(key)
+    return cleaned
+
+
+def _normalize_empresa_setting(value):
+    if not isinstance(value, dict):
+        return None, "Dados da empresa precisam ser um objeto."
+    current = _get_setting("empresa", {}) or {}
+    result = dict(current) if isinstance(current, dict) else {}
+    fields = {
+        "nome": 120, "cnpj": 30, "email": 120, "telefone": 40,
+        "site": 120, "endereco": 240, "logo_base64": None,
+    }
+    for key, max_len in fields.items():
+        if key in value:
+            result[key] = clean_text(value.get(key), max_len)
+    err_email = validate_email(result.get("email"))
+    if err_email:
+        return None, err_email
+    return result, None
+
+
+def _normalize_alertas_setting(value):
+    if not isinstance(value, dict):
+        return None, "Configurações de alertas precisam ser um objeto."
+    current = _get_setting("alertas", {}) or {}
+    result = dict(current) if isinstance(current, dict) else {}
+    if "dias_garantia" in value:
+        result["dias_garantia"] = parse_int(value.get("dias_garantia"), default=60, minimum=1)
+    if "dias_licenca" in value:
+        result["dias_licenca"] = parse_int(value.get("dias_licenca"), default=60, minimum=1)
+    if "estoque_minimo" in value:
+        result["estoque_minimo"] = parse_bool(value.get("estoque_minimo"), default=True)
+    if "notif_email" in value:
+        result["notif_email"] = parse_bool(value.get("notif_email"), default=False)
+    return result, None
+
+
+def _normalize_regras_usuario_setting(value):
+    if not isinstance(value, dict):
+        return None, "Regras de operação precisam ser um objeto."
+    current = _get_setting("regras_usuario", {}) or {}
+    result = dict(current) if isinstance(current, dict) else {}
+    for key in ("exige_termo_alocacao", "permite_alocar_sem_email", "obriga_vinculo_saida"):
+        if key in value:
+            result[key] = parse_bool(value.get(key), default=bool(result.get(key)))
+    if "max_perifericos_por_colab" in value:
+        result["max_perifericos_por_colab"] = parse_int(
+            value.get("max_perifericos_por_colab"), default=10, minimum=0
+        )
+    return result, None
+
+
+def _normalize_campos_ativos_setting(value):
+    fields = _clean_list_setting(value, max_len=40)
+    if fields is None:
+        return None, "Campos obrigatórios de ativo precisam ser uma lista."
+    invalid = [field for field in fields if field not in ASSET_REQUIRED_FIELDS_ALLOWED]
+    if invalid:
+        return None, "Campos obrigatórios inválidos: " + ", ".join(invalid)
+    return fields, None
+
+
+def _normalize_categorias_config_setting(value):
+    if not isinstance(value, dict):
+        return None, "Configuração de categorias precisa ser um objeto."
+    current = _get_setting("categorias_config", {}) or {}
+    result = dict(current) if isinstance(current, dict) else {}
+    for raw_cat, cfg in value.items():
+        cat = clean_text(raw_cat, 40)
+        if not cat:
+            continue
+        cfg = cfg if isinstance(cfg, dict) else {}
+        tipo = clean_text(cfg.get("tipo_alocacao"), 20)
+        if tipo not in ("colaborador", "unidade"):
+            return None, f"Tipo de alocação inválido para categoria '{cat}'."
+        result[cat] = {"tipo_alocacao": tipo}
+    return result, None
+
+
+def _normalize_unidade_payload(payload, current=None):
+    if not isinstance(payload, dict):
+        return None, "Dados da unidade precisam ser um objeto."
+    current = current if isinstance(current, dict) else {}
+    result = dict(current)
+    fields = {"nome": 80, "tipo": 40, "cidade": 80, "estado": 2}
+    for key, max_len in fields.items():
+        if key in payload or key not in result:
+            result[key] = clean_text(payload.get(key, result.get(key, "")), max_len)
+    result["estado"] = clean_text(result.get("estado"), 2).upper()
+    if "id" in current:
+        result["id"] = current["id"]
+    if not result.get("nome"):
+        return None, "Nome da unidade é obrigatório."
+    return result, None
+
+
+def _normalize_termo_setting(key, value):
+    if not isinstance(value, dict):
+        return None, "Personalização de termo precisa ser um objeto."
+    current = _get_setting(key, {}) or {}
+    result = dict(current) if isinstance(current, dict) else {}
+    text_fields = {"titulo": 160, "preambulo": 3000, "rodape": 500, "declaracao": 1200}
+    for field, max_len in text_fields.items():
+        if field in value:
+            result[field] = clean_text(value.get(field), max_len)
+    if "clausulas" in value:
+        clauses = _clean_list_setting(value.get("clausulas"), max_len=1000)
+        if clauses is None:
+            return None, "Cláusulas do termo precisam ser uma lista."
+        result["clausulas"] = clauses
+    return result, None
+
+
+SETTING_NORMALIZERS = {
+    "empresa": _normalize_empresa_setting,
+    "alertas": _normalize_alertas_setting,
+    "regras_usuario": _normalize_regras_usuario_setting,
+    "campos_ativo_obrigatorios": _normalize_campos_ativos_setting,
+    "categorias_config": _normalize_categorias_config_setting,
+}
+
+
+BACKUP_DIR = os.path.join(app.instance_path, "backups")
+BACKUP_FILE_RE = re.compile(r"^backup_ticontrol_\d{8}_\d{6}_(manual|auto)\.json$")
+_backup_last_check = 0
+
+DEFAULT_BACKUP_CONFIG = {
+    "enabled": False,
+    "frequency": "daily",
+    "retention": 7,
+    "include_audit": False,
+    "last_run": "",
+    "last_file": "",
+    "last_status": "Nunca executado",
+    "last_error": "",
+}
+
+
+def _get_backup_config():
+    saved = _get_setting("backup", {})
+    saved = saved if isinstance(saved, dict) else {}
+    cfg = {**DEFAULT_BACKUP_CONFIG, **saved}
+    cfg["enabled"] = parse_bool(cfg.get("enabled"), default=False)
+    cfg["frequency"] = cfg.get("frequency") if cfg.get("frequency") in ("daily", "weekly", "monthly") else "daily"
+    cfg["retention"] = parse_int(cfg.get("retention"), default=7, minimum=1)
+    cfg["include_audit"] = parse_bool(cfg.get("include_audit"), default=False)
+    return cfg
+
+
+def _normalize_backup_config(value):
+    if not isinstance(value, dict):
+        return None, "Configuração de backup precisa ser um objeto."
+    cfg = _get_backup_config()
+    if "enabled" in value:
+        cfg["enabled"] = parse_bool(value.get("enabled"), default=False)
+    if "frequency" in value:
+        freq = clean_text(value.get("frequency"), 20)
+        if freq not in ("daily", "weekly", "monthly"):
+            return None, "Frequência de backup inválida."
+        cfg["frequency"] = freq
+    if "retention" in value:
+        cfg["retention"] = min(parse_int(value.get("retention"), default=7, minimum=1), 90)
+    if "include_audit" in value:
+        cfg["include_audit"] = parse_bool(value.get("include_audit"), default=False)
+    return cfg, None
+
+
+def _redact_secret_value(value):
+    if isinstance(value, dict):
+        redacted = {}
+        for key, item in value.items():
+            lowered = str(key).lower()
+            if any(token in lowered for token in ("password", "senha", "secret", "token")):
+                redacted[key] = "__REDACTED__" if item else ""
+            else:
+                redacted[key] = _redact_secret_value(item)
+        return redacted
+    if isinstance(value, list):
+        return [_redact_secret_value(item) for item in value]
+    return value
+
+
+def _safe_settings_payload():
+    settings = {}
+    for setting in db.session.execute(db.select(Setting)).scalars().all():
+        value = _get_setting(setting.key)
+        lowered = setting.key.lower()
+        if any(token in lowered for token in ("password", "senha", "secret", "token")):
+            settings[setting.key] = "__REDACTED__" if value else ""
+        else:
+            settings[setting.key] = _redact_secret_value(value)
+    return settings
+
+
+def _build_backup_payload(generated_by="sistema", include_audit=False):
+    return {
+        "geradoEm": datetime.now().isoformat(),
+        "geradoPor": generated_by,
+        "versao": app.config["BUILD_VERSION"],
+        "observacao": "system_users e segredos sensíveis são excluídos/redigidos intencionalmente.",
+        "assets": [a.to_dict() for a in db.session.execute(db.select(Asset)).scalars().all()],
+        "colaboradores": [c.to_dict() for c in db.session.execute(db.select(Colaborador)).scalars().all()],
+        "supplies": [s.to_dict() for s in db.session.execute(db.select(Supply)).scalars().all()],
+        "supplyMovements": [m.to_dict() for m in db.session.execute(db.select(SupplyMovement)).scalars().all()],
+        "allocations": [a.to_dict(include_items=True) for a in db.session.execute(db.select(Allocation)).scalars().all()],
+        "licenses": [l.to_dict() for l in db.session.execute(db.select(License)).scalars().all()],
+        "incidents": [i.to_dict() for i in db.session.execute(db.select(Incident)).scalars().all()],
+        "maintenance": [m.to_dict(include_parts=True) for m in db.session.execute(db.select(MaintenanceOrder)).scalars().all()],
+        "devolucoes": [d.to_dict() for d in db.session.execute(db.select(Devolucao)).scalars().all()],
+        "settings": _safe_settings_payload(),
+        "auditLogs": [a.to_dict() for a in db.session.execute(db.select(AuditLog).order_by(AuditLog.data.desc()).limit(1000)).scalars().all()] if include_audit else [],
+    }
+
+
+def _backup_bytes(generated_by="sistema", include_audit=False):
+    payload = _build_backup_payload(generated_by=generated_by, include_audit=include_audit)
+    raw = json.dumps(payload, ensure_ascii=False, indent=2).encode("utf-8")
+    return raw, hashlib.sha256(raw).hexdigest()
+
+
+def _backup_file_path(filename):
+    filename = os.path.basename(filename or "")
+    if not BACKUP_FILE_RE.match(filename):
+        return None
+    path = os.path.abspath(os.path.join(BACKUP_DIR, filename))
+    base = os.path.abspath(BACKUP_DIR)
+    if not path.startswith(base + os.sep):
+        return None
+    return path
+
+
+def _list_backup_files():
+    os.makedirs(BACKUP_DIR, exist_ok=True)
+    files = []
+    for filename in sorted(os.listdir(BACKUP_DIR), reverse=True):
+        path = _backup_file_path(filename)
+        if not path or not os.path.exists(path):
+            continue
+        with open(path, "rb") as fh:
+            checksum = hashlib.sha256(fh.read()).hexdigest()
+        stat = os.stat(path)
+        files.append({
+            "filename": filename,
+            "size": stat.st_size,
+            "createdAt": datetime.fromtimestamp(stat.st_mtime).isoformat(),
+            "sha256": checksum,
+        })
+    return files
+
+
+def _prune_backups(retention):
+    files = _list_backup_files()
+    for item in files[retention:]:
+        path = _backup_file_path(item["filename"])
+        if path and os.path.exists(path):
+            os.remove(path)
+
+
+def _write_backup_file(kind="manual", generated_by="sistema"):
+    cfg = _get_backup_config()
+    os.makedirs(BACKUP_DIR, exist_ok=True)
+    raw, checksum = _backup_bytes(generated_by=generated_by, include_audit=cfg["include_audit"])
+    filename = f"backup_ticontrol_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{kind}.json"
+    path = _backup_file_path(filename)
+    if not path:
+        raise RuntimeError("Nome de backup inválido.")
+    with open(path, "wb") as fh:
+        fh.write(raw)
+    cfg.update({
+        "last_run": datetime.now().isoformat(),
+        "last_file": filename,
+        "last_status": "OK",
+        "last_error": "",
+    })
+    _set_setting("backup", cfg)
+    _prune_backups(cfg["retention"])
+    return {"filename": filename, "size": len(raw), "sha256": checksum, "createdAt": cfg["last_run"]}
+
+
+def _backup_is_due(cfg):
+    if not cfg["enabled"]:
+        return False
+    if not cfg.get("last_run"):
+        return True
+    try:
+        last_run = datetime.fromisoformat(cfg["last_run"])
+    except ValueError:
+        return True
+    delta = {"daily": timedelta(days=1), "weekly": timedelta(days=7), "monthly": timedelta(days=30)}[cfg["frequency"]]
+    return datetime.now() - last_run >= delta
+
+
+def _maybe_run_scheduled_backup():
+    global _backup_last_check
+    now = _time.time()
+    if now - _backup_last_check < 300:
+        return
+    _backup_last_check = now
+    try:
+        cfg = _get_backup_config()
+        if not _backup_is_due(cfg):
+            return
+        result = _write_backup_file("auto", generated_by="rotina_automatica")
+        audit("BACKUP_AUTO", "sistema", "", f"Backup automático gerado: {result['filename']}")
+        db.session.commit()
+    except Exception as exc:
+        db.session.rollback()
+        cfg = _get_backup_config()
+        cfg.update({"last_status": "ERRO", "last_error": clean_text(str(exc), 300)})
+        _set_setting("backup", cfg)
+        db.session.commit()
+        logger.exception("Falha na rotina automática de backup")
+
+
 @app.route("/api/settings", methods=["GET"])
 @login_required
 def get_settings():
@@ -2496,7 +2982,8 @@ def get_settings():
     # Nunca retorna a senha ao frontend
     cfg_email_safe = {k: v for k, v in cfg_email.items() if k != "password"}
     cfg_email_safe["password_configurado"] = bool(cfg_email.get("password"))
-    cfg_email_safe["via_env"] = bool(os.environ.get("SMTP_PASSWORD"))
+    cfg_email_safe["via_env"] = cfg_email.get("source") == "env" and bool(os.environ.get("SMTP_PASSWORD"))
+    cfg_email_safe["env_disponivel"] = bool(cfg_email.get("env_available"))
     return jsonify({
         "empresa":      _get_setting("empresa", {}),
         "setores":      _get_setting("setores", []),
@@ -2506,6 +2993,8 @@ def get_settings():
         "campos_ativo_obrigatorios": _get_setting("campos_ativo_obrigatorios", []),
         "categorias_config": _get_setting("categorias_config", {}),
         "email":        cfg_email_safe,
+        "email_templates": _get_email_templates(),
+        "backup":       _get_backup_config(),
         "termo_recebimento": _get_setting("termo_recebimento", {}),
         "termo_devolucao":   _get_setting("termo_devolucao", {}),
     })
@@ -2513,11 +3002,17 @@ def get_settings():
 @app.route("/api/settings", methods=["PUT"])
 @requires("Administrador")
 def update_settings():
-    d = request.get_json()
+    d = json_payload()
+    if not d:
+        return jsonify({"error": "Payload JSON obrigatório."}), 400
+    unsupported = sorted(set(d) - set(SETTING_NORMALIZERS))
+    if unsupported:
+        return jsonify({"error": "Configuração não suportada.", "details": unsupported}), 400
     for key, val in d.items():
-        cur = _get_setting(key, {})
-        if isinstance(cur, dict) and isinstance(val, dict): cur.update(val); _set_setting(key, cur)
-        else: _set_setting(key, val)
+        normalized, error = SETTING_NORMALIZERS[key](val)
+        if error:
+            return jsonify({"error": error}), 400
+        _set_setting(key, normalized)
     audit("EDITAR","configuracoes","","Configurações atualizadas")
     db.session.commit()
     return get_settings()
@@ -2525,53 +3020,100 @@ def update_settings():
 @app.route("/api/settings/setores", methods=["POST"])
 @requires("Administrador")
 def add_setor():
-    nome=(request.get_json().get("nome") or "").strip()
+    nome = clean_text(json_payload().get("nome"), 80)
     if not nome: return jsonify({"error":"Nome obrigatório"}), 400
-    setores = _get_setting("setores", [])
-    if nome in setores: return jsonify({"error":"Já existe"}), 409
+    setores = _clean_list_setting(_get_setting("setores", []), 80) or []
+    if any(s.casefold() == nome.casefold() for s in setores):
+        return jsonify({"error":"Já existe"}), 409
     setores.append(nome); _set_setting("setores", setores); db.session.commit()
     return jsonify(setores)
 
 @app.route("/api/settings/setores/<nome>", methods=["DELETE"])
 @requires("Administrador")
 def del_setor(nome):
-    setores=[s for s in _get_setting("setores",[]) if s!=nome]
+    nome = clean_text(nome, 80)
+    setores=[s for s in (_clean_list_setting(_get_setting("setores",[]), 80) or []) if s != nome]
     _set_setting("setores",setores); db.session.commit()
     return jsonify(setores)
 
 @app.route("/api/settings/unidades", methods=["POST"])
 @requires("Administrador")
 def add_unidade():
-    d=request.get_json(); uns=_get_setting("unidades",[])
-    d["id"]=new_id("UN"); uns.append(d); _set_setting("unidades",uns); db.session.commit()
-    return jsonify(d),201
+    uns = _get_setting("unidades", [])
+    uns = uns if isinstance(uns, list) else []
+    unidade, error = _normalize_unidade_payload(json_payload())
+    if error:
+        return jsonify({"error": error}), 400
+    if any((u.get("nome") or "").casefold() == unidade["nome"].casefold() for u in uns if isinstance(u, dict)):
+        return jsonify({"error":"Unidade já existe"}), 409
+    unidade["id"] = new_id("UN")
+    uns.append(unidade); _set_setting("unidades",uns); db.session.commit()
+    return jsonify(unidade),201
 
 @app.route("/api/settings/unidades/<uid>", methods=["PUT"])
 @requires("Administrador")
 def update_unidade(uid):
-    d=request.get_json(); uns=_get_setting("unidades",[])
+    d=json_payload(); uns=_get_setting("unidades",[])
+    uns = uns if isinstance(uns, list) else []
     for i,u in enumerate(uns):
-        if u["id"]==uid: uns[i]={**u,**d,"id":uid}; _set_setting("unidades",uns); db.session.commit(); return jsonify(uns[i])
+        if isinstance(u, dict) and u.get("id")==uid:
+            unidade, error = _normalize_unidade_payload(d, {**u, "id": uid})
+            if error:
+                return jsonify({"error": error}), 400
+            uns[i]=unidade; _set_setting("unidades",uns); db.session.commit(); return jsonify(uns[i])
     return jsonify({"error":"Não encontrado"}),404
 
 @app.route("/api/settings/unidades/<uid>", methods=["DELETE"])
 @requires("Administrador")
 def del_unidade(uid):
-    uns=[u for u in _get_setting("unidades",[]) if u["id"]!=uid]
+    unidades = _get_setting("unidades", [])
+    unidades = unidades if isinstance(unidades, list) else []
+    uns=[u for u in unidades if isinstance(u, dict) and u.get("id")!=uid]
     _set_setting("unidades",uns); db.session.commit(); return jsonify({"ok":True})
 
 
 @app.route("/api/settings/email", methods=["PUT"])
 @requires("Administrador")
 def update_email_settings():
-    d = request.get_json() or {}
-    allowed = ["host", "port", "tls", "user", "from_name", "from_email", "enabled"]
-    for key in allowed:
+    d = json_payload()
+    source = clean_text(d.get("source", _get_setting("email.source", "app")), 20)
+    if source not in ("app", "env"):
+        return jsonify({"error": "Origem SMTP inválida."}), 400
+    _set_setting("email.source", source)
+
+    text_fields = {
+        "host": 160,
+        "user": 160,
+        "from_name": 120,
+        "from_email": 120,
+    }
+    if "from_email" in d:
+        err_email = validate_email(d.get("from_email"))
+        if err_email:
+            return jsonify({"error": err_email}), 400
+    for key, max_len in text_fields.items():
         if key in d:
-            _set_setting(f"email.{key}", d[key])
+            _set_setting(f"email.{key}", clean_text(d.get(key), max_len))
+    if "port" in d:
+        port = parse_int(d.get("port"), default=587, minimum=1)
+        if port > 65535:
+            return jsonify({"error": "Porta SMTP inválida."}), 400
+        _set_setting("email.port", port)
+    for key in ("tls", "enabled"):
+        if key in d:
+            _set_setting(f"email.{key}", parse_bool(d.get(key), default=(key == "tls")))
+    if parse_bool(d.get("enabled"), default=False) and source == "app":
+        host = clean_text(d.get("host", _get_setting("email.host", "")), 160)
+        from_email = clean_text(d.get("from_email", _get_setting("email.from_email", "")), 120)
+        if not host:
+            return jsonify({"error": "Servidor SMTP é obrigatório para ativar pela aplicação."}), 400
+        if not from_email:
+            return jsonify({"error": "E-mail remetente é obrigatório para ativar pela aplicação."}), 400
     # Senha salva separadamente apenas se fornecida (para não sobrescrever com vazio)
+    if parse_bool(d.get("clear_password"), default=False):
+        _set_setting("email.password", "")
     if d.get("password"):
-        _set_setting("email.password", d["password"])
+        _set_setting("email.password", str(d["password"]))
     audit("EDITAR", "configuracoes", "", "Configurações de e-mail atualizadas")
     db.session.commit()
     return jsonify({"ok": True})
@@ -2580,9 +3122,12 @@ def update_email_settings():
 @app.route("/api/settings/email/test", methods=["POST"])
 @requires("Administrador")
 def test_email_settings():
-    dest = current_user.email or request.get_json(silent=True, force=True).get("email", "")
+    dest = clean_text(json_payload().get("email"), 120) or current_user.email
     if not dest:
         return jsonify({"error": "Usuário sem e-mail cadastrado e nenhum endereço fornecido."}), 400
+    err_email = validate_email(dest)
+    if err_email:
+        return jsonify({"error": err_email}), 400
     result = send_email(
         dest,
         "TI Control — Teste de e-mail",
@@ -2595,14 +3140,42 @@ def test_email_settings():
     return jsonify(result), 200 if result["ok"] else 502
 
 
+@app.route("/api/settings/email/templates", methods=["PUT"])
+@requires("Administrador")
+def update_email_templates():
+    templates, error = _normalize_email_templates(json_payload())
+    if error:
+        return jsonify({"error": error}), 400
+    _set_setting("email_templates", templates)
+    audit("EDITAR", "configuracoes", "", "Templates de e-mail atualizados")
+    db.session.commit()
+    return jsonify(templates)
+
+
+@app.route("/api/settings/backup", methods=["PUT"])
+@requires("Administrador")
+def update_backup_settings():
+    cfg, error = _normalize_backup_config(json_payload())
+    if error:
+        return jsonify({"error": error}), 400
+    _set_setting("backup", cfg)
+    audit("EDITAR", "configuracoes", "", "Configuração de backup atualizada")
+    db.session.commit()
+    return jsonify(cfg)
+
+
 @app.route("/api/settings/termos", methods=["PUT"])
 @requires("Administrador")
 def update_termos_settings():
-    d = request.get_json() or {}
-    if "termo_recebimento" in d:
-        _set_setting("termo_recebimento", d["termo_recebimento"])
-    if "termo_devolucao" in d:
-        _set_setting("termo_devolucao", d["termo_devolucao"])
+    d = json_payload()
+    if not d:
+        return jsonify({"error": "Payload JSON obrigatório."}), 400
+    for key in ("termo_recebimento", "termo_devolucao"):
+        if key in d:
+            normalized, error = _normalize_termo_setting(key, d[key])
+            if error:
+                return jsonify({"error": error}), 400
+            _set_setting(key, normalized)
     audit("EDITAR", "configuracoes", "", "Personalização de termos atualizada")
     db.session.commit()
     return jsonify({"ok": True})
@@ -2827,28 +3400,56 @@ def export_alocacoes_csv():
 @app.route("/api/backup.json")
 @requires("Administrador")
 def backup_json():
-    # system_users excluídos intencionalmente — contêm hashes de senha
-    payload = {
-        "geradoEm": datetime.now().isoformat(),
-        "geradoPor": current_user.username,
-        "assets": [a.to_dict() for a in db.session.execute(db.select(Asset)).scalars().all()],
-        "colaboradores": [c.to_dict() for c in db.session.execute(db.select(Colaborador)).scalars().all()],
-        "supplies": [s.to_dict() for s in db.session.execute(db.select(Supply)).scalars().all()],
-        "supplyMovements": [m.to_dict() for m in db.session.execute(db.select(SupplyMovement)).scalars().all()],
-        "allocations": [a.to_dict(include_items=True) for a in db.session.execute(db.select(Allocation)).scalars().all()],
-        "licenses": [l.to_dict() for l in db.session.execute(db.select(License)).scalars().all()],
-        "incidents": [i.to_dict() for i in db.session.execute(db.select(Incident)).scalars().all()],
-        "settings": {s.key: _get_setting(s.key) for s in db.session.execute(db.select(Setting)).scalars().all()},
-    }
-    audit("BACKUP", "sistema", "", "Backup JSON gerado")
+    raw, checksum = _backup_bytes(generated_by=current_user.username, include_audit=_get_backup_config()["include_audit"])
+    audit("BACKUP", "sistema", "", "Backup JSON baixado")
     db.session.commit()
-    raw = json.dumps(payload, ensure_ascii=False, indent=2).encode("utf-8")
-    checksum = hashlib.sha256(raw).hexdigest()
     data = io.BytesIO(raw)
     resp = send_file(data, mimetype="application/json", as_attachment=True,
                      download_name=f"backup_ticontrol_{date.today()}.json")
     resp.headers["X-Content-SHA256"] = checksum
     return resp
+
+
+@app.route("/api/backups")
+@requires("Administrador")
+def list_backups():
+    return jsonify({"config": _get_backup_config(), "files": _list_backup_files()})
+
+
+@app.route("/api/backups/run", methods=["POST"])
+@requires("Administrador")
+def run_backup():
+    try:
+        result = _write_backup_file("manual", generated_by=current_user.username)
+        audit("BACKUP", "sistema", "", f"Backup armazenado: {result['filename']}")
+        db.session.commit()
+        return jsonify(result), 201
+    except Exception as exc:
+        db.session.rollback()
+        return jsonify({"error": f"Falha ao gerar backup: {exc}"}), 500
+
+
+@app.route("/api/backups/files/<filename>")
+@requires("Administrador")
+def download_backup_file(filename):
+    path = _backup_file_path(filename)
+    if not path or not os.path.exists(path):
+        return jsonify({"error": "Backup não encontrado."}), 404
+    audit("BACKUP_DOWNLOAD", "sistema", filename, "Backup salvo baixado")
+    db.session.commit()
+    return send_file(path, mimetype="application/json", as_attachment=True, download_name=os.path.basename(path))
+
+
+@app.route("/api/backups/files/<filename>", methods=["DELETE"])
+@requires("Administrador")
+def delete_backup_file(filename):
+    path = _backup_file_path(filename)
+    if not path or not os.path.exists(path):
+        return jsonify({"error": "Backup não encontrado."}), 404
+    os.remove(path)
+    audit("BACKUP_DELETE", "sistema", filename, "Backup salvo removido")
+    db.session.commit()
+    return jsonify({"ok": True})
 
 # ═══════════════════════════════════════════════════════════════════════════
 # QR CODE & AUDITORIA
@@ -3027,6 +3628,8 @@ def seed():
             "declaracao": "Declaro ter devolvido todos os equipamentos listados acima em plenas condições.",
             "rodape": "{empresa} — Termo gerado automaticamente pelo sistema de gestão de TI",
         },
+        "email_templates": DEFAULT_EMAIL_TEMPLATES,
+        "backup": DEFAULT_BACKUP_CONFIG,
         "setores": ["TI","Financeiro","RH","Vendas","Marketing","Operações","Jurídico"],
         "unidades": [{"id":"UN1","nome":"Sede SP","cidade":"São Paulo","estado":"SP","tipo":"Sede"},
                      {"id":"UN2","nome":"Filial RJ","cidade":"Rio de Janeiro","estado":"RJ","tipo":"Filial"},

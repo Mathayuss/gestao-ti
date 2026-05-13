@@ -72,6 +72,7 @@ BASE_URL=http://servidor:5000 ./scripts/smoke-test.sh
 - `SERVICE_NAME`: nome do serviço exposto nas métricas.
 - `BUILD_VERSION`: versão/build exibida em health checks e métricas.
 - `ENVIRONMENT`: ambiente, por exemplo `development`, `homolog`, `production`.
+- SMTP: pode ser configurado e ativado pela própria aplicação em `Configurações > E-mail`; variáveis `SMTP_*` são opcionais para quem preferir administrar pelo servidor.
 
 ## Rotas úteis do sistema
 

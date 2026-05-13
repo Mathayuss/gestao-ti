@@ -11,7 +11,7 @@ services:
       ENVIRONMENT: "local"
       SERVICE_NAME: "ti-control-sre"
       BUILD_VERSION: "local"
-      APP_BASE_URL: "http://localhost:5000"
+      APP_BASE_URL: "http://localhost"
       # Para SQLite (padrão):
       DATABASE_URL: "sqlite:////app/instance/ticontrol.db"
       # Para PostgreSQL: comente a linha acima e descomente abaixo:

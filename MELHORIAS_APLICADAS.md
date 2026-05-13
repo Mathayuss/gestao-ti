@@ -89,3 +89,59 @@
   - `/assinar/badtoken`
   - `/` autenticado com usuário de demonstração
 - Busca Unicode por emojis em `templates/` e `app.py`, sem ocorrências remanescentes.
+
+## Qualidade de código e robustez administrativa — 2026-05-12
+
+### Backend
+
+- Adicionado helper `json_payload()` para tratar payload JSON vazio ou inválido sem gerar erro interno.
+- Adicionado helper `parse_bool()` para normalizar booleanos vindos da API.
+- Criados normalizadores para configurações de empresa, alertas, regras de operação, campos obrigatórios de ativos, categorias, unidades e termos.
+- A rota `PUT /api/settings` agora rejeita chaves desconhecidas e valida o formato das configurações antes de salvar.
+- Rotas de setores e unidades passaram a limpar entradas, evitar duplicidade e responder erro claro para payload inválido.
+- Configurações SMTP agora validam porta e e-mail remetente antes de persistir.
+- Teste de e-mail agora aceita destinatário informado no payload e valida o endereço antes do envio.
+- Normalização de dados da empresa passou a preservar e validar também `logo_base64`, usado em PDFs, configurações e etiquetas.
+- Removido aviso com emoji no fallback de `SECRET_KEY`, substituído por logging estruturado.
+
+### Frontend
+
+- Removidos símbolos/emoji remanescentes encontrados por varredura Unicode.
+- Corrigidos textos duplicados em botões de edição e limpeza de assinatura.
+- Substituído indicador visual de sucesso na assinatura de devolução por marcador textual compatível com o tema.
+- Adicionado upload, pré-visualização e remoção de logo da empresa em `Configurações > Geral > Dados da Empresa`.
+- Adicionada validação client-side de tamanho do logo da empresa, com limite de 300 KB.
+- Etiquetas agora podem exibir o logo da empresa no topo da etiqueta.
+- Etiquetas agora podem exibir o logo da empresa no centro do QR Code, quando houver logo cadastrado.
+- A aba de colaboradores agora separa a visualização entre colaboradores ativos e desligados/inativos.
+- Adicionado botão `Desligados` com contador na tela de colaboradores.
+- A visão de desligados passa a exibir data de desligamento e ação de reativação.
+- Adicionado fluxo de reativação de colaborador com data de readmissão e opção de alteração de setor.
+- Navegação principal agora persiste o módulo ativo em `localStorage` e no hash da URL, mantendo a tela atual após atualizar a página.
+- Adicionada sincronização do menu ativo, título da página e rota hash para evitar retorno automático ao Dashboard no refresh.
+- Configuração SMTP agora usa uma chave visual para ligar/desligar o envio de e-mail, deixando a tela mais limpa.
+- SMTP configurado pela aplicação pode ser ativado, salvo e testado sem alterar variáveis de ambiente do servidor.
+- Campo de senha SMTP pela aplicação deixou de ser bloqueado quando existe `SMTP_PASSWORD` no servidor; ao salvar pela tela, a aplicação usa a configuração cadastrada nela.
+- Adicionado campo de destinatário para teste SMTP e ação `Salvar e Testar`.
+
+### Operação e scripts
+
+- `scripts/smoke-test.sh` foi mantido como script executável, permitindo execução direta do smoke test em ambientes locais ou CI.
+- `.env.example` atualizado para informar que SMTP via variáveis de ambiente é opcional quando a configuração pela aplicação for usada.
+- `README.md` atualizado para documentar que o SMTP pode ser configurado pela própria aplicação.
+
+### Validações realizadas
+
+- `git diff --check`
+- `py_compile` de `app.py`
+- Smoke test via Flask test client:
+  - `/login`
+  - `/asset/A001`
+  - `/assinar/badtoken`
+  - `/devolver/badtoken`
+  - login com usuário administrador de demonstração
+  - `GET /api/settings`
+  - validações negativas em `/api/settings`, `/api/settings/unidades` e `/api/settings/email`
+- Teste temporário de configuração SMTP pela aplicação com restauração dos settings originais.
+- Varredura Unicode para emojis/símbolos problemáticos em `app.py` e `templates/`.
+- Conferência do código atual contra `MELHORIAS_APLICADAS.md`, incluindo alterações em `app.py`, `templates/index.html`, `templates/devolver.html` e `scripts/smoke-test.sh`.

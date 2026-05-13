@@ -100,6 +100,14 @@ body{font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;background
 .theme-toggle:hover{background:var(--bg3)}
 .theme-toggle svg,.nav-item svg,.sb-logo-icon svg{width:17px;height:17px;stroke-width:2.2}
 .inline-icon{width:16px;height:16px;stroke-width:2.2;vertical-align:-3px;flex-shrink:0}
+.switch-control{display:inline-flex;align-items:center;gap:10px;cursor:pointer;margin:0}
+.switch-control input{position:absolute;opacity:0;pointer-events:none;width:auto}
+.switch-slider{width:44px;height:24px;border-radius:99px;background:var(--bg4);border:1px solid var(--border2);position:relative;transition:background .18s,border-color .18s}
+.switch-slider::after{content:'';position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;background:var(--bg2);box-shadow:var(--shadow-sm);transition:transform .18s}
+.switch-control input:checked + .switch-slider{background:var(--green);border-color:var(--green)}
+.switch-control input:checked + .switch-slider::after{transform:translateX(20px)}
+.switch-title{font-size:13px;font-weight:700;color:var(--text)}
+.switch-sub{font-size:11px;color:var(--text3);line-height:1.3}
 
 /* ── Badges ── */
 .badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:99px;font-size:11px;font-weight:600;letter-spacing:.01em}
@@ -117,9 +125,9 @@ body{font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;background
 .stat-label{font-size:12px;color:var(--text2);margin-bottom:6px;font-weight:500;text-transform:uppercase;letter-spacing:.04em}
 .stat-value{font-size:30px;font-weight:800;letter-spacing:-.5px;line-height:1}
 .stat-icon{font-size:22px;margin-bottom:10px}
-.grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
-.grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
-.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.grid-4{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px}
+.grid-3{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px}
+.grid-2{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:18px}
 .mb-16{margin-bottom:16px}
 .flex-between{display:flex;justify-content:space-between;align-items:center}
 .flex-gap{display:flex;gap:8px;align-items:center}
@@ -140,7 +148,7 @@ label{display:block;font-size:12px;font-weight:600;color:var(--text2);margin-bot
 input,select,textarea{width:100%;padding:8px 11px;border:1px solid var(--border2);border-radius:var(--r);font-size:13px;background:var(--bg2);color:var(--text);outline:none;font-family:inherit;transition:border-color .15s,box-shadow .15s}
 input:focus,select:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(37,99,235,.12)}
 .search-wrap{position:relative}
-.search-wrap input{padding-left:32px;width:280px}
+.search-wrap input{padding-left:32px;width:clamp(180px,280px,100%)}
 .search-icon{position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--text3);font-size:13px;pointer-events:none}
 .form-grid-2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .form-grid-2 .span-2{grid-column:span 2}
@@ -149,9 +157,9 @@ input:focus,select:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 
 .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:1000;backdrop-filter:blur(2px);animation:fadeIn .15s ease}
 @keyframes fadeIn{from{opacity:0}to{opacity:1}}
 @keyframes slideUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
-.modal-box{background:var(--bg2);border-radius:16px;border:1px solid var(--border);width:540px;max-height:90vh;overflow-y:auto;padding:26px;box-shadow:var(--shadow-lg);animation:slideUp .18s ease}
-.modal-box.wide{width:660px}
-.modal-box.narrow{width:420px}
+.modal-box{background:var(--bg2);border-radius:16px;border:1px solid var(--border);width:min(540px,calc(100vw - 24px));max-height:90vh;overflow-y:auto;padding:26px;box-shadow:var(--shadow-lg);animation:slideUp .18s ease}
+.modal-box.wide{width:min(720px,calc(100vw - 24px))}
+.modal-box.narrow{width:min(420px,calc(100vw - 24px))}
 .modal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:22px}
 .modal-header h2{font-size:17px;font-weight:700;letter-spacing:-.2px}
 .modal-footer{display:flex;gap:8px;justify-content:flex-end;margin-top:18px;padding-top:16px;border-top:1px solid var(--border)}
@@ -195,6 +203,47 @@ input:focus,select:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 
 .label-card .lbl-empresa{font-size:9px;font-weight:700;color:#666;text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px}
 .label-card .lbl-tag{display:inline-block;background:#000;color:#fff;font-size:8px;font-weight:700;padding:1px 4px;border-radius:2px;margin-top:3px}
 
+/* ── Sidebar collapse ── */
+#sidebar{transition:width .22s ease,transform .22s ease}
+#sidebar.sb-collapsed{width:0;overflow:hidden;border-right:none}
+#sb-toggle{display:flex}
+#sb-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.38);z-index:199;backdrop-filter:blur(1px);animation:fadeIn .15s ease}
+
+/* ── Utility classes ── */
+.page-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:20px;flex-wrap:wrap}
+.page-toolbar-left{display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-width:0}
+.page-toolbar-right{display:flex;align-items:center;gap:8px;flex-shrink:0}
+.empty-state{text-align:center;padding:56px 24px;color:var(--text3)}
+.empty-state-icon{font-size:44px;margin-bottom:14px}
+.empty-state-title{font-size:15px;font-weight:700;color:var(--text2);margin-bottom:8px}
+.empty-state-desc{font-size:13px;line-height:1.7;max-width:360px;margin:0 auto}
+
+/* ── Responsive breakpoints ── */
+@media(max-width:1024px){
+  #content{padding:16px 18px}
+  .grid-4{grid-template-columns:repeat(auto-fit,minmax(160px,1fr))}
+}
+@media(max-width:768px){
+  #sidebar{position:fixed;left:0;top:0;bottom:0;z-index:200;transform:translateX(-100%);width:232px!important}
+  #sidebar.sb-open{transform:translateX(0);box-shadow:var(--shadow-lg)}
+  #sidebar.sb-collapsed{transform:translateX(-100%)}
+  #sb-overlay.show{display:block}
+  #content{padding:12px 14px}
+  #header{padding:10px 14px;gap:8px}
+  .form-grid-2{grid-template-columns:1fr!important}
+  .form-grid-2 .span-2{grid-column:span 1!important}
+  .search-wrap input{width:100%}
+  .flex-between{flex-wrap:wrap;gap:8px}
+  .grid-4,.grid-3{grid-template-columns:repeat(auto-fit,minmax(140px,1fr))}
+  .modal-overlay{align-items:flex-end}
+  .modal-box{border-radius:16px 16px 0 0;max-height:88vh}
+}
+@media(max-width:480px){
+  .grid-4,.grid-3{grid-template-columns:1fr 1fr}
+  .grid-2{grid-template-columns:1fr}
+  .btn-sm{font-size:11px;padding:4px 8px}
+}
+
 @media print{
   body *{visibility:hidden!important}
   .print-zone,
@@ -220,27 +269,24 @@ input:focus,select:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 
       <div><div class="sb-logo-name">TI Control</div><div class="sb-logo-sub">Gestão de Ativos · SRE</div></div>
     </div>
     <div class="sb-nav">
-      <div class="sb-section">Visão Geral</div>
       <button class="nav-item active" data-module="dashboard"><span class="icon"></span><span class="lbl">Dashboard</span></button>
+
+      <div class="sb-section">Operação</div>
       <button class="nav-item" data-module="alertas"><span class="icon"></span><span class="lbl">Alertas</span><span id="alert-badge" class="badge badge-red" style="display:none">0</span></button>
-
-      <div class="sb-section">Estoque</div>
-      <button class="nav-item" data-module="insumos"><span class="icon"></span><span class="lbl">Insumos & Periféricos</span></button>
-
-      <div class="sb-section">Ativos de TI</div>
-      <button class="nav-item" data-module="ativos"><span class="icon"></span><span class="lbl">Ativos de TI</span></button>
-      <button class="nav-item" data-module="alocacoes"><span class="icon"></span><span class="lbl">Alocações & Termos</span></button>
-      <button class="nav-item" data-module="qrcode"><span class="icon"></span><span class="lbl">QR Code & Etiquetas</span></button>
       <button class="nav-item" data-module="manutencao"><span class="icon"></span><span class="lbl">Manutenção</span><span id="manut-badge" class="badge badge-amber" style="display:none">0</span></button>
 
-      <div class="sb-section">Contratos</div>
+      <div class="sb-section">Inventário</div>
+      <button class="nav-item" data-module="ativos"><span class="icon"></span><span class="lbl">Ativos de TI</span></button>
+      <button class="nav-item" data-module="alocacoes"><span class="icon"></span><span class="lbl">Alocações & Termos</span></button>
+      <button class="nav-item" data-module="insumos"><span class="icon"></span><span class="lbl">Insumos & Periféricos</span></button>
       <button class="nav-item" data-module="licencas"><span class="icon"></span><span class="lbl">Licenças</span></button>
+      <button class="nav-item" data-module="qrcode"><span class="icon"></span><span class="lbl">QR Code & Etiquetas</span></button>
 
       <div class="sb-section">Pessoas</div>
       <button class="nav-item" data-module="colaboradores"><span class="icon"></span><span class="lbl">Colaboradores</span></button>
       <button class="nav-item" data-module="system_users"><span class="icon"></span><span class="lbl">Usuários do Sistema</span></button>
 
-      <div class="sb-section">Sistema</div>
+      <div class="sb-section">Administração</div>
       <button class="nav-item" data-module="configuracoes"><span class="icon"></span><span class="lbl">Configurações</span></button>
     </div>
     <div class="sb-footer">
@@ -255,11 +301,16 @@ input:focus,select:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 
 
   <div id="main">
     <div id="header">
-      <div>
-        <div style="font-size:18px;font-weight:800;letter-spacing:-.3px" id="page-title">Dashboard</div>
-        <div style="font-size:12px;color:var(--text3);margin-top:1px" id="page-date"></div>
+      <div style="display:flex;align-items:center;gap:10px;min-width:0">
+        <button id="sb-toggle" class="btn btn-default btn-icon" onclick="toggleSidebar()" aria-label="Alternar menu" title="Alternar menu">
+          <svg id="sb-toggle-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="width:17px;height:17px;stroke-width:2.2"></svg>
+        </button>
+        <div style="min-width:0">
+          <div style="font-size:18px;font-weight:800;letter-spacing:-.3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" id="page-title">Dashboard</div>
+          <div style="font-size:12px;color:var(--text3);margin-top:1px" id="page-date"></div>
+        </div>
       </div>
-      <div style="display:flex;align-items:center;gap:8px">
+      <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
         <button class="theme-toggle" type="button" onclick="toggleTheme()" aria-label="Alternar tema">
           <svg id="theme-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"></svg>
           <span id="theme-label">Tema</span>
@@ -281,6 +332,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 
   </div>
 </div>
 
+<div id="sb-overlay" onclick="toggleSidebar()"></div>
 <div id="toast"></div>
 
 <script>
@@ -323,7 +375,8 @@ const ICONS = {
   x:'<path d="M18 6 6 18M6 6l12 12"/>',
   square:'<rect x="5" y="5" width="14" height="14" rx="2"/>',
   flag:'<path d="M4 22V4"/><path d="M4 4h12l-1 4 1 4H4"/>',
-  trash:'<path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/>'
+  trash:'<path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/>',
+  menu:'<line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/>'
 };
 
 function svgIcon(name){
@@ -348,10 +401,22 @@ function toggleTheme(){
 
 applyTheme(localStorage.getItem('ticontrol-theme') || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'));
 document.querySelector('.sb-logo-icon').innerHTML = svgIcon('app');
+const sbToggleIcon = $('sb-toggle-icon');
+if(sbToggleIcon) sbToggleIcon.innerHTML = ICONS.menu;
 document.querySelectorAll('.nav-item').forEach(btn => {
   const icon = btn.querySelector('.icon');
   if(icon) icon.innerHTML = svgIcon(btn.dataset.module);
 });
+
+function toggleSidebar(){
+  const sb=$('sidebar'), ov=$('sb-overlay');
+  if(window.innerWidth<=768){
+    sb.classList.toggle('sb-open');
+    if(ov) ov.classList.toggle('show');
+  } else {
+    sb.classList.toggle('sb-collapsed');
+  }
+}
 
 const BADGE_STATUS = {Alocado:'blue',Disponível:'green',Ativo:'green',Manutenção:'amber','Em manutenção':'amber',Inativo:'red',
                      Assinado:'green',Pendente:'amber','Não gerado':'gray',Encerrado:'gray',
@@ -434,14 +499,52 @@ const PAGE_TITLES = {dashboard:'Dashboard',alertas:'Central de Alertas',insumos:
   ativos:'Ativos de TI',alocacoes:'Alocações & Termos Digitais',qrcode:'QR Code & Etiquetas',
   manutencao:'Manutenção de Ativos',
   licencas:'Controle de Licenças',colaboradores:'Colaboradores',system_users:'Usuários do Sistema',configuracoes:'Configurações'};
+const NAV_STORAGE_KEY = 'ticontrol-current-module';
+
+function isValidModule(mod){
+  return Object.prototype.hasOwnProperty.call(PAGE_TITLES, mod);
+}
+
+function moduleFromHash(){
+  const mod = decodeURIComponent((window.location.hash || '').replace(/^#/, ''));
+  return isValidModule(mod) ? mod : null;
+}
+
+function moduleFromStorage(){
+  const mod = localStorage.getItem(NAV_STORAGE_KEY);
+  return isValidModule(mod) ? mod : null;
+}
+
+function setActiveModule(mod){
+  document.querySelectorAll('.nav-item').forEach(btn=>{
+    btn.classList.toggle('active', btn.dataset.module === mod);
+  });
+  $('page-title').textContent = PAGE_TITLES[mod] || '';
+}
+
+async function navigateTo(mod, {updateHash=true}={}){
+  const next = isValidModule(mod) ? mod : 'dashboard';
+  setActiveModule(next);
+  localStorage.setItem(NAV_STORAGE_KEY, next);
+  if(updateHash && window.location.hash !== '#'+encodeURIComponent(next)){
+    history.replaceState(null, '', window.location.pathname + window.location.search + '#'+encodeURIComponent(next));
+  }
+  await render(next);
+  if(window.innerWidth<=768){
+    const sb=$('sidebar'),ov=$('sb-overlay');
+    if(sb) sb.classList.remove('sb-open');
+    if(ov) ov.classList.remove('show');
+  }
+}
 
 document.querySelectorAll('.nav-item').forEach(btn=>{
   btn.addEventListener('click',()=>{
-    document.querySelectorAll('.nav-item').forEach(b=>b.classList.remove('active'));
-    btn.classList.add('active');
-    $('page-title').textContent=PAGE_TITLES[btn.dataset.module]||'';
-    render(btn.dataset.module);
+    navigateTo(btn.dataset.module);
   });
+});
+window.addEventListener('hashchange', ()=>{
+  const mod = moduleFromHash();
+  if(mod) navigateTo(mod, {updateHash:false});
 });
 $('page-date').textContent=new Date().toLocaleDateString('pt-BR',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
 
@@ -730,7 +833,7 @@ async function viewAsset(id){
   <div class="modal-footer">
     <button class="btn btn-default" onclick="openIncident('${id}')">Registrar Incidente</button>
     <button class="btn btn-default" onclick="viewAssetHistory('${id}')">Histórico</button>
-    <button class="btn btn-primary" onclick="closeModal();editAsset(${JSON.stringify(a).replace(/"/g,'&quot;')})">Editar Editar</button>
+    <button class="btn btn-primary" onclick="closeModal();editAsset(${JSON.stringify(a).replace(/"/g,'&quot;')})">Editar</button>
   </div>`,true);
 }
 
@@ -826,6 +929,42 @@ async function saveEditAsset(id){await api(`/assets/${id}`,'PUT',getAssetForm())
 async function renderAlocacoes(q=''){
   const [data,assets]=await Promise.all([api('/allocations?q='+encodeURIComponent(q)),api('/assets')]);
   const avail=assets.filter(a=>a.status==='Disponível');
+
+  const pendentes = data.filter(a=>a.termoStatus!=='Assinado');
+  const assinados = data.filter(a=>a.termoStatus==='Assinado');
+
+  const rowPend = a=>`<tr>
+    <td class="mono" style="color:var(--text3);font-size:11px">${esc(a.id)}</td>
+    <td style="font-weight:600">${esc(a.colaborador)}</td>
+    <td class="mono" style="font-size:12px">${esc((a.ativoNome||'').split(' ')[0])}</td>
+    <td style="font-size:12px">${esc(a.setor)}</td>
+    <td style="font-size:12px">${esc(a.unidade)}</td>
+    <td style="font-size:12px">${fmtDate(a.dataAloc)}</td>
+    <td>${badge(a.status)}</td>
+    <td><div class="flex-gap">
+      <button class="btn btn-default btn-sm" onclick="verQrTermo('${a.id}')" title="QR Code para assinatura remota">${inlineIcon('qrcode')} QR</button>
+      <button class="btn btn-default btn-sm" onclick="viewTermo(${JSON.stringify(a).replace(/"/g,'&quot;')})">Termo</button>
+    </div></td>
+  </tr>`;
+
+  const rowSign = a=>`<tr>
+    <td class="mono" style="color:var(--text3);font-size:11px">${esc(a.id)}</td>
+    <td style="font-weight:600">${esc(a.colaborador)}</td>
+    <td class="mono" style="font-size:12px">${esc((a.ativoNome||'').split(' ')[0])}</td>
+    <td style="font-size:12px">${esc(a.setor)}</td>
+    <td style="font-size:12px">${esc(a.unidade)}</td>
+    <td style="font-size:12px">${fmtDate(a.dataAloc)}</td>
+    <td>${badge(a.status)}</td>
+    <td style="font-size:11px;color:var(--text3)">${fmtDateTime(a.dataAssinatura)||'—'}</td>
+    <td><button class="btn btn-default btn-sm" onclick="viewTermo(${JSON.stringify(a).replace(/"/g,'&quot;')})">Termo</button></td>
+  </tr>`;
+
+  const tabBtn = (id,label,count)=>`<button id="tab-alloc-${id}" onclick="allocTab('${id}')"
+    style="padding:8px 18px;font-size:13px;font-weight:600;border:none;background:none;cursor:pointer;
+           color:var(--text2);border-bottom:2px solid transparent;margin-bottom:-2px;font-family:inherit">
+    ${label} <span style="font-size:11px;font-weight:700;opacity:.7">(${count})</span>
+  </button>`;
+
   $('content').innerHTML=`
   <div class="flex-between mb-16">
     <div class="search-wrap"><span class="search-icon">${inlineIcon('search')}</span>
@@ -836,18 +975,75 @@ async function renderAlocacoes(q=''){
       <button class="btn btn-primary" onclick="openNewAlloc(${JSON.stringify(avail).replace(/"/g,'&quot;')})">Nova Alocação</button>
     </div>
   </div>
-  <div class="card"><div class="table-wrap"><table>
-    <thead><tr><th>ID</th><th>Colaborador</th><th>Ativo</th><th>Setor</th><th>Unidade</th><th>Data</th><th>Status</th><th>Termo</th><th></th></tr></thead>
-    <tbody>${data.map(a=>`<tr>
-      <td class="mono" style="color:var(--text3)">${esc(a.id)}</td>
-      <td style="font-weight:600">${esc(a.colaborador)}</td>
-      <td class="mono">${esc((a.ativoNome||'').split(' ')[0])}</td>
-      <td>${esc(a.setor)}</td><td>${esc(a.unidade)}</td><td>${fmtDate(a.dataAloc)}</td>
-      <td>${badge(a.status)}</td><td>${badge(a.termoStatus)}</td>
-      <td><button class="btn btn-default btn-sm" onclick="viewTermo(${JSON.stringify(a).replace(/"/g,'&quot;')})">Termo</button></td>
-    </tr>`).join('')}
-    </tbody>
-  </table></div></div>`;
+
+  <div style="display:flex;gap:0;margin-bottom:16px;border-bottom:2px solid var(--border)">
+    ${tabBtn('pend','Pendentes',pendentes.length)}
+    ${tabBtn('sign','Assinados',assinados.length)}
+  </div>
+
+  <div id="panel-alloc-pend">
+    ${pendentes.length===0
+      ? `<div class="card" style="text-align:center;padding:28px;color:var(--text3);font-size:13px">
+           ${inlineIcon('check')} Nenhum termo pendente — tudo assinado.
+         </div>`
+      : `<div class="card"><div class="table-wrap"><table>
+           <thead><tr><th>ID</th><th>Colaborador</th><th>Ativo</th><th>Setor</th><th>Unidade</th><th>Data</th><th>Status</th><th>Ações</th></tr></thead>
+           <tbody>${pendentes.map(rowPend).join('')}</tbody>
+         </table></div></div>`}
+  </div>
+
+  <div id="panel-alloc-sign" style="display:none">
+    ${assinados.length===0
+      ? `<div class="card" style="text-align:center;padding:28px;color:var(--text3);font-size:13px">
+           Nenhum termo assinado ainda.
+         </div>`
+      : `<div class="card"><div class="table-wrap"><table>
+           <thead><tr><th>ID</th><th>Colaborador</th><th>Ativo</th><th>Setor</th><th>Unidade</th><th>Data Alocação</th><th>Status</th><th>Assinado em</th><th>Ações</th></tr></thead>
+           <tbody>${assinados.map(rowSign).join('')}</tbody>
+         </table></div></div>`}
+  </div>`;
+
+  allocTab(_allocTab);
+}
+
+function allocTab(tab){
+  _allocTab = tab;
+  ['pend','sign'].forEach(t=>{
+    const btn = document.getElementById('tab-alloc-'+t);
+    const panel = document.getElementById('panel-alloc-'+t);
+    if(!btn||!panel) return;
+    const active = t===tab;
+    panel.style.display = active ? '' : 'none';
+    btn.style.color = active ? 'var(--blue)' : 'var(--text2)';
+    btn.style.borderBottomColor = active ? 'var(--blue)' : 'transparent';
+    btn.style.fontWeight = active ? '700' : '600';
+  });
+}
+
+async function verQrTermo(aid){
+  const r = await api(`/allocations/${aid}/sign-link`,'POST',{});
+  if(!r||r.error){toast('Erro: '+(r?.error||'falha ao gerar link'),'error');return;}
+  const expiry = r.expiry ? new Date(r.expiry).toLocaleDateString('pt-BR') : '';
+  openModal('QR Code — Assinatura do Termo',`
+    <div style="display:flex;flex-direction:column;align-items:center;gap:16px;padding:4px 0">
+      <div style="font-size:13px;color:var(--text2);text-align:center">
+        Mostre este QR para o colaborador assinar o termo pelo celular.
+        ${expiry?`<br><strong style="color:var(--text)">Válido até ${expiry}.</strong>`:''}
+      </div>
+      <div style="background:#fff;padding:14px;border-radius:12px;border:1px solid var(--border);box-shadow:0 2px 8px rgba(0,0,0,.08)">
+        <img src="/api/allocations/${aid}/qrcode-termo" width="200" height="200" alt="QR Code para assinatura" style="display:block">
+      </div>
+      <div style="width:100%;display:flex;gap:8px;align-items:center">
+        <input id="sign-link-url" value="${esc(r.url)}" readonly
+          style="flex:1;padding:9px 12px;border:1px solid var(--border);border-radius:var(--r);
+                 font-size:11px;font-family:var(--mono);color:var(--text);background:var(--bg3)">
+        <button class="btn btn-primary btn-sm" onclick="copiarLink()">Copiar</button>
+      </div>
+      ${r.emailEnviado?`<div style="font-size:12px;color:var(--green-text)">Link também enviado por e-mail ao colaborador.</div>`:''}
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-default" onclick="closeModal()">Fechar</button>
+    </div>`,false,true);
 }
 
 let _allocPerifs = []; // periféricos selecionados na modal de alocação
@@ -1080,7 +1276,7 @@ function openSignTi(aid){
       <div>
         <div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:6px">Assinatura</div>
         <canvas id="ti-canvas" style="width:100%;height:140px;background:#fff;border:2px dashed var(--border2);border-radius:var(--r);display:block;touch-action:none;cursor:crosshair"></canvas>
-        <button type="button" onclick="tiClearCanvas()" class="btn btn-default btn-sm" style="margin-top:6px">Limpar Limpar</button>
+        <button type="button" onclick="tiClearCanvas()" class="btn btn-default btn-sm" style="margin-top:6px">Limpar</button>
       </div>
     </div>
     <div class="modal-footer">
@@ -1132,6 +1328,7 @@ async function saveSignTi(aid){
 // QR CODE & ETIQUETAS
 // ══════════════════════════════════════════════════════════════════════════
 let _qrSel=null;
+let _allocTab='pend';
 let _cfgTab='geral';
 let _lblCfg={
   size:'media',
@@ -1140,7 +1337,9 @@ let _lblCfg={
   empresa:'',
   qr:'normal',
   borda:'preta',
-  mostrarSistema:true
+  mostrarSistema:true,
+  logoEmpresa:false,
+  logoNoQr:false,
 };
 
 async function renderQRCode(q=''){
@@ -1264,6 +1463,28 @@ function renderEtiquetaPanel(sel){
         </label>
         <div style="font-size:12px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px">Nome da empresa (opcional)</div>
         <input id="lbl-empresa" value="${esc(_lblCfg.empresa)}" placeholder="Ex: ACME Corp" oninput="_lblCfg.empresa=this.value;atualizarPreviewEtiqueta('${sel.id}')" style="margin-bottom:16px">
+
+        <div style="font-size:12px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px">Logo da Empresa</div>
+        ${(_settings?.empresa?.logo_base64) ? `
+        <div style="margin-bottom:6px;padding:6px 8px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);display:inline-flex;align-items:center;gap:8px">
+          <img src="${_settings.empresa.logo_base64}" style="height:18px;object-fit:contain;max-width:80px">
+          <span style="font-size:10px;color:var(--text3)">logo cadastrado</span>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:6px;margin-top:8px;margin-bottom:14px">
+          <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">
+            <input type="checkbox" ${_lblCfg.logoEmpresa?'checked':''} onchange="_lblCfg.logoEmpresa=this.checked;atualizarPreviewEtiqueta('${sel.id}')" style="width:auto">
+            Exibir logo na etiqueta
+          </label>
+          <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">
+            <input type="checkbox" ${_lblCfg.logoNoQr?'checked':''} onchange="_lblCfg.logoNoQr=this.checked;atualizarPreviewEtiqueta('${sel.id}')" style="width:auto">
+            Logo no centro do QR Code
+          </label>
+        </div>` : `
+        <div style="font-size:11px;color:var(--text3);margin-bottom:14px;padding:8px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);line-height:1.6">
+          Nenhum logo cadastrado.<br>
+          Configure em <b>Configurações → Geral → Dados da Empresa</b>.
+        </div>`}
+
         <div style="font-size:12px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px">Cópias por ativo</div>
         <input id="lbl-copias" type="number" min="1" max="20" value="${_lblCfg.copias}" oninput="_lblCfg.copias=Math.max(1,+this.value||1);atualizarPreviewEtiqueta('${sel.id}')" style="width:80px;margin-bottom:18px">
         <div style="display:flex;gap:8px">
@@ -1281,39 +1502,48 @@ function renderEtiquetaPanel(sel){
 }
 
 function buildLabelHtml(asset,mode){
-  const sz={pequena:{w:'116px',h:'72px',qr:48,fs:11,fssub:9},
-            media  :{w:'176px',h:'72px',qr:56,fs:12,fssub:9},
-            grande :{w:'200px',h:'140px',qr:72,fs:13,fssub:10}}[_lblCfg.size]||{w:'176px',h:'72px',qr:56,fs:12,fssub:9};
-  const qrDelta = _lblCfg.qr === 'grande' ? 14 : (_lblCfg.qr === 'compacto' ? -12 : 0);
-  const qrSize = Math.max(34, sz.qr + qrDelta);
-  const borderMap = {
-    preta: '1.5px solid #111827',
-    azul: '1.5px solid #2563eb',
-    cinza: '1.5px solid #94a3b8',
-    sem: '1px solid transparent',
-  };
-  const cls=mode==='print'?'label-print-item':'label-card';
-  const campos=_lblCfg.campos;
-  const emp=_lblCfg.empresa?`<div class="lbl-empresa">${esc(_lblCfg.empresa)}</div>`:'';
+  const sz={pequena:{w:'116px',h:'72px',qr:48,fs:11},
+            media  :{w:'176px',h:'72px',qr:56,fs:12},
+            grande :{w:'200px',h:'140px',qr:72,fs:13}}[_lblCfg.size]||{w:'176px',h:'72px',qr:56,fs:12};
+  const qrDelta = _lblCfg.qr==='grande' ? 14 : (_lblCfg.qr==='compacto' ? -12 : 0);
+  const qrSize  = Math.max(34, sz.qr + qrDelta);
+  const borderMap = {preta:'1.5px solid #111827',azul:'1.5px solid #2563eb',cinza:'1.5px solid #94a3b8',sem:'1px solid transparent'};
+  const cls    = mode==='print' ? 'label-print-item' : 'label-card';
+  const campos = _lblCfg.campos;
+  const logo   = _settings?.empresa?.logo_base64 || '';
+
+  // topo da etiqueta: logo + nome (ambos independentes, logo primeiro)
+  const topoHtml = [
+    (logo && _lblCfg.logoEmpresa) ? `<img src="${logo}" style="height:13px;max-width:${parseInt(sz.w)-22}px;object-fit:contain;object-position:left;margin-bottom:2px;display:block">` : '',
+    _lblCfg.empresa ? `<div class="lbl-empresa">${esc(_lblCfg.empresa)}</div>` : '',
+  ].join('');
+
+  // campos de texto
   const lines=[];
-  if(campos.patrimonio&&asset.patrimonio) lines.push(`<div class="lbl-field">Pat: <b>${esc(asset.patrimonio)}</b></div>`);
-  if(campos.serviceTag&&asset.serviceTag) lines.push(`<div class="lbl-field">ST: <b>${esc(asset.serviceTag)}</b></div>`);
-  if(campos.setor&&asset.setor)          lines.push(`<div class="lbl-field">Setor: ${esc(asset.setor)}</div>`);
+  if(campos.patrimonio&&asset.patrimonio)   lines.push(`<div class="lbl-field">Pat: <b>${esc(asset.patrimonio)}</b></div>`);
+  if(campos.serviceTag&&asset.serviceTag)   lines.push(`<div class="lbl-field">ST: <b>${esc(asset.serviceTag)}</b></div>`);
+  if(campos.setor&&asset.setor)             lines.push(`<div class="lbl-field">Setor: ${esc(asset.setor)}</div>`);
   if(campos.colaborador&&asset.colaborador) lines.push(`<div class="lbl-field">Usuário: ${esc(asset.colaborador)}</div>`);
-  if(campos.ip&&asset.ip)                lines.push(`<div class="lbl-field">IP: <span style="font-family:monospace">${esc(asset.ip)}</span></div>`);
-  if(campos.garantia&&asset.garantia)    lines.push(`<div class="lbl-field">Gar: ${fmtDate(asset.garantia)}</div>`);
+  if(campos.ip&&asset.ip)                   lines.push(`<div class="lbl-field">IP: <span style="font-family:monospace">${esc(asset.ip)}</span></div>`);
+  if(campos.garantia&&asset.garantia)       lines.push(`<div class="lbl-field">Gar: ${fmtDate(asset.garantia)}</div>`);
+
+  // QR com overlay de logo opcional
+  const overlaySize = Math.round(qrSize * 0.26);
+  const qrHtml = `<div style="position:relative;display:inline-block;flex-shrink:0">
+    <img src="/api/assets/${asset.id}/qrcode" width="${qrSize}" height="${qrSize}" style="display:block">
+    ${(logo && _lblCfg.logoNoQr) ? `<img src="${logo}" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:${overlaySize}px;height:${overlaySize}px;object-fit:contain;background:#fff;padding:1px;border-radius:2px">` : ''}
+  </div>`;
+
   const inner=`
-      <div class="${cls}" style="width:${sz.w};min-height:${sz.h};padding:7px 8px;display:flex;flex-direction:column;justify-content:space-between;border:${borderMap[_lblCfg.borda]||borderMap.preta}">
+    <div class="${cls}" style="width:${sz.w};min-height:${sz.h};padding:7px 8px;display:flex;flex-direction:column;justify-content:space-between;border:${borderMap[_lblCfg.borda]||borderMap.preta}">
       <div style="overflow:hidden">
-        ${emp}
+        ${topoHtml}
         <div style="display:flex;gap:6px;align-items:flex-start">
           <div style="flex:1;overflow:hidden">
             ${campos.hostname?`<div class="lbl-hostname" style="font-size:${sz.fs}px">${esc(asset.hostname||asset.id)}</div>`:''}
             ${lines.join('')}
           </div>
-          <div class="lbl-qr" style="flex-shrink:0">
-            <img src="/api/assets/${asset.id}/qrcode" width="${qrSize}" height="${qrSize}" style="display:block">
-          </div>
+          ${qrHtml}
         </div>
       </div>
       ${_lblCfg.mostrarSistema?'<div class="lbl-tag">TI Control</div>':''}
@@ -1434,6 +1664,7 @@ async function renderAlertas(){
 // COLABORADORES
 // ══════════════════════════════════════════════════════════════════════════
 const STATUS_COL=['Ativo','Inativo','Férias','Afastado'];
+let _colabView='ativos'; // 'ativos' | 'desligados'
 
 function colAvatar(nome,size=36){
   const cols=[['#e8f1fb','#1a4e8a'],['#e6f4ec','#145c34'],['#fdf0e0','#7a3e07'],['#fdecea','#8a1c13'],['#f0ecfe','#4a2ab5'],['#efefed','#2c2c2a']];
@@ -1447,7 +1678,10 @@ function colAvatar(nome,size=36){
 async function renderColaboradores(q='',setor='',status=''){
   const [data,stats]=await Promise.all([api(`/colaboradores?q=${encodeURIComponent(q)}&setor=${encodeURIComponent(setor)}&status=${encodeURIComponent(status)}`),api('/colaboradores/stats')]);
   _colab_cache=data;
-  const setores=['', ...new Set(data.map(u=>u.setor).filter(Boolean))];
+  const desligados = data.filter(c=>c.status==='Inativo');
+  const ativos     = data.filter(c=>c.status!=='Inativo');
+  const lista      = _colabView==='desligados' ? desligados : ativos;
+  const setores=['', ...new Set(ativos.map(u=>u.setor).filter(Boolean))];
   $('content').innerHTML=`
   <div class="grid-4 mb-16">
     ${[['Total',stats.total,'','blue'],['Ativos',stats.ativos,'OK','green'],['Afastados / Férias',stats.afastados,'','amber'],['Com Equipamento',stats.comAtivos,'','blue']].map(([l,v,ic,c])=>`
@@ -1472,15 +1706,26 @@ async function renderColaboradores(q='',setor='',status=''){
       </select>
     </div>
     <div class="flex-gap">
-      <a class="btn btn-default" href="/api/export/colaboradores.csv" download>Exportar CSV</a>
-      <button class="btn btn-primary" onclick="openNewColab()">Novo Colaborador</button>
+      ${_colabView==='desligados'
+        ? `<button class="btn btn-default" onclick="_colabView='ativos';renderColaboradores()">← Colaboradores Ativos</button>`
+        : `<a class="btn btn-default" href="/api/export/colaboradores.csv" download>Exportar CSV</a>
+           <button class="btn btn-default" onclick="_colabView='desligados';renderColaboradores()" style="position:relative">
+             Desligados <span class="badge badge-red" style="margin-left:4px">${desligados.length}</span>
+           </button>
+           <button class="btn btn-primary" onclick="openNewColab()">Novo Colaborador</button>`}
     </div>
   </div>
+  ${_colabView==='desligados' ? `
+  <div class="info-box" style="background:var(--red-bg);border-color:var(--red);color:var(--red-text);margin-bottom:16px">
+    Exibindo <strong>${desligados.length}</strong> colaborador(es) desligado(s) / inativo(s). Para reativar um colaborador, clique em <strong>Reativar</strong>.
+  </div>` : ''}
   <div style="display:flex;gap:16px;align-items:flex-start">
     <div class="card" style="flex:1;min-width:0">
       <div class="table-wrap"><table>
-        <thead><tr><th>Colaborador</th><th>Matrícula</th><th>Cargo</th><th>Setor</th><th>Unidade</th><th>Status</th><th>Equipamentos</th><th></th></tr></thead>
-        <tbody>${data.map(c=>`<tr>
+        <thead><tr><th>Colaborador</th><th>Matrícula</th><th>Cargo</th><th>Setor</th><th>Unidade</th><th>Status</th>
+          ${_colabView==='desligados' ? '<th>Desligamento</th>' : '<th>Equipamentos</th>'}
+          <th></th></tr></thead>
+        <tbody>${lista.map(c=>`<tr>
           <td><div class="flex-gap">${colAvatar(c.nome)}<div>
             <div style="font-weight:600;font-size:13px">${esc(c.nome)}</div>
             <div style="font-size:11px;color:var(--text3)">${esc(c.email)}</div>
@@ -1490,11 +1735,15 @@ async function renderColaboradores(q='',setor='',status=''){
           <td>${esc(c.setor)}</td>
           <td style="font-size:12px">${esc(c.unidade)}</td>
           <td>${badge(c.status,STATUS_COLAB_COLOR[c.status]||'gray')}</td>
-          <td style="text-align:center" id="ca-${c.id}"><span style="color:var(--text3)">…</span></td>
+          ${_colabView==='desligados'
+            ? `<td style="font-size:12px;color:var(--text3)">${c.dataDesligamento?fmtDate(c.dataDesligamento):'—'}</td>`
+            : `<td style="text-align:center" id="ca-${c.id}"><span style="color:var(--text3)">…</span></td>`}
           <td><div class="flex-gap">
             <button class="btn btn-default btn-icon btn-sm" onclick="viewColab('${c.id}')">Ver</button>
-            <button class="btn btn-default btn-icon btn-sm" onclick="editColab('${c.id}')">Editar</button>
-            ${c.status==='Ativo'?`<button class="btn btn-danger btn-sm" onclick="confirmOffboarding('${c.id}','${esc(c.nome)}')">Desligar</button>`:''}
+            ${_colabView==='desligados'
+              ? `<button class="btn btn-success btn-sm" onclick="reativarColab('${c.id}','${esc(c.nome)}')">Reativar</button>`
+              : `<button class="btn btn-default btn-icon btn-sm" onclick="editColab('${c.id}')">Editar</button>
+                 ${c.status==='Ativo'?`<button class="btn btn-danger btn-sm" onclick="confirmOffboarding('${c.id}','${esc(c.nome)}')">Desligar</button>`:''}`}
           </div></td>
         </tr>`).join('')}
         </tbody>
@@ -1511,15 +1760,17 @@ async function renderColaboradores(q='',setor='',status=''){
     </div>
   </div>`;
 
-  // Busca contagem de ativos em background
-  api('/assets').then(assets=>{
-    const cnt={};
-    assets.forEach(a=>{if(a.colaborador) cnt[a.colaborador]=(cnt[a.colaborador]||0)+1;});
-    data.forEach(c=>{
-      const el=$('ca-'+c.id);
-      if(el) el.innerHTML=`<span style="font-weight:700;color:var(--blue)">${cnt[c.nome]||0}</span>`;
+  // Busca contagem de ativos em background (só na view de ativos)
+  if(_colabView==='ativos'){
+    api('/assets').then(assets=>{
+      const cnt={};
+      assets.forEach(a=>{if(a.colaborador) cnt[a.colaborador]=(cnt[a.colaborador]||0)+1;});
+      lista.forEach(c=>{
+        const el=$('ca-'+c.id);
+        if(el) el.innerHTML=`<span style="font-weight:700;color:var(--blue)">${cnt[c.nome]||0}</span>`;
+      });
     });
-  });
+  }
 }
 
 async function viewColab(id){
@@ -1560,8 +1811,12 @@ async function viewColab(id){
     <div><div class="section-title" style="font-size:13px">Periféricos (${(c.perifericos||[]).length})</div>${perfHtml}</div>
   </div>
   <div class="modal-footer">
-    <button class="btn btn-default" onclick="editColab('${id}');closeModal()">Editar Editar</button>
-    ${c.status==='Ativo'?`<button class="btn btn-danger" onclick="closeModal();confirmOffboarding('${id}','${esc(c.nome)}')">Desligar</button>`:''}
+    <button class="btn btn-default" onclick="editColab('${id}');closeModal()">Editar</button>
+    ${c.status==='Ativo'
+      ? `<button class="btn btn-danger" onclick="closeModal();confirmOffboarding('${id}','${esc(c.nome)}')">Desligar</button>`
+      : c.status==='Inativo'
+        ? `<button class="btn btn-success" onclick="closeModal();reativarColab('${id}','${esc(c.nome)}')">Reativar</button>`
+        : ''}
   </div>`,true);
 }
 
@@ -1634,15 +1889,47 @@ async function executeOffboarding(id){
   renderColaboradores();
 }
 
+function reativarColab(id, nome){
+  openModal(`Reativar Colaborador — ${nome}`,`
+  <div class="info-box green" style="margin-bottom:16px">
+    O colaborador será reativado com status <strong>Ativo</strong> e poderá receber alocações novamente.
+  </div>
+  <div class="form-grid-2">
+    <div class="form-group">
+      <label>Data de Readmissão</label>
+      <input type="date" id="re-adm" value="${new Date().toISOString().slice(0,10)}">
+    </div>
+    <div class="form-group">
+      <label>Setor</label>
+      <select id="re-setor"><option value="">— manter atual —</option>${setorOpts('')}</select>
+    </div>
+  </div>
+  <div class="modal-footer">
+    <button class="btn btn-default" onclick="closeModal()">Cancelar</button>
+    <button class="btn btn-success" onclick="confirmaReativacao('${id}')">Confirmar Reativação</button>
+  </div>`,false,true);
+}
+async function confirmaReativacao(id){
+  const c = await api(`/colaboradores/${id}`);
+  const setor = $('re-setor').value || c.setor;
+  const adm   = $('re-adm').value   || c.dataAdmissao;
+  await api(`/colaboradores/${id}`,'PUT',{...c,status:'Ativo',dataAdmissao:adm,setor});
+  toast(`${c.nome} reativado com sucesso`,'success');
+  closeModal();
+  _colabView='ativos';
+  renderColaboradores();
+}
+
 // ══════════════════════════════════════════════════════════════════════════
 // USUÁRIOS DO SISTEMA
 // ══════════════════════════════════════════════════════════════════════════
-const PERFIS_SYS=['Administrador','Técnico TI','Gestor','Visualizador'];
+let PERFIS_SYS=['Administrador','Técnico TI','Gestor','Visualizador'];
 const PERFIL_COR={Administrador:'red','Técnico TI':'blue',Gestor:'amber',Visualizador:'gray'};
-const MODULO_LABEL={dashboard:'Dashboard',ativos:'Ativos de TI',insumos:'Insumos & Periféricos',colaboradores:'Colaboradores',alocacoes:'Alocações',qrcode:'QR Code',licencas:'Licenças',alertas:'Alertas',system_users:'Usuários do Sistema'};
+const MODULO_LABEL={dashboard:'Dashboard',ativos:'Ativos de TI',insumos:'Insumos & Periféricos',colaboradores:'Colaboradores',alocacoes:'Alocações',qrcode:'QR Code',licencas:'Licenças',alertas:'Alertas',manutencao:'Manutenção',system_users:'Usuários do Sistema',configuracoes:'Configurações'};
 
 async function renderSystemUsers(){
-  const data = await api('/system-users');
+  const [data, perfisData] = await Promise.all([api('/system-users'), api('/system-users/perfis')]);
+  PERFIS_SYS = Object.keys(perfisData);
 
   $('content').innerHTML=`
   <div class="flex-between mb-16">
@@ -1738,12 +2025,150 @@ async function doResetSenha(id){
   toast('Senha redefinida com sucesso');closeModal();
 }
 
+function novoPerfilModal(){
+  const ALL_MODS = Object.entries(MODULO_LABEL);
+  const moduloChecks = ALL_MODS.map(([k,lbl])=>`
+    <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;padding:6px 10px;border-radius:var(--r);border:1px solid var(--border);background:var(--bg3)">
+      <input type="checkbox" id="ep-mod-${k}" style="width:auto">
+      ${lbl}
+    </label>`).join('');
+
+  const CORES = ['blue','green','amber','purple','red','gray'];
+  const colorOpts = CORES.map((c,i)=>`<option value="${c}" ${i===0?'selected':''}>${c}</option>`).join('');
+
+  openModal('Novo Perfil de Acesso',`
+    <div class="info-box blue" style="margin-bottom:14px">
+      Defina um nome único para o perfil, suas permissões gerais e os módulos que ele poderá acessar.
+    </div>
+    <div class="form-grid-2">
+      <div class="form-group">
+        <label>Nome do Perfil <span style="color:var(--red-text)">*</span></label>
+        <input id="ep-nome" placeholder="Ex: Suporte, Analista TI, Auditor…" maxlength="40">
+        <div class="hint">Sem espaços especiais. Será exibido na lista de usuários.</div>
+      </div>
+      <div class="form-group">
+        <label>Cor</label>
+        <select id="ep-cor">${colorOpts}</select>
+      </div>
+      <div class="form-group" style="grid-column:span 2">
+        <label>Descrição do perfil</label>
+        <input id="ep-label" placeholder="Ex: Acesso de suporte ao inventário de TI">
+      </div>
+    </div>
+    <div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:8px">PERMISSÕES GERAIS</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:8px;margin-bottom:16px">
+      <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;padding:8px 10px;border-radius:var(--r);border:1px solid var(--border);background:var(--bg3)">
+        <input type="checkbox" id="ep-editar" style="width:auto"> Pode Editar
+      </label>
+      <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;padding:8px 10px;border-radius:var(--r);border:1px solid var(--border);background:var(--bg3)">
+        <input type="checkbox" id="ep-excluir" style="width:auto"> Pode Excluir
+      </label>
+      <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;padding:8px 10px;border-radius:var(--r);border:1px solid var(--border);background:var(--bg3)">
+        <input type="checkbox" id="ep-exportar" style="width:auto"> Pode Exportar
+      </label>
+    </div>
+    <div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:8px">MÓDULOS LIBERADOS</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:6px;margin-bottom:16px">
+      ${moduloChecks}
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-default" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="criarPerfil()">Criar Perfil</button>
+    </div>`,false,true);
+}
+
+async function criarPerfil(){
+  const nome = ($('ep-nome').value||'').trim();
+  if(!nome){ toast('Informe o nome do perfil','error'); return; }
+  if(PERFIS_SYS.map(p=>p.toLowerCase()).includes(nome.toLowerCase())){
+    toast('Já existe um perfil com este nome','error'); return;
+  }
+  const modulos = Object.keys(MODULO_LABEL).filter(k=>document.getElementById('ep-mod-'+k)?.checked);
+  const body = {
+    label:         ($('ep-label').value||'').trim() || nome,
+    cor:           $('ep-cor').value,
+    pode_editar:   $('ep-editar').checked,
+    pode_excluir:  $('ep-excluir').checked,
+    pode_exportar: $('ep-exportar').checked,
+    modulos,
+  };
+  await api(`/system-users/perfis/${encodeURIComponent(nome)}`,'PUT',body);
+  toast(`Perfil "${nome}" criado com sucesso`,'success');
+  closeModal();
+  renderConfiguracoes();
+}
+
+function editPerfilPerms(perfil, info){
+  const ALL_MODS = Object.entries(MODULO_LABEL);
+  const moduloChecks = ALL_MODS.map(([k,lbl])=>`
+    <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;padding:6px 10px;border-radius:var(--r);border:1px solid var(--border);background:var(--bg3)">
+      <input type="checkbox" id="ep-mod-${k}" ${(info.modulos||[]).includes(k)?'checked':''} style="width:auto">
+      ${lbl}
+    </label>`).join('');
+
+  const CORES = ['red','blue','amber','green','purple','gray'];
+  const colorOpts = CORES.map(c=>`<option value="${c}" ${info.cor===c?'selected':''}>${c}</option>`).join('');
+
+  openModal(`Editar Perfil — ${perfil}`,`
+    <div class="info-box blue" style="margin-bottom:14px">
+      As alterações afetam imediatamente os usuários com este perfil. O perfil <strong>Administrador</strong> tem acesso total garantido pelo sistema.
+    </div>
+    <div class="form-grid-2">
+      <div class="form-group" style="grid-column:span 2">
+        <label>Descrição do perfil</label>
+        <input id="ep-label" value="${esc(info.label||'')}">
+      </div>
+      <div class="form-group">
+        <label>Cor</label>
+        <select id="ep-cor">${colorOpts}</select>
+      </div>
+    </div>
+    <div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:8px">PERMISSÕES GERAIS</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:8px;margin-bottom:16px">
+      <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;padding:8px 10px;border-radius:var(--r);border:1px solid var(--border);background:var(--bg3)">
+        <input type="checkbox" id="ep-editar" ${info.pode_editar?'checked':''} style="width:auto"> Pode Editar
+      </label>
+      <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;padding:8px 10px;border-radius:var(--r);border:1px solid var(--border);background:var(--bg3)">
+        <input type="checkbox" id="ep-excluir" ${info.pode_excluir?'checked':''} style="width:auto"> Pode Excluir
+      </label>
+      <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;padding:8px 10px;border-radius:var(--r);border:1px solid var(--border);background:var(--bg3)">
+        <input type="checkbox" id="ep-exportar" ${info.pode_exportar?'checked':''} style="width:auto"> Pode Exportar
+      </label>
+    </div>
+    <div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:8px">MÓDULOS LIBERADOS</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:6px;margin-bottom:16px">
+      ${moduloChecks}
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-default" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="savePerfilPerms('${perfil}')">Salvar Alterações</button>
+    </div>`,false,true);
+}
+
+async function savePerfilPerms(perfil){
+  const modulos = Object.keys(MODULO_LABEL).filter(k=>document.getElementById('ep-mod-'+k)?.checked);
+  const body = {
+    label:         $('ep-label').value.trim(),
+    cor:           $('ep-cor').value,
+    pode_editar:   $('ep-editar').checked,
+    pode_excluir:  $('ep-excluir').checked,
+    pode_exportar: $('ep-exportar').checked,
+    modulos,
+  };
+  if(!body.label){ toast('Informe a descrição do perfil','error'); return; }
+  await api(`/system-users/perfis/${encodeURIComponent(perfil)}`,'PUT',body);
+  toast(`Perfil "${perfil}" atualizado com sucesso`,'success');
+  closeModal();
+  renderConfiguracoes();
+}
+
 // ══════════════════════════════════════════════════════════════════════════
 // CONFIGURAÇÕES
 // ══════════════════════════════════════════════════════════════════════════
 
 async function renderConfiguracoes(){
   const [cfg, perfis, sysUsers] = await Promise.all([api('/settings'), api('/system-users/perfis'), api('/system-users')]);
+  PERFIS_SYS = Object.keys(perfis);
   const {empresa, setores, unidades, alertas, regras_usuario, campos_ativo_obrigatorios} = cfg;
   const cfg_cats   = cfg.categorias_config    || {};
   const cfg_email  = cfg.email                || {};
@@ -1792,6 +2217,20 @@ async function renderConfiguracoes(){
            ['E-mail TI','cfg-emp-email',empresa.email],['Telefone','cfg-emp-tel',empresa.telefone],
            ['Site','cfg-emp-site',empresa.site],['Endereço','cfg-emp-end',empresa.endereco]].map(([l,id,v])=>`
         <div class="form-group"><label>${l}</label><input id="${id}" value="${esc(v)}"></div>`).join('')}
+        <div class="form-group" style="grid-column:span 2">
+          <label>Logo da Empresa</label>
+          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:8px">
+            ${empresa.logo_base64
+              ? `<div style="padding:6px 10px;background:#fff;border:1px solid var(--border);border-radius:var(--r);display:inline-flex;align-items:center;gap:8px">
+                   <img id="logo-current" src="${empresa.logo_base64}" style="height:28px;object-fit:contain;max-width:120px">
+                 </div>
+                 <button class="btn btn-danger btn-sm" onclick="removeLogo()" type="button">Remover logo</button>`
+              : `<span style="font-size:12px;color:var(--text3)">Nenhum logo cadastrado</span>`}
+          </div>
+          <input type="file" id="cfg-emp-logo" accept="image/png,image/jpeg,image/svg+xml,image/webp" onchange="previewLogoUpload(this)">
+          <div class="hint">PNG, JPG ou SVG · Fundo transparente recomendado · Máx 300 KB</div>
+          <div id="logo-upload-preview" style="margin-top:8px"></div>
+        </div>
       </div>
       <div class="modal-footer" style="padding-top:10px;margin-top:0;border-top:none;justify-content:flex-start">
         <button class="btn btn-primary" onclick="saveEmpresa()">Salvar Empresa</button>
@@ -1893,36 +2332,52 @@ async function renderConfiguracoes(){
   </div>`;
 
   const panelPerfis = `<div id="cfg-panel-perfis" style="display:none">
+    <div class="flex-between mb-16" style="flex-wrap:wrap;gap:10px">
+      <div style="font-size:13px;color:var(--text2)">${Object.keys(perfis).length} perfis configurados · clique em <strong>Editar</strong> para ajustar permissões</div>
+      <button class="btn btn-primary btn-sm" onclick="novoPerfilModal()">+ Novo Perfil</button>
+    </div>
     <div class="grid-4">${perfilCards}</div>
   </div>`;
 
   const panelEmail = `<div id="cfg-panel-email" style="display:none">
     <div class="card">
-      <div class="section-title">Configurações de E-mail (SMTP)</div>
+      <div class="flex-between" style="margin-bottom:12px;gap:14px;align-items:flex-start">
+        <div>
+          <div class="section-title" style="margin-bottom:4px">Configurações de E-mail (SMTP)</div>
+          <div style="font-size:12px;color:var(--text3)">Envio de links de assinatura e notificações pela aplicação.</div>
+        </div>
+        <label class="switch-control" for="email-enabled">
+          <input type="checkbox" id="email-enabled" ${cfg_email.enabled?'checked':''}>
+          <span class="switch-slider"></span>
+          <span>
+            <span class="switch-title">${cfg_email.enabled?'Ativo':'Inativo'}</span>
+            <span class="switch-sub">Envio de e-mail</span>
+          </span>
+        </label>
+      </div>
       <div class="info-box blue" style="margin-bottom:14px">
-        Usado para enviar links de assinatura e notificações. Senha segura via variável de ambiente <code>SMTP_PASSWORD</code> (recomendado).
-        ${cfg_email.password_configurado ? '<span style="color:var(--green-text);font-weight:600;margin-left:8px">✓ Senha configurada</span>' : '<span style="color:var(--red-text);font-weight:600;margin-left:8px">⚠ Senha não configurada</span>'}
-        ${cfg_email.via_env ? '<span style="font-size:11px;color:var(--text3);margin-left:8px">(via variável de ambiente)</span>' : ''}
+        Configure e ative o SMTP diretamente pela aplicação. A senha salva pela tela fica armazenada no banco da aplicação; use senha de app quando o provedor exigir.
+        ${cfg_email.password_configurado ? '<span style="color:var(--green-text);font-weight:600;margin-left:8px">Senha configurada</span>' : '<span style="color:var(--red-text);font-weight:600;margin-left:8px">Senha não configurada</span>'}
       </div>
       <div class="form-grid-2">
         <div class="form-group"><label>Servidor SMTP</label><input id="email-host" value="${esc(cfg_email.host||'')}" placeholder="smtp.gmail.com"></div>
         <div class="form-group"><label>Porta</label><input id="email-port" type="number" value="${cfg_email.port||587}" placeholder="587"></div>
         <div class="form-group"><label>Usuário SMTP</label><input id="email-user" value="${esc(cfg_email.user||'')}" placeholder="ti@empresa.com"></div>
-        <div class="form-group"><label>Senha SMTP ${cfg_email.via_env?'<span style=\'color:var(--text3);font-size:10px\'>(controlada pela env SMTP_PASSWORD)</span>':''}</label>
-          <input id="email-password" type="password" placeholder="${cfg_email.password_configurado?'••••••••':'Não configurada'}" ${cfg_email.via_env?'disabled title="Definida via SMTP_PASSWORD — edite no servidor"':''}>
+        <div class="form-group"><label>Senha SMTP</label>
+          <input id="email-password" type="password" placeholder="${cfg_email.password_configurado?'Manter senha atual':'Não configurada'}" autocomplete="new-password">
         </div>
         <div class="form-group"><label>Nome remetente</label><input id="email-from-name" value="${esc(cfg_email.from_name||'')}" placeholder="TI Empresa"></div>
         <div class="form-group"><label>E-mail remetente</label><input id="email-from-email" value="${esc(cfg_email.from_email||'')}" placeholder="noreply@empresa.com"></div>
+        <div class="form-group"><label>E-mail para teste</label><input id="email-test-to" value="" placeholder="seu.email@empresa.com"></div>
       </div>
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
-        <input type="checkbox" id="email-enabled" ${cfg_email.enabled?'checked':''} style="width:auto">
-        <label for="email-enabled" style="margin:0;font-size:13px">Habilitar envio de e-mail</label>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap">
         <input type="checkbox" id="email-tls" ${cfg_email.tls!==false?'checked':''} style="width:auto;margin-left:16px">
         <label for="email-tls" style="margin:0;font-size:13px">Usar TLS/STARTTLS</label>
+        ${cfg_email.password_configurado ? '<input type="checkbox" id="email-clear-password" style="width:auto;margin-left:16px"><label for="email-clear-password" style="margin:0;font-size:13px;color:var(--red-text)">Apagar senha salva</label>' : ''}
       </div>
       <div class="flex-gap">
         <button class="btn btn-primary btn-sm" onclick="saveEmailCfg()">Salvar E-mail</button>
-        <button class="btn btn-default btn-sm" onclick="testEmailCfg()">Testar Conexão</button>
+        <button class="btn btn-default btn-sm" onclick="saveEmailCfg(true)">Salvar e Testar</button>
       </div>
     </div>
   </div>`;
@@ -1931,35 +2386,43 @@ async function renderConfiguracoes(){
     <div class="card">
       <div class="section-title">Personalização — Termo de Recebimento</div>
       <div class="info-box blue" style="margin-bottom:14px">
-        Variáveis disponíveis: <code>{colaborador}</code> <code>{setor}</code> <code>{unidade}</code> <code>{ativo}</code> <code>{data}</code> <code>{empresa}</code> <code>{termo}</code>
+        <strong>Variáveis disponíveis:</strong> <code>{colaborador}</code> <code>{setor}</code> <code>{unidade}</code> <code>{ativo}</code> <code>{data}</code> <code>{empresa}</code> <code>{termo}</code><br>
+        <span style="font-size:11px;opacity:.8">Clique em <strong>Carregar Exemplo</strong> para pré-preencher com um modelo completo que você pode editar livremente.</span>
       </div>
       <div class="form-grid-2">
         <div class="form-group" style="grid-column:span 2"><label>Título do Termo</label>
           <input id="tr-titulo" value="${esc(cfg_tr.titulo||'TERMO DE RESPONSABILIDADE DE EQUIPAMENTO')}">
         </div>
         <div class="form-group" style="grid-column:span 2"><label>Preâmbulo (texto após o título, antes do ativo)</label>
-          <textarea id="tr-preambulo" style="width:100%;min-height:70px;resize:vertical;padding:8px;border:1px solid var(--border);border-radius:var(--r);font-family:inherit;background:var(--bg2);color:var(--text)">${esc(cfg_tr.preambulo||'')}</textarea>
+          <textarea id="tr-preambulo" style="width:100%;min-height:80px;resize:vertical;padding:8px;border:1px solid var(--border);border-radius:var(--r);font-family:inherit;background:var(--bg2);color:var(--text)">${esc(cfg_tr.preambulo||'')}</textarea>
         </div>
         <div class="form-group" style="grid-column:span 2"><label>Cláusulas (uma por linha)</label>
-          <textarea id="tr-clausulas" style="width:100%;min-height:100px;resize:vertical;padding:8px;border:1px solid var(--border);border-radius:var(--r);font-family:inherit;background:var(--bg2);color:var(--text)">${(cfg_tr.clausulas||[]).join('\n')}</textarea>
+          <textarea id="tr-clausulas" style="width:100%;min-height:140px;resize:vertical;padding:8px;border:1px solid var(--border);border-radius:var(--r);font-family:inherit;background:var(--bg2);color:var(--text)">${(cfg_tr.clausulas||[]).join('\n')}</textarea>
         </div>
         <div class="form-group" style="grid-column:span 2"><label>Rodapé do PDF</label>
           <input id="tr-rodape" value="${esc(cfg_tr.rodape||'')}">
         </div>
       </div>
-      <button class="btn btn-primary btn-sm" onclick="saveTermoRecebimento()">Salvar Termo de Recebimento</button>
+      <div class="flex-gap">
+        <button class="btn btn-primary btn-sm" onclick="saveTermoRecebimento()">Salvar Termo de Recebimento</button>
+        <button class="btn btn-default btn-sm" onclick="carregarExemploTR()">Carregar Exemplo</button>
+      </div>
     </div>
     <div class="card">
       <div class="section-title">Personalização — Termo de Devolução</div>
+      <div class="info-box blue" style="margin-bottom:14px">
+        <strong>Variáveis disponíveis:</strong> <code>{colaborador}</code> <code>{setor}</code> <code>{unidade}</code> <code>{ativo}</code> <code>{data}</code> <code>{empresa}</code> <code>{termo}</code><br>
+        <span style="font-size:11px;opacity:.8">Clique em <strong>Carregar Exemplo</strong> para pré-preencher com um modelo completo que você pode editar livremente.</span>
+      </div>
       <div class="form-grid-2">
         <div class="form-group" style="grid-column:span 2"><label>Título</label>
           <input id="td-titulo" value="${esc(cfg_td.titulo||'TERMO DE DEVOLUÇÃO DE EQUIPAMENTOS')}">
         </div>
         <div class="form-group" style="grid-column:span 2"><label>Preâmbulo</label>
-          <textarea id="td-preambulo" style="width:100%;min-height:70px;resize:vertical;padding:8px;border:1px solid var(--border);border-radius:var(--r);font-family:inherit;background:var(--bg2);color:var(--text)">${esc(cfg_td.preambulo||'')}</textarea>
+          <textarea id="td-preambulo" style="width:100%;min-height:80px;resize:vertical;padding:8px;border:1px solid var(--border);border-radius:var(--r);font-family:inherit;background:var(--bg2);color:var(--text)">${esc(cfg_td.preambulo||'')}</textarea>
         </div>
         <div class="form-group" style="grid-column:span 2"><label>Cláusulas adicionais (uma por linha)</label>
-          <textarea id="td-clausulas" style="width:100%;min-height:80px;resize:vertical;padding:8px;border:1px solid var(--border);border-radius:var(--r);font-family:inherit;background:var(--bg2);color:var(--text)">${(cfg_td.clausulas||[]).join('\n')}</textarea>
+          <textarea id="td-clausulas" style="width:100%;min-height:120px;resize:vertical;padding:8px;border:1px solid var(--border);border-radius:var(--r);font-family:inherit;background:var(--bg2);color:var(--text)">${(cfg_td.clausulas||[]).join('\n')}</textarea>
         </div>
         <div class="form-group" style="grid-column:span 2"><label>Declaração (frase de encerramento antes da assinatura)</label>
           <input id="td-declaracao" value="${esc(cfg_td.declaracao||'Declaro ter devolvido todos os equipamentos listados acima em plenas condições.')}">
@@ -1968,7 +2431,10 @@ async function renderConfiguracoes(){
           <input id="td-rodape" value="${esc(cfg_td.rodape||'')}">
         </div>
       </div>
-      <button class="btn btn-primary btn-sm" onclick="saveTermoDevolucao()">Salvar Termo de Devolução</button>
+      <div class="flex-gap">
+        <button class="btn btn-primary btn-sm" onclick="saveTermoDevolucao()">Salvar Termo de Devolução</button>
+        <button class="btn btn-default btn-sm" onclick="carregarExemploTD()">Carregar Exemplo</button>
+      </div>
     </div>
   </div>`;
 
@@ -2015,8 +2481,35 @@ async function saveCatConfig(){
   toast('Configuração de categorias salva');
 }
 async function saveEmpresa(){
-  await api('/settings','PUT',{empresa:{nome:$('cfg-emp-nome').value,cnpj:$('cfg-emp-cnpj').value,email:$('cfg-emp-email').value,telefone:$('cfg-emp-tel').value,site:$('cfg-emp-site').value,endereco:$('cfg-emp-end').value}});
+  let logo_base64 = _settings?.empresa?.logo_base64 || '';
+  const logoInput = $('cfg-emp-logo');
+  if(logoInput?.files?.[0]){
+    const file = logoInput.files[0];
+    if(file.size > 307200){ toast('Logo muito grande — máx 300 KB', 'error'); return; }
+    logo_base64 = await new Promise(res=>{ const r=new FileReader(); r.onload=e=>res(e.target.result); r.readAsDataURL(file); });
+  }
+  await api('/settings','PUT',{empresa:{nome:$('cfg-emp-nome').value,cnpj:$('cfg-emp-cnpj').value,email:$('cfg-emp-email').value,telefone:$('cfg-emp-tel').value,site:$('cfg-emp-site').value,endereco:$('cfg-emp-end').value,logo_base64}});
+  if(_settings.empresa) _settings.empresa.logo_base64 = logo_base64;
   toast('Dados da empresa salvos');
+  if(logoInput) logoInput.value='';
+  renderConfiguracoes();
+}
+function previewLogoUpload(input){
+  const file=input.files[0];
+  if(!file) return;
+  if(file.size>307200){ toast('Logo muito grande — máx 300 KB','error'); input.value=''; return; }
+  const r=new FileReader();
+  r.onload=e=>{
+    const wrap=$('logo-upload-preview');
+    if(wrap) wrap.innerHTML=`<div style="font-size:11px;color:var(--text3);margin-bottom:4px">Pré-visualização:</div><div style="padding:6px 10px;background:#fff;border:1px solid var(--border);border-radius:var(--r);display:inline-flex"><img src="${e.target.result}" style="height:28px;object-fit:contain;max-width:120px"></div>`;
+  };
+  r.readAsDataURL(file);
+}
+async function removeLogo(){
+  await api('/settings','PUT',{empresa:{...(_settings.empresa||{}),logo_base64:''}});
+  if(_settings.empresa) _settings.empresa.logo_base64='';
+  toast('Logo removido');
+  renderConfiguracoes();
 }
 async function saveAlertas(){
   await api('/settings','PUT',{alertas:{dias_garantia:+$('cfg-al-gar').value,dias_licenca:+$('cfg-al-lic').value,estoque_minimo:$('cfg-al-esq').checked,notif_email:$('cfg-al-email').checked}});
@@ -2083,9 +2576,10 @@ async function delUnidade(id){
   toast('Unidade removida'); renderConfiguracoes();
 }
 
-async function saveEmailCfg(){
+async function saveEmailCfg(testAfter=false){
   const pw = $('email-password')?.value;
   const payload = {
+    source:     'app',
     host:       $('email-host').value.trim(),
     port:       +$('email-port').value,
     tls:        $('email-tls').checked,
@@ -2093,17 +2587,21 @@ async function saveEmailCfg(){
     from_name:  $('email-from-name').value.trim(),
     from_email: $('email-from-email').value.trim(),
     enabled:    $('email-enabled').checked,
+    clear_password: $('email-clear-password')?.checked || false,
   };
   if(pw) payload.password = pw;
   try{
     await api('/settings/email','PUT',payload);
     toast('Configurações de e-mail salvas');
+    if(testAfter) await testEmailCfg();
+    else renderConfiguracoes();
   }catch(e){ toast(e.message,'error'); }
 }
 
 async function testEmailCfg(){
   try{
-    const r = await api('/settings/email/test','POST',{});
+    const email = $('email-test-to')?.value?.trim();
+    const r = await api('/settings/email/test','POST',email?{email}:{});
     if(r.ok) toast('E-mail de teste enviado com sucesso!');
     else toast('Erro: '+(r.error||'falha no envio'),'error');
   }catch(e){ toast(e.message,'error'); }
@@ -2130,6 +2628,47 @@ async function saveTermoDevolucao(){
     rodape:      $('td-rodape').value,
   }});
   toast('Termo de devolução salvo');
+}
+
+function carregarExemploTR(){
+  if(!confirm('Isso substituirá o conteúdo atual pelo modelo de exemplo. Deseja continuar?')) return;
+  $('tr-titulo').value = 'TERMO DE RESPONSABILIDADE DE EQUIPAMENTO DE INFORMÁTICA';
+  $('tr-preambulo').value =
+    'Eu, {colaborador}, lotado(a) no setor de {setor}, unidade {unidade}, declaro ter recebido\n' +
+    'em {data} os equipamentos de propriedade de {empresa} listados neste documento,\n' +
+    'para uso exclusivo no exercício das minhas funções profissionais.';
+  $('tr-clausulas').value = [
+    'CLÁUSULA 1 — RESPONSABILIDADE: O(A) colaborador(a) se responsabiliza integralmente pela guarda, conservação e uso adequado dos equipamentos recebidos.',
+    'CLÁUSULA 2 — USO EXCLUSIVO: Os equipamentos destinam-se exclusivamente ao desempenho das atividades profissionais, sendo expressamente vedado o uso pessoal, empréstimo ou cessão a terceiros.',
+    'CLÁUSULA 3 — COMUNICAÇÃO DE OCORRÊNCIAS: Qualquer dano, defeito, perda ou furto deverá ser comunicado imediatamente ao departamento de TI, independentemente da causa.',
+    'CLÁUSULA 4 — INSTALAÇÃO DE SOFTWARES: É vedada a instalação de programas, aplicativos ou extensões não homologados pela TI, bem como qualquer alteração nas configurações de hardware ou software sem autorização prévia.',
+    'CLÁUSULA 5 — SIGILO E SEGURANÇA: O(A) colaborador(a) compromete-se a manter o sigilo das credenciais de acesso e das informações corporativas acessadas por meio dos equipamentos, em conformidade com a Política de Segurança da Informação da {empresa}.',
+    'CLÁUSULA 6 — DEVOLUÇÃO OBRIGATÓRIA: Os equipamentos deverão ser devolvidos ao departamento de TI em plenas condições nas seguintes situações: (a) encerramento do contrato de trabalho; (b) transferência de cargo ou setor; (c) substituição do equipamento; (d) qualquer solicitação formal da empresa.',
+    'CLÁUSULA 7 — PENALIDADES: O descumprimento das cláusulas acima poderá acarretar: desconto em folha de pagamento pelo valor de mercado do equipamento não devolvido ou danificado por uso indevido; e demais sanções disciplinares previstas no contrato de trabalho e na legislação vigente.',
+  ].join('\n');
+  $('tr-rodape').value = '{empresa} — Documento {termo} emitido em {data} pelo Sistema de Gestão de TI';
+  toast('Modelo de exemplo carregado — edite conforme necessário e salve.');
+}
+
+function carregarExemploTD(){
+  if(!confirm('Isso substituirá o conteúdo atual pelo modelo de exemplo. Deseja continuar?')) return;
+  $('td-titulo').value = 'TERMO DE DEVOLUÇÃO DE EQUIPAMENTOS DE TI';
+  $('td-preambulo').value =
+    'Pelo presente instrumento, o(a) colaborador(a) {colaborador}, do setor {setor},\n' +
+    'unidade {unidade}, declara ter devolvido ao departamento de Tecnologia da Informação\n' +
+    'de {empresa}, na data de {data}, os equipamentos abaixo relacionados:';
+  $('td-clausulas').value = [
+    'CLÁUSULA 1 — ESTADO DE CONSERVAÇÃO: O(A) colaborador(a) declara que os equipamentos são devolvidos em boas condições de funcionamento, salvo desgaste natural decorrente do uso regular.',
+    'CLÁUSULA 2 — CONFERÊNCIA TÉCNICA: O departamento de TI realizará a conferência física e funcional dos equipamentos recebidos em até 5 (cinco) dias úteis após a data desta devolução.',
+    'CLÁUSULA 3 — NOTIFICAÇÃO DE DIVERGÊNCIAS: Eventuais danos, peças faltantes ou acessórios não devolvidos identificados durante a conferência serão comunicados formalmente ao(à) colaborador(a) e ao setor de Recursos Humanos no prazo estabelecido na cláusula anterior.',
+    'CLÁUSULA 4 — EXONERAÇÃO DE RESPONSABILIDADE: Após a conferência e ausência de divergências, o(a) colaborador(a) fica exonerado(a) de qualquer responsabilidade sobre os equipamentos listados neste termo.',
+    'CLÁUSULA 5 — DADOS PESSOAIS: O(A) colaborador(a) declara estar ciente de que quaisquer dados pessoais armazenados nos dispositivos poderão ser apagados durante o processo de reintegração dos equipamentos ao inventário da empresa.',
+  ].join('\n');
+  $('td-declaracao').value =
+    'Declaro ter devolvido todos os equipamentos listados acima ao departamento de TI de {empresa}, ' +
+    'estando ciente de que divergências apuradas na conferência técnica poderão ensejar responsabilização nos termos da legislação vigente.';
+  $('td-rodape').value = '{empresa} — Documento {termo} emitido em {data} pelo Sistema de Gestão de TI';
+  toast('Modelo de exemplo carregado — edite conforme necessário e salve.');
 }
 
 // ══════════════════════════════════════════════════════════════════════════
@@ -2623,7 +3162,7 @@ async function updateAlertBadge(){
   } catch(e){}
   if (_redirectingToLogin) return;
 
-  render('dashboard');
+  await navigateTo(moduleFromHash() || moduleFromStorage() || 'dashboard');
   setInterval(updateAlertBadge, 30000);
 })();
 </script>
