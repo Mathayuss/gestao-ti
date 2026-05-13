@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{ asset.hostname }} — TI Control</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    color-scheme: light;
+    --bg: #f6f7f9; --surface: #ffffff; --surface-2: #f1f5f9;
+    --text: #111827; --muted: #64748b; --soft: #94a3b8; --border: #e2e8f0;
+    --primary: #2563eb; --primary-strong: #1d4ed8; --primary-soft: #dbeafe;
+    --success: #16a34a; --success-soft: #dcfce7;
+    --warning: #d97706; --warning-soft: #fef3c7;
+    --danger: #dc2626; --danger-soft: #fee2e2;
+    --shadow: 0 18px 48px rgba(15, 23, 42, .10), 0 3px 12px rgba(15, 23, 42, .06);
+    --radius: 8px;
+  }
+  html[data-theme="dark"] {
+    color-scheme: dark;
+    --bg: #0b1120; --surface: #111827; --surface-2: #1e293b;
+    --text: #f8fafc; --muted: #cbd5e1; --soft: #94a3b8; --border: #334155;
+    --primary: #60a5fa; --primary-strong: #93c5fd; --primary-soft: rgba(96, 165, 250, .15);
+    --success: #4ade80; --success-soft: rgba(74, 222, 128, .14);
+    --warning: #fbbf24; --warning-soft: rgba(251, 191, 36, .14);
+    --danger: #f87171; --danger-soft: rgba(248, 113, 113, .14);
+    --shadow: 0 18px 48px rgba(0, 0, 0, .36), 0 3px 12px rgba(0, 0, 0, .25);
+  }
+  body {
+    font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+    background: radial-gradient(circle at 12% 0%, rgba(37,99,235,.10), transparent 30%), linear-gradient(180deg, var(--bg), var(--surface-2));
+    color: var(--text); min-height: 100vh; padding: 20px;
+  }
+  .page { width: min(100%, 860px); margin: 0 auto; }
+  .topbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 18px; }
+  .brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
+  .brand-mark, .icon-wrap {
+    width: 42px; height: 42px; background: var(--primary-soft); color: var(--primary);
+    border: 1px solid color-mix(in srgb, var(--primary) 20%, transparent);
+    border-radius: var(--radius); display: grid; place-items: center; flex-shrink: 0;
+  }
+  .brand-title { font-size: 15px; font-weight: 800; }
+  .brand-sub { font-size: 12px; color: var(--muted); }
+  .theme-btn, .icon-btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    min-height: 38px; padding: 0 12px; border-radius: var(--radius);
+    border: 1px solid var(--border); background: var(--surface); color: var(--text);
+    font: inherit; font-size: 13px; font-weight: 700; cursor: pointer;
+  }
+  .card {
+    background: color-mix(in srgb, var(--surface) 94%, transparent);
+    border: 1px solid var(--border); border-radius: 12px; padding: 0;
+    width: 100%; box-shadow: var(--shadow); overflow: hidden;
+  }
+  .header {
+    display: flex; justify-content: space-between; align-items: flex-start; gap: 18px;
+    padding: 24px; border-bottom: 1px solid var(--border);
+    background: linear-gradient(135deg, var(--surface), color-mix(in srgb, var(--primary-soft) 48%, var(--surface)));
+  }
+  .header-main { display: flex; align-items: flex-start; gap: 14px; min-width: 0; }
+  .icon-wrap { width: 52px; height: 52px; }
+  .hostname { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: clamp(20px, 4vw, 28px); font-weight: 850; line-height: 1.1; overflow-wrap: anywhere; }
+  .subtitle { font-size: 14px; color: var(--muted); margin-top: 6px; }
+  .badge { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 99px; font-size: 12px; font-weight: 800; white-space: nowrap; }
+  .badge-green { background: var(--success-soft); color: var(--success); }
+  .badge-blue { background: var(--primary-soft); color: var(--primary); }
+  .badge-amber { background: var(--warning-soft); color: var(--warning); }
+  .badge-red { background: var(--danger-soft); color: var(--danger); }
+  .badge-gray { background: var(--surface-2); color: var(--muted); }
+  .content { padding: 22px 24px 24px; }
+  .grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-bottom: 18px; }
+  .field { background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px; min-height: 82px; }
+  .field-label { color: var(--muted); font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; margin-bottom: 8px; display: flex; align-items: center; gap: 7px; }
+  .field-value { font-size: 14px; font-weight: 750; word-break: break-word; }
+  .field-value.mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 13px; }
+  .footer { border-top: 1px solid var(--border); padding-top: 18px; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .logo { font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+  .logo span { font-weight: 800; color: var(--primary); }
+  .audit-btn { background: var(--primary); color: #fff; border: 1px solid var(--primary); border-radius: var(--radius); min-height: 42px; padding: 0 16px; font-size: 14px; font-weight: 800; cursor: pointer; transition: all 0.2s; display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-family: inherit; }
+  .audit-btn:hover:not(:disabled) { background: var(--primary-strong); border-color: var(--primary-strong); }
+  .audit-btn:disabled { opacity: 0.68; cursor: not-allowed; }
+  .warn { color: var(--warning); }
+  .modal { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; padding: 18px; background: rgba(2, 6, 23, .55); backdrop-filter: blur(8px); z-index: 20; }
+  .modal.open { display: flex; }
+  .dialog { width: min(100%, 420px); background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow); padding: 20px; }
+  .dialog-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 16px; }
+  .dialog-title { font-size: 17px; font-weight: 850; }
+  label { display: block; font-size: 12px; font-weight: 800; color: var(--muted); margin-bottom: 6px; }
+  input { width: 100%; min-height: 42px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface-2); color: var(--text); padding: 0 12px; font: inherit; outline: none; }
+  input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 18%, transparent); }
+  .dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+  .status-msg { margin-top: 12px; padding: 10px 12px; border-radius: var(--radius); font-size: 13px; display: none; }
+  .status-msg.ok { display: block; background: var(--success-soft); color: var(--success); }
+  .status-msg.err { display: block; background: var(--danger-soft); color: var(--danger); }
+  svg { width: 18px; height: 18px; stroke-width: 2.2; }
+  @media (max-width: 720px) {
+    body { padding: 14px; }
+    .header { flex-direction: column; padding: 18px; }
+    .content { padding: 16px; }
+    .grid { grid-template-columns: 1fr 1fr; }
+  }
+  @media (max-width: 460px) {
+    .grid { grid-template-columns: 1fr; }
+    .footer, .audit-btn { width: 100%; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+<div class="topbar">
+  <div class="brand">
+    <div class="brand-mark" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg>
+    </div>
+    <div>
+      <div class="brand-title">TI Control</div>
+      <div class="brand-sub">Consulta pública de ativo</div>
+    </div>
+  </div>
+  <button class="theme-btn" type="button" onclick="toggleTheme()" aria-label="Alternar tema">
+    <svg id="theme-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"></svg>
+    <span id="theme-label">Tema</span>
+  </button>
+</div>
+
+<div class="card">
+  <div class="header">
+    <div class="header-main">
+      <div class="icon-wrap" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg>
+      </div>
+      <div style="flex:1;min-width:0">
+        <div class="hostname">{{ asset.hostname }}</div>
+        <div class="subtitle">{{ asset.fabricante }} {{ asset.modelo }} · {{ asset.categoria }}</div>
+      </div>
+    </div>
+    <span class="badge badge-{{ {'Alocado':'blue','Disponível':'green','Ativo':'green','Manutenção':'amber','Inativo':'red'}.get(asset.status,'gray') }}">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M20 6 9 17l-5-5"/></svg>
+      {{ asset.status }}
+    </span>
+  </div>
+
+  <div class="content">
+  <div class="grid">
+    <div class="field">
+      <div class="field-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M20 21a8 8 0 0 0-16 0"/><circle cx="12" cy="7" r="4"/></svg>Responsável</div>
+      <div class="field-value">{{ asset.colaborador or 'Não alocado' }}</div>
+    </div>
+    <div class="field">
+      <div class="field-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 21h18"/><path d="M5 21V7l8-4v18"/><path d="M19 21V11l-6-4"/></svg>Setor</div>
+      <div class="field-value">{{ asset.setor or '—' }}</div>
+    </div>
+    <div class="field">
+      <div class="field-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>Unidade</div>
+      <div class="field-value">{{ asset.unidade or '—' }}</div>
+    </div>
+    <div class="field">
+      <div class="field-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 8h10M7 12h4"/></svg>Sistema</div>
+      <div class="field-value">{{ asset.os or '—' }}</div>
+    </div>
+    <div class="field">
+      <div class="field-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 7V5a1 1 0 0 1 1-1h2M4 17v2a1 1 0 0 0 1 1h2M17 4h2a1 1 0 0 1 1 1v2M17 20h2a1 1 0 0 0 1-1v-2"/><path d="M7 12h10"/></svg>Service Tag</div>
+      <div class="field-value mono">{{ asset.service_tag or '—' }}</div>
+    </div>
+    <div class="field">
+      <div class="field-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M20 7H4"/><path d="M20 17H4"/><path d="M7 4v16"/><path d="M17 4v16"/></svg>Patrimônio</div>
+      <div class="field-value mono">{{ asset.patrimonio or '—' }}</div>
+    </div>
+    <div class="field">
+      <div class="field-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M6 9V7a6 6 0 0 1 12 0v2"/><rect x="4" y="9" width="16" height="11" rx="2"/></svg>Endereço IP</div>
+      <div class="field-value mono">{{ asset.ip or '—' }}</div>
+    </div>
+    <div class="field">
+      <div class="field-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M20 13c0 5-3.5 7.5-8 9-4.5-1.5-8-4-8-9V5l8-3 8 3v8Z"/></svg>Garantia</div>
+      <div class="field-value {% if asset.garantia %}warn{% endif %}">
+        {% if asset.garantia and '-' in asset.garantia %}
+          {{ asset.garantia.split('-')[2] }}/{{ asset.garantia.split('-')[1] }}/{{ asset.garantia.split('-')[0] }}
+        {% elif asset.garantia %}
+          {{ asset.garantia }}
+        {% else %}
+          —
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    <div class="logo"><span>TI Control</span> — Registro público para conferência e auditoria rápida</div>
+    <button id="btn-audit" class="audit-btn" type="button" onclick="openAuditDialog()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+      Confirmar localização
+    </button>
+  </div>
+  <div id="status-msg" class="status-msg"></div>
+  </div>
+</div>
+</div>
+
+<div id="audit-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="audit-title">
+  <div class="dialog">
+    <div class="dialog-head">
+      <div>
+        <div id="audit-title" class="dialog-title">Confirmar localização</div>
+        <div class="logo">Atualize o local físico observado no momento.</div>
+      </div>
+      <button class="icon-btn" type="button" onclick="closeAuditDialog()" aria-label="Fechar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <label for="audit-local">Local atual</label>
+    <input id="audit-local" value="{{ asset.unidade or '' }}" autocomplete="off">
+    <div class="dialog-actions">
+      <button class="theme-btn" type="button" onclick="closeAuditDialog()">Cancelar</button>
+      <button id="audit-submit" class="audit-btn" type="button" onclick="registrarAuditoria()">Salvar confirmação</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const icons = {
+  sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>',
+  moon: '<path d="M12 3a6 6 0 0 0 9 7.5A9 9 0 1 1 12 3Z"/>'
+};
+
+function applyTheme(theme) {
+  document.documentElement.dataset.theme = theme;
+  localStorage.setItem('ticontrol-theme', theme);
+  document.getElementById('theme-icon').innerHTML = theme === 'dark' ? icons.sun : icons.moon;
+  document.getElementById('theme-label').textContent = theme === 'dark' ? 'Claro' : 'Escuro';
+}
+
+function toggleTheme() {
+  applyTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark');
+}
+
+applyTheme(localStorage.getItem('ticontrol-theme') || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'));
+
+function openAuditDialog() {
+  document.getElementById('audit-modal').classList.add('open');
+  setTimeout(() => document.getElementById('audit-local').focus(), 0);
+}
+
+function closeAuditDialog() {
+  document.getElementById('audit-modal').classList.remove('open');
+}
+
+function showStatus(text, type) {
+  const el = document.getElementById('status-msg');
+  el.textContent = text;
+  el.className = 'status-msg ' + type;
+}
+
+async function registrarAuditoria() {
+  const local = document.getElementById('audit-local').value.trim();
+  if (!local) {
+    showStatus('Informe o local atual antes de salvar.', 'err');
+    return;
+  }
+
+  const btn = document.getElementById('audit-submit');
+  const mainBtn = document.getElementById('btn-audit');
+  const originalText = btn.innerHTML;
+  
+  try {
+    btn.innerHTML = 'Salvando...';
+    btn.disabled = true;
+    mainBtn.disabled = true;
+
+    const resp = await fetch('/api/public/assets/{{ asset.id }}/audit', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ 
+        assetId: '{{ asset.id }}', 
+        local: local, 
+        responsavel: '{{ asset.colaborador or "" }}' 
+      })
+    });
+
+    if (resp.ok) {
+      closeAuditDialog();
+      showStatus('Localização confirmada e auditoria registrada.', 'ok');
+      mainBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M20 6 9 17l-5-5"/></svg>Confirmado';
+    } else {
+      const errorData = await resp.json().catch(() => ({}));
+      showStatus(errorData.error || 'Falha na comunicação com o servidor.', 'err');
+      btn.innerHTML = originalText;
+      mainBtn.disabled = false;
+      btn.disabled = false;
+    }
+  } catch (err) {
+    showStatus('Erro de rede. Verifique sua conexão e tente novamente.', 'err');
+    btn.innerHTML = originalText;
+    mainBtn.disabled = false;
+    btn.disabled = false;
+  }
+}
+
+document.getElementById('audit-modal').addEventListener('click', event => {
+  if (event.target.id === 'audit-modal') closeAuditDialog();
+});
+</script>
+</body>
+</html>

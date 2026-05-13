@@ -1,0 +1,2604 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TI Control</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  color-scheme:light;
+  /* Surface */
+  --bg:#f4f4f3;--bg2:#ffffff;--bg3:#f0efed;--bg4:#e8e6e1;
+  /* Borders */
+  --border:#e4e2de;--border2:#cccac5;
+  /* Text */
+  --text:#1c1b18;--text2:#6b6a66;--text3:#a09d99;
+  /* Blue */
+  --blue:#2563eb;--blue-bg:#eff6ff;--blue-text:#1d4ed8;--blue-border:#bfdbfe;
+  /* Green */
+  --green:#16a34a;--green-bg:#f0fdf4;--green-text:#15803d;--green-border:#bbf7d0;
+  /* Amber */
+  --amber:#d97706;--amber-bg:#fffbeb;--amber-text:#b45309;--amber-border:#fde68a;
+  /* Red */
+  --red:#dc2626;--red-bg:#fef2f2;--red-text:#b91c1c;--red-border:#fecaca;
+  /* Purple */
+  --purple-bg:#f5f3ff;--purple-text:#6d28d9;
+  /* Sidebar */
+  --sb:#ffffff;--sb2:#f8fafc;--sb-border:#e2e8f0;
+  --sb-text:#64748b;--sb-text-act:#111827;--sb-muted:#94a3b8;--sb-heading:#64748b;
+  --sb-hover:#f1f5f9;--sb-act:#eff6ff;--sb-act-border:#2563eb;
+  /* Misc */
+  --mono:'Courier New',Courier,monospace;
+  --r:8px;--rl:12px;
+  --shadow-sm:0 1px 3px rgba(0,0,0,.07),0 1px 2px rgba(0,0,0,.04);
+  --shadow:0 4px 16px rgba(0,0,0,.08),0 1px 4px rgba(0,0,0,.05);
+  --shadow-lg:0 12px 32px rgba(0,0,0,.12),0 4px 8px rgba(0,0,0,.07);
+}
+html[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#0b1120;--bg2:#111827;--bg3:#1e293b;--bg4:#334155;
+  --border:#334155;--border2:#475569;
+  --text:#f8fafc;--text2:#cbd5e1;--text3:#94a3b8;
+  --blue:#60a5fa;--blue-bg:rgba(96,165,250,.15);--blue-text:#bfdbfe;--blue-border:rgba(96,165,250,.32);
+  --green:#4ade80;--green-bg:rgba(74,222,128,.14);--green-text:#bbf7d0;--green-border:rgba(74,222,128,.30);
+  --amber:#fbbf24;--amber-bg:rgba(251,191,36,.14);--amber-text:#fde68a;--amber-border:rgba(251,191,36,.30);
+  --red:#f87171;--red-bg:rgba(248,113,113,.14);--red-text:#fecaca;--red-border:rgba(248,113,113,.30);
+  --purple-bg:rgba(167,139,250,.15);--purple-text:#ddd6fe;
+  --sb:#020617;--sb2:#0f172a;--sb-border:rgba(255,255,255,.08);
+  --sb-text:#94a3b8;--sb-text-act:#f8fafc;--sb-muted:#64748b;--sb-heading:#64748b;
+  --sb-hover:rgba(255,255,255,.07);--sb-act:rgba(96,165,250,.18);--sb-act-border:#60a5fa;
+  --shadow-sm:0 1px 2px rgba(0,0,0,.35);
+  --shadow:0 12px 30px rgba(0,0,0,.32),0 2px 6px rgba(0,0,0,.25);
+  --shadow-lg:0 22px 56px rgba(0,0,0,.42),0 6px 16px rgba(0,0,0,.28);
+}
+body{font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--text);font-size:14px;line-height:1.5}
+#app{display:flex;height:100vh;overflow:hidden}
+
+/* ── Sidebar ── */
+#sidebar{width:232px;flex-shrink:0;background:var(--sb);border-right:1px solid var(--sb-border);display:flex;flex-direction:column;overflow-y:auto}
+.sb-logo{padding:16px 14px 14px;border-bottom:1px solid var(--sb-border);display:flex;align-items:center;gap:10px}
+.sb-logo-icon{width:34px;height:34px;background:var(--blue-bg);color:var(--blue);border:1px solid var(--blue-border);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:16px;box-shadow:none}
+.sb-logo-name{font-size:14px;font-weight:700;color:var(--sb-text-act)}
+.sb-logo-sub{font-size:10px;color:var(--sb-text);margin-top:1px}
+.sb-nav{padding:8px 8px;flex:1}
+.sb-section{font-size:10px;font-weight:700;color:var(--sb-heading);text-transform:uppercase;letter-spacing:.08em;padding:16px 10px 5px}
+.sb-section:first-child{padding-top:8px}
+.nav-item{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:var(--r);cursor:pointer;color:var(--sb-text);font-size:13px;border:none;width:100%;background:transparent;text-align:left;transition:background .15s,color .15s;position:relative}
+.nav-item:hover{background:var(--sb-hover);color:var(--sb-text-act)}
+.nav-item.active{background:var(--sb-act);color:var(--sb-text-act);font-weight:600}
+.nav-item.active::before{content:'';position:absolute;left:0;top:6px;bottom:6px;width:3px;background:var(--sb-act-border);border-radius:0 3px 3px 0}
+.nav-item .icon{width:18px;flex-shrink:0;text-align:center;font-size:14px}
+.nav-item .lbl{flex:1}
+.sb-footer{padding:12px 14px;border-top:1px solid var(--sb-border);display:flex;align-items:center;gap:8px}
+.avatar{width:30px;height:30px;border-radius:99px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0}
+.sb-user-name{font-size:12px;font-weight:600;color:var(--sb-text-act);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sb-user-role{font-size:10px;color:var(--sb-text)}
+.sb-logout{background:var(--sb-hover);color:var(--sb-text);border-color:var(--sb-border);flex-shrink:0}
+.sb-logout:hover{color:var(--sb-text-act)}
+
+/* ── Main ── */
+#main{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0}
+#header{padding:12px 24px;background:var(--bg2);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;box-shadow:var(--shadow-sm)}
+#content{flex:1;padding:22px 26px;overflow-y:auto}
+
+/* ── Buttons ── */
+.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:var(--r);font-size:13px;font-weight:500;cursor:pointer;border:1px solid transparent;transition:all .15s;white-space:nowrap;font-family:inherit;line-height:1.3}
+.btn:active{transform:scale(.98)}
+.btn-primary{background:var(--blue);color:#fff;border-color:var(--blue)}
+.btn-primary:hover{background:#1d4ed8;border-color:#1d4ed8}
+.btn-success{background:var(--green);color:#fff;border-color:var(--green)}
+.btn-success:hover{background:#15803d;border-color:#15803d}
+.btn-danger{background:var(--red-bg);color:var(--red-text);border-color:var(--red-border)}
+.btn-danger:hover{background:#fee2e2;opacity:1}
+.btn-warning{background:var(--amber-bg);color:var(--amber-text);border-color:var(--amber-border)}
+.btn-default{background:var(--bg2);color:var(--text);border-color:var(--border2)}
+.btn-default:hover{background:var(--bg3)}
+.btn-sm{padding:5px 10px;font-size:12px}
+.btn-icon{padding:6px 9px}
+.theme-toggle{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:36px;padding:0 12px;border-radius:var(--r);border:1px solid var(--border);background:var(--bg2);color:var(--text);font:inherit;font-size:12px;font-weight:700;cursor:pointer}
+.theme-toggle:hover{background:var(--bg3)}
+.theme-toggle svg,.nav-item svg,.sb-logo-icon svg{width:17px;height:17px;stroke-width:2.2}
+.inline-icon{width:16px;height:16px;stroke-width:2.2;vertical-align:-3px;flex-shrink:0}
+
+/* ── Badges ── */
+.badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:99px;font-size:11px;font-weight:600;letter-spacing:.01em}
+.badge-blue{background:var(--blue-bg);color:var(--blue-text)}
+.badge-green{background:var(--green-bg);color:var(--green-text)}
+.badge-amber{background:var(--amber-bg);color:var(--amber-text)}
+.badge-red{background:var(--red-bg);color:var(--red-text)}
+.badge-gray{background:var(--bg3);color:var(--text2)}
+.badge-purple{background:var(--purple-bg);color:var(--purple-text)}
+
+/* ── Cards ── */
+.card{background:var(--bg2);border-radius:var(--rl);border:1px solid var(--border);padding:18px 22px;box-shadow:var(--shadow-sm)}
+.stat-card{background:var(--bg2);border-radius:var(--rl);border:1px solid var(--border);padding:16px 20px;box-shadow:var(--shadow-sm);transition:box-shadow .15s,transform .15s}
+.stat-card:hover{box-shadow:var(--shadow);transform:translateY(-1px)}
+.stat-label{font-size:12px;color:var(--text2);margin-bottom:6px;font-weight:500;text-transform:uppercase;letter-spacing:.04em}
+.stat-value{font-size:30px;font-weight:800;letter-spacing:-.5px;line-height:1}
+.stat-icon{font-size:22px;margin-bottom:10px}
+.grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+.grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.mb-16{margin-bottom:16px}
+.flex-between{display:flex;justify-content:space-between;align-items:center}
+.flex-gap{display:flex;gap:8px;align-items:center}
+.section-title{font-size:15px;font-weight:700;margin-bottom:16px;display:flex;align-items:center;gap:8px;color:var(--text)}
+
+/* ── Table ── */
+.table-wrap{overflow-x:auto;border-radius:var(--rl);border:1px solid var(--border);box-shadow:var(--shadow-sm)}
+table{width:100%;border-collapse:collapse;background:var(--bg2)}
+th{padding:10px 14px;font-size:11px;font-weight:700;color:var(--text2);border-bottom:2px solid var(--border);text-align:left;white-space:nowrap;background:var(--bg3);text-transform:uppercase;letter-spacing:.04em}
+td{padding:11px 14px;font-size:13px;border-bottom:1px solid var(--border);vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:var(--bg3)}
+.mono{font-family:var(--mono);font-size:12px}
+
+/* ── Form ── */
+.form-group{margin-bottom:14px}
+label{display:block;font-size:12px;font-weight:600;color:var(--text2);margin-bottom:5px;letter-spacing:.02em}
+input,select,textarea{width:100%;padding:8px 11px;border:1px solid var(--border2);border-radius:var(--r);font-size:13px;background:var(--bg2);color:var(--text);outline:none;font-family:inherit;transition:border-color .15s,box-shadow .15s}
+input:focus,select:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(37,99,235,.12)}
+.search-wrap{position:relative}
+.search-wrap input{padding-left:32px;width:280px}
+.search-icon{position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--text3);font-size:13px;pointer-events:none}
+.form-grid-2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.form-grid-2 .span-2{grid-column:span 2}
+
+/* ── Modal ── */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:1000;backdrop-filter:blur(2px);animation:fadeIn .15s ease}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes slideUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+.modal-box{background:var(--bg2);border-radius:16px;border:1px solid var(--border);width:540px;max-height:90vh;overflow-y:auto;padding:26px;box-shadow:var(--shadow-lg);animation:slideUp .18s ease}
+.modal-box.wide{width:660px}
+.modal-box.narrow{width:420px}
+.modal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:22px}
+.modal-header h2{font-size:17px;font-weight:700;letter-spacing:-.2px}
+.modal-footer{display:flex;gap:8px;justify-content:flex-end;margin-top:18px;padding-top:16px;border-top:1px solid var(--border)}
+
+/* ── Alert row ── */
+.alert-row{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)}
+.alert-row:last-child{border-bottom:none}
+
+/* ── Progress ── */
+.progress-wrap{height:6px;background:var(--bg4);border-radius:99px;overflow:hidden}
+.progress-bar{height:100%;border-radius:99px;transition:width .3s ease}
+
+/* ── Permission grid ── */
+.perm-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:6px;margin-bottom:14px}
+.perm-item{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:var(--r);border:1px solid var(--border);background:var(--bg3);font-size:12px}
+.perm-item.on{background:var(--green-bg);border-color:var(--green-border);color:var(--green-text)}
+.perm-item.off{background:var(--red-bg);border-color:var(--red-border);color:var(--red-text)}
+
+/* ── Toast ── */
+#toast{position:fixed;bottom:24px;right:24px;padding:12px 20px;border-radius:10px;font-size:13px;font-weight:600;z-index:9999;opacity:0;transition:opacity .2s,transform .2s;pointer-events:none;transform:translateY(4px);box-shadow:var(--shadow)}
+#toast.show{opacity:1;transform:translateY(0)}
+#toast.success{background:var(--green);color:#fff}
+#toast.error{background:var(--red);color:#fff}
+
+/* ── Misc ── */
+.loading{text-align:center;padding:48px;color:var(--text3);font-size:14px}
+.info-box{padding:11px 14px;border-radius:var(--r);font-size:12px;margin-bottom:14px;border-left:3px solid}
+.info-box.blue{background:var(--blue-bg);color:var(--blue-text);border-color:var(--blue)}
+.info-box.amber{background:var(--amber-bg);color:var(--amber-text);border-color:var(--amber)}
+.info-box.red{background:var(--red-bg);color:var(--red-text);border-color:var(--red)}
+.info-box.green{background:var(--green-bg);color:var(--green-text);border-color:var(--green)}
+.divider{border:none;border-top:1px solid var(--border);margin:16px 0}
+
+/* ── Etiqueta / Label Print ── */
+.label-preview-wrap{display:flex;flex-wrap:wrap;gap:12px;margin-top:14px}
+.label-card{background:#fff;border:1.5px solid #222;border-radius:6px;padding:8px 10px;font-family:system-ui,sans-serif;box-shadow:1px 1px 4px rgba(0,0,0,.12);position:relative;overflow:hidden;cursor:pointer;transition:box-shadow .15s,border-color .15s}
+.label-card:hover,.label-card.sel{border-color:var(--blue);box-shadow:0 0 0 3px rgba(37,99,235,.18)}
+.label-card .lbl-qr{float:right;margin-left:8px}
+.label-card .lbl-hostname{font-size:13px;font-weight:800;letter-spacing:-.3px;line-height:1.2;color:#000;word-break:break-all}
+.label-card .lbl-field{font-size:10px;color:#444;line-height:1.5;margin-top:2px}
+.label-card .lbl-empresa{font-size:9px;font-weight:700;color:#666;text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px}
+.label-card .lbl-tag{display:inline-block;background:#000;color:#fff;font-size:8px;font-weight:700;padding:1px 4px;border-radius:2px;margin-top:3px}
+
+@media print{
+  body *{visibility:hidden!important}
+  .print-zone,
+  .print-zone *{visibility:visible!important}
+  .print-zone{
+    position:fixed!important;top:0!important;left:0!important;
+    width:100%!important;padding:6mm!important;
+    display:flex!important;flex-wrap:wrap!important;gap:4mm!important;
+    background:#fff!important;
+  }
+  .label-print-item{
+    border:1px solid #000!important;border-radius:3px!important;
+    page-break-inside:avoid!important;background:#fff!important;
+  }
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="sidebar">
+    <div class="sb-logo">
+      <div class="sb-logo-icon"></div>
+      <div><div class="sb-logo-name">TI Control</div><div class="sb-logo-sub">Gestão de Ativos · SRE</div></div>
+    </div>
+    <div class="sb-nav">
+      <div class="sb-section">Visão Geral</div>
+      <button class="nav-item active" data-module="dashboard"><span class="icon"></span><span class="lbl">Dashboard</span></button>
+      <button class="nav-item" data-module="alertas"><span class="icon"></span><span class="lbl">Alertas</span><span id="alert-badge" class="badge badge-red" style="display:none">0</span></button>
+
+      <div class="sb-section">Estoque</div>
+      <button class="nav-item" data-module="insumos"><span class="icon"></span><span class="lbl">Insumos & Periféricos</span></button>
+
+      <div class="sb-section">Ativos de TI</div>
+      <button class="nav-item" data-module="ativos"><span class="icon"></span><span class="lbl">Ativos de TI</span></button>
+      <button class="nav-item" data-module="alocacoes"><span class="icon"></span><span class="lbl">Alocações & Termos</span></button>
+      <button class="nav-item" data-module="qrcode"><span class="icon"></span><span class="lbl">QR Code & Etiquetas</span></button>
+      <button class="nav-item" data-module="manutencao"><span class="icon"></span><span class="lbl">Manutenção</span><span id="manut-badge" class="badge badge-amber" style="display:none">0</span></button>
+
+      <div class="sb-section">Contratos</div>
+      <button class="nav-item" data-module="licencas"><span class="icon"></span><span class="lbl">Licenças</span></button>
+
+      <div class="sb-section">Pessoas</div>
+      <button class="nav-item" data-module="colaboradores"><span class="icon"></span><span class="lbl">Colaboradores</span></button>
+      <button class="nav-item" data-module="system_users"><span class="icon"></span><span class="lbl">Usuários do Sistema</span></button>
+
+      <div class="sb-section">Sistema</div>
+      <button class="nav-item" data-module="configuracoes"><span class="icon"></span><span class="lbl">Configurações</span></button>
+    </div>
+    <div class="sb-footer">
+      <div class="avatar" id="sb-avatar" style="background:var(--blue-bg);color:var(--blue-text)">?</div>
+      <div style="flex:1;min-width:0">
+        <div class="sb-user-name" id="sb-nome">...</div>
+        <div class="sb-user-role" id="sb-perfil">...</div>
+      </div>
+      <a href="/logout" class="btn btn-sm sb-logout" title="Sair">Sair</a>
+    </div>
+  </div>
+
+  <div id="main">
+    <div id="header">
+      <div>
+        <div style="font-size:18px;font-weight:800;letter-spacing:-.3px" id="page-title">Dashboard</div>
+        <div style="font-size:12px;color:var(--text3);margin-top:1px" id="page-date"></div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <button class="theme-toggle" type="button" onclick="toggleTheme()" aria-label="Alternar tema">
+          <svg id="theme-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"></svg>
+          <span id="theme-label">Tema</span>
+        </button>
+        <div id="header-alerts" style="display:flex;align-items:center;gap:8px"></div>
+      </div>
+    </div>
+    <div id="content"><div class="loading">Carregando...</div></div>
+  </div>
+</div>
+
+<div id="modal-overlay" class="modal-overlay" style="display:none">
+  <div id="modal-box" class="modal-box">
+    <div class="modal-header">
+      <h2 id="modal-title"></h2>
+      <button class="btn btn-default btn-icon" onclick="closeModal()">x</button>
+    </div>
+    <div id="modal-body"></div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ─── Globals ───────────────────────────────────────────────────────────────
+const $ = id => document.getElementById(id);
+const fmtDate = s => s ? new Date(s.length===10 ? s+'T00:00:00' : s).toLocaleDateString('pt-BR') : '—';
+const fmtDateTime = s => s ? new Date(s).toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'}) : '—';
+const APP_BASE_URL = {{ app_base_url|tojson }};
+const fmtCur = v => (v||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+const daysUntil = d => { if(!d) return 9999; return Math.ceil((new Date(d+'T00:00:00')-new Date())/86400000); };
+const esc = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+const ICONS = {
+  sun:'<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>',
+  moon:'<path d="M12 3a6 6 0 0 0 9 7.5A9 9 0 1 1 12 3Z"/>',
+  app:'<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/>',
+  dashboard:'<rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/>',
+  alertas:'<path d="M10.3 21a2 2 0 0 0 3.4 0"/><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/>',
+  insumos:'<path d="m21 8-9-5-9 5 9 5 9-5Z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/>',
+  ativos:'<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/>',
+  alocacoes:'<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>',
+  qrcode:'<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM20 14h1M14 20h1M18 20h3v1"/>',
+  manutencao:'<path d="M14.7 6.3a4 4 0 0 0-5 5L3 18v3h3l6.7-6.7a4 4 0 0 0 5-5l-2.4 2.4-2.6-2.6 2.4-2.4Z"/>',
+  licencas:'<circle cx="7.5" cy="15.5" r="5.5"/><path d="m21 2-9.6 9.6M15 7l2 2M17 5l2 2"/>',
+  colaboradores:'<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>',
+  system_users:'<path d="M20 13c0 5-3.5 7.5-8 9-4.5-1.5-8-4-8-9V5l8-3 8 3v8Z"/><path d="M9 12l2 2 4-4"/>',
+  configuracoes:'<path d="M12 15.5A3.5 3.5 0 1 0 12 8a3.5 3.5 0 0 0 0 7.5Z"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6V20a2 2 0 1 1-4 0v-.09a1.7 1.7 0 0 0-1-.6 1.7 1.7 0 0 0-1.88.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-.6-1H4a2 2 0 1 1 0-4h.09a1.7 1.7 0 0 0 .6-1 1.7 1.7 0 0 0-.34-1.88l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-.6V4a2 2 0 1 1 4 0v.09a1.7 1.7 0 0 0 1 .6 1.7 1.7 0 0 0 1.88-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.4 9c.2.38.4.74.6 1H20a2 2 0 1 1 0 4h-.09a1.7 1.7 0 0 0-.51 1Z"/>',
+  search:'<circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>',
+  plus:'<path d="M12 5v14M5 12h14"/>',
+  download:'<path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/>',
+  edit:'<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/>',
+  eye:'<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>',
+  warning:'<path d="m21.73 18-8-14a2 2 0 0 0-3.46 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4M12 17h.01"/>',
+  clipboard:'<rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>',
+  printer:'<path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v8H6z"/>',
+  mapPin:'<path d="M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="3"/>',
+  smartphone:'<rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/>',
+  undo:'<path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-15-6.7L3 13"/>',
+  check:'<path d="M20 6 9 17l-5-5"/>',
+  x:'<path d="M18 6 6 18M6 6l12 12"/>',
+  square:'<rect x="5" y="5" width="14" height="14" rx="2"/>',
+  flag:'<path d="M4 22V4"/><path d="M4 4h12l-1 4 1 4H4"/>',
+  trash:'<path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/>'
+};
+
+function svgIcon(name){
+  return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor">${ICONS[name]||ICONS.app}</svg>`;
+}
+function inlineIcon(name){
+  return `<svg class="inline-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">${ICONS[name]||ICONS.app}</svg>`;
+}
+
+function applyTheme(theme){
+  document.documentElement.dataset.theme = theme;
+  localStorage.setItem('ticontrol-theme', theme);
+  const icon = $('theme-icon');
+  const label = $('theme-label');
+  if(icon) icon.innerHTML = theme === 'dark' ? ICONS.sun : ICONS.moon;
+  if(label) label.textContent = theme === 'dark' ? 'Claro' : 'Escuro';
+}
+
+function toggleTheme(){
+  applyTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark');
+}
+
+applyTheme(localStorage.getItem('ticontrol-theme') || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'));
+document.querySelector('.sb-logo-icon').innerHTML = svgIcon('app');
+document.querySelectorAll('.nav-item').forEach(btn => {
+  const icon = btn.querySelector('.icon');
+  if(icon) icon.innerHTML = svgIcon(btn.dataset.module);
+});
+
+const BADGE_STATUS = {Alocado:'blue',Disponível:'green',Ativo:'green',Manutenção:'amber','Em manutenção':'amber',Inativo:'red',
+                     Assinado:'green',Pendente:'amber','Não gerado':'gray',Encerrado:'gray',
+                     Férias:'blue',Afastado:'amber'};
+const badge = (txt,type) => `<span class="badge badge-${type||(BADGE_STATUS[txt]||'gray')}">${esc(txt)}</span>`;
+
+const PERFIL_COLOR = {Administrador:'red','Técnico TI':'blue',Gestor:'amber',Visualizador:'gray'};
+const STATUS_COLAB_COLOR = {Ativo:'green',Inativo:'red',Férias:'blue',Afastado:'amber'};
+
+let _colab_cache = [];
+let _settings  = { setores:[], unidades:[], categorias_config:{} };
+
+// Helpers para selects de setor/unidade
+function setorOpts(sel=''){
+  return _settings.setores.map(s=>`<option ${s===sel?'selected':''}>${esc(s)}</option>`).join('');
+}
+function unidadeOpts(sel=''){
+  return _settings.unidades.map(u=>`<option ${u.nome===sel?'selected':''}>${esc(u.nome)}</option>`).join('');
+}
+
+// Retorna true se a categoria deve alocar para UNIDADE (não colaborador)
+function catIsUnidade(cat){
+  const cfg = _settings.categorias_config[cat];
+  return cfg && cfg.tipo_alocacao === 'unidade';
+}
+
+// ─── API ──────────────────────────────────────────────────────────────────
+let _redirectingToLogin = false;
+
+async function api(path, method='GET', body=null) {
+  const opts = {
+    method,
+    credentials: 'include',  // garante envio do cookie de sessão
+    headers: {'Content-Type':'application/json'}
+  };
+  if (body) opts.body = JSON.stringify(body);
+  let r;
+  try {
+    r = await fetch('/api'+path, opts);
+  } catch(networkErr) {
+    toast('Erro de rede: ' + networkErr.message, 'error');
+    throw networkErr;
+  }
+  if (r.status === 401) {
+    if (!_redirectingToLogin) {
+      _redirectingToLogin = true;
+      toast('Sessão expirada — redirecionando para login...', 'error');
+      setTimeout(() => { window.location.replace('/login'); }, 1200);
+    }
+    return null;
+  }
+  if (r.status === 403) {
+    const j = await r.json().catch(() => ({}));
+    toast(j.error || 'Sem permissão para esta ação', 'error');
+    throw new Error(j.error || '403');
+  }
+  let json;
+  try { json = await r.json(); } catch(e) { throw new Error('Resposta inválida do servidor'); }
+  if (!r.ok) throw new Error(json.error || `Erro ${r.status}`);
+  return json;
+}
+
+function toast(msg,type='success'){
+  const t=$('toast'); t.textContent=msg; t.className=`show ${type}`;
+  setTimeout(()=>t.className='',2600);
+}
+
+// ─── Modal ────────────────────────────────────────────────────────────────
+function openModal(title,html,wide=false,narrow=false){
+  $('modal-title').textContent=title;
+  $('modal-body').innerHTML=html;
+  $('modal-box').className='modal-box'+(wide?' wide':narrow?' narrow':'');
+  $('modal-overlay').style.display='flex';
+}
+function closeModal(){ $('modal-overlay').style.display='none'; }
+$('modal-overlay').addEventListener('click',e=>{ if(e.target===$('modal-overlay')) closeModal(); });
+
+// ─── Nav ──────────────────────────────────────────────────────────────────
+const PAGE_TITLES = {dashboard:'Dashboard',alertas:'Central de Alertas',insumos:'Insumos & Periféricos',
+  ativos:'Ativos de TI',alocacoes:'Alocações & Termos Digitais',qrcode:'QR Code & Etiquetas',
+  manutencao:'Manutenção de Ativos',
+  licencas:'Controle de Licenças',colaboradores:'Colaboradores',system_users:'Usuários do Sistema',configuracoes:'Configurações'};
+
+document.querySelectorAll('.nav-item').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    document.querySelectorAll('.nav-item').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    $('page-title').textContent=PAGE_TITLES[btn.dataset.module]||'';
+    render(btn.dataset.module);
+  });
+});
+$('page-date').textContent=new Date().toLocaleDateString('pt-BR',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+
+async function render(mod){
+  $('content').innerHTML='<div class="loading">Carregando...</div>';
+  try{
+    if(mod==='dashboard')     await renderDashboard();
+    else if(mod==='insumos')  await renderInsumos();
+    else if(mod==='ativos')   await renderAtivos();
+    else if(mod==='alocacoes')await renderAlocacoes();
+    else if(mod==='qrcode')   await renderQRCode();
+    else if(mod==='manutencao') await renderManutencao();
+    else if(mod==='licencas') await renderLicencas();
+    else if(mod==='alertas')  await renderAlertas();
+    else if(mod==='colaboradores') await renderColaboradores();
+    else if(mod==='system_users')  await renderSystemUsers();
+    else if(mod==='configuracoes')  await renderConfiguracoes();
+  }catch(e){
+    if(_redirectingToLogin) return;  // ignore errors during logout redirect
+    $('content').innerHTML=`<div class="card" style="color:var(--red-text);padding:20px">Atenção ${esc(e.message)}</div>`;
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// DASHBOARD
+// ══════════════════════════════════════════════════════════════════════════
+async function renderDashboard(){
+  const d=await api('/dashboard');
+  if(!d) return;  // 401 redirect in progress
+  const {totais,categorias,alertas,ultimasAlocacoes,licencas}=d;
+  state.alertCount=alertas.length; updateAlertBadge();
+  $('content').innerHTML=`
+  <div class="grid-4 mb-16">
+    ${[['Total de Ativos',totais.ativos,'','blue'],['Alocados',totais.alocados,'','blue'],
+       ['Disponíveis',totais.disponiveis,'OK','green'],['Em Manutenção',totais.manutencao,'','amber']].map(([l,v,ic,c])=>`
+    <div class="stat-card"><div style="display:flex;justify-content:space-between;align-items:flex-start">
+      <div><div class="stat-label">${l}</div><div class="stat-value">${v}</div></div>
+      <div style="font-size:22px;padding:8px;background:var(--${c}-bg);border-radius:var(--r)">${ic}</div>
+    </div></div>`).join('')}
+  </div>
+  <div class="grid-2 mb-16">
+    <div class="card">
+      <div class="section-title">Alertas Ativos ${badge(alertas.length,'red')}</div>
+      ${alertas.length===0?'<p style="color:var(--text3);font-size:13px">Sem alertas no momento.</p>':
+        alertas.slice(0,8).map(a=>`<div class="alert-row">
+          ${badge({garantia:'Garantia',estoque:'Estoque',licenca:'Licença'}[a.tipo]||a.tipo,a.nivel==='danger'?'red':'amber')}
+          <span style="flex:1;font-size:13px">${esc(a.titulo)}</span>
+          <span style="font-size:11px;color:var(--text3)">${esc(a.detalhe)}</span>
+        </div>`).join('')}
+    </div>
+    <div class="card">
+      <div class="section-title">Ativos por Categoria</div>
+      ${Object.entries(categorias).sort((a,b)=>b[1]-a[1]).map(([cat,cnt])=>{
+        const pct=Math.round(cnt/totais.ativos*100);
+        return `<div style="margin-bottom:10px">
+          <div class="flex-between" style="font-size:13px;margin-bottom:3px"><span>${esc(cat)}</span><span style="color:var(--text2)">${cnt} (${pct}%)</span></div>
+          <div class="progress-wrap"><div class="progress-bar" style="width:${pct}%;background:var(--blue-bg)"></div></div>
+        </div>`;}).join('')}
+      <hr class="divider" style="margin:12px 0">
+      <div style="font-size:12px;color:var(--text2)">Licenças: <strong>${licencas.atribuidas}/${licencas.total}</strong> usadas · Custo anual: <strong>${fmtCur(licencas.custoAnual)}</strong></div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="section-title"> Últimas Alocações</div>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Colaborador</th><th>Ativo</th><th>Setor</th><th>Data</th><th>Termo</th></tr></thead>
+      <tbody>${ultimasAlocacoes.map(a=>`<tr>
+        <td style="font-weight:600">${esc(a.colaborador)}</td>
+        <td class="mono">${esc((a.ativoNome||'').split(' ')[0])}</td>
+        <td>${esc(a.setor)}</td><td>${fmtDate(a.dataAloc)}</td>
+        <td>${badge(a.termoStatus)}</td></tr>`).join('')}
+      </tbody>
+    </table></div>
+  </div>`;
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// INSUMOS
+// ══════════════════════════════════════════════════════════════════════════
+async function renderInsumos(q=''){
+  const data=await api('/supplies?q='+encodeURIComponent(q));
+  $('content').innerHTML=`
+  <div class="flex-between mb-16">
+    <div class="search-wrap"><span class="search-icon">${inlineIcon('search')}</span>
+      <input placeholder="Buscar insumo..." value="${esc(q)}" onkeyup="renderInsumos(this.value)">
+    </div>
+    <button class="btn btn-primary" onclick="openNewSupply()">Novo Item</button>
+  </div>
+  <div class="card">
+    <div class="table-wrap"><table>
+      <thead><tr><th>ID</th><th>Nome</th><th>Categoria</th><th>Unidade</th><th>Estoque</th><th>Mínimo</th><th>Situação</th><th>Preço</th><th>Ações</th></tr></thead>
+      <tbody>${data.map(s=>{
+        const sit=s.estoque===0?'red':s.estoque<=s.minimo?'amber':'green';
+        const sitTxt=s.estoque===0?'Esgotado':s.estoque<=s.minimo?'Baixo':'OK';
+        return `<tr>
+          <td class="mono" style="color:var(--text3)">${esc(s.id)}</td>
+          <td style="font-weight:600">${esc(s.nome)}</td>
+          <td>${badge(s.categoria,'gray')}</td>
+          <td>${esc(s.unidade)}</td>
+          <td style="font-weight:700">${s.estoque}</td>
+          <td>${s.minimo}</td>
+          <td>${badge(sitTxt,sit)}</td>
+          <td>${fmtCur(s.preco)}</td>
+          <td><div class="flex-gap">
+            <button class="btn btn-success btn-sm" onclick="openEntrada('${s.id}','${esc(s.nome)}')">Entrada</button>
+            <button class="btn btn-danger btn-sm" onclick="openSaida('${s.id}','${esc(s.nome)}')">Saída</button>
+            <button class="btn btn-default btn-icon btn-sm" onclick="openEditSupply(${JSON.stringify(s).replace(/"/g,'&quot;')})">Editar</button>
+          </div></td>
+        </tr>`;}).join('')}
+      </tbody>
+    </table></div>
+  </div>`;
+}
+
+// ── Entrada modal ──────────────────────────────────────────────────────────
+function openEntrada(id, nome){
+  openModal('Entrada de Estoque', `
+  <p style="font-size:13px;font-weight:600;margin-bottom:14px;color:var(--text2)">${esc(nome)}</p>
+  <div class="form-group"><label>Quantidade</label><input id="e-qty" type="number" min="1" value="1"></div>
+  <div class="form-group"><label>Motivo</label>
+    <select id="e-motivo"><option>Compra</option><option>Devolução</option><option>Ajuste</option><option>Outro</option></select>
+  </div>
+  <div class="modal-footer">
+    <button class="btn btn-default" onclick="closeModal()">Cancelar</button>
+    <button class="btn btn-success" onclick="doEntrada('${id}')">Confirmar Entrada</button>
+  </div>`,false,true);
+}
+async function doEntrada(id){
+  try{
+    await api(`/supplies/${id}/entrada`,'POST',{quantidade:+$('e-qty').value,motivo:$('e-motivo').value});
+    toast('Entrada registrada'); closeModal(); renderInsumos();
+  }catch(e){toast(e.message,'error');}
+}
+
+// ── Saída modal (OBRIGATÓRIO colaborador ou ativo) ─────────────────────────
+async function openSaida(id, nome){
+  const [colabs,assets]=await Promise.all([api('/colaboradores'),api('/assets')]);
+  openModal(`Saída: ${nome}`, `
+  <div class="info-box amber">Atenção: Toda saída deve ser vinculada a um <strong>colaborador</strong> ou a um <strong>ativo de TI</strong>.</div>
+  <div class="form-group"><label>Quantidade</label><input id="s-qty" type="number" min="1" value="1"></div>
+  <div class="form-group"><label>Motivo</label>
+    <select id="s-motivo"><option>Uso</option><option>Admissão</option><option>Manutenção</option><option>Substituição</option><option>Outro</option></select>
+  </div>
+  <hr class="divider">
+  <div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:10px">VINCULAR A: (preencha um dos campos abaixo)</div>
+  <div class="form-group">
+    <label>Colaborador</label>
+    <select id="s-colab">
+      <option value="">— Selecione um colaborador —</option>
+      ${colabs.filter(c=>c.status==='Ativo'||c.status==='Férias').map(c=>`<option value="${esc(c.nome)}">${esc(c.nome)} (${esc(c.setor)})</option>`).join('')}
+    </select>
+  </div>
+  <div style="text-align:center;font-size:12px;color:var(--text3);margin:-6px 0 8px">— ou —</div>
+  <div class="form-group">
+    <label>Ativo de TI</label>
+    <select id="s-ativo">
+      <option value="">— Selecione um ativo —</option>
+      ${assets.map(a=>`<option value="${a.id}">${esc(a.hostname)} — ${esc(a.fabricante)} ${esc(a.modelo)}</option>`).join('')}
+    </select>
+  </div>
+  <div class="modal-footer">
+    <button class="btn btn-default" onclick="closeModal()">Cancelar</button>
+    <button class="btn btn-danger" onclick="doSaida('${id}')">Confirmar Saída</button>
+  </div>`,true);
+}
+async function doSaida(id){
+  const colab=$('s-colab').value; const ativo=$('s-ativo').value;
+  if(!colab&&!ativo){ toast('Vincule a um colaborador ou ativo','error'); return; }
+  try{
+    await api(`/supplies/${id}/saida`,'POST',{quantidade:+$('s-qty').value,motivo:$('s-motivo').value,colaborador:colab,ativoId:ativo});
+    toast('Saída registrada'); closeModal(); renderInsumos();
+  }catch(e){toast(e.message,'error');}
+}
+
+function openNewSupply(){
+  openModal('Novo Insumo / Periférico',`
+  <div class="form-group"><label>Nome do Item</label><input id="f-nome" placeholder="Ex: Mouse USB Logitech M90"></div>
+  <div class="form-grid-2">
+    <div class="form-group"><label>Categoria</label>
+      <select id="f-cat"><option>Periférico</option><option>Cabo</option><option>Insumo</option><option>Componente</option></select>
+    </div>
+    <div class="form-group"><label>Unidade</label><input id="f-unidade" value="Sede SP"></div>
+    <div class="form-group"><label>Estoque Atual</label><input id="f-estoque" type="number" value="0"></div>
+    <div class="form-group"><label>Estoque Mínimo</label><input id="f-minimo" type="number" value="2"></div>
+    <div class="form-group span-2"><label>Preço (R$)</label><input id="f-preco" type="number" step="0.01" value="0"></div>
+  </div>
+  <div class="modal-footer">
+    <button class="btn btn-default" onclick="closeModal()">Cancelar</button>
+    <button class="btn btn-primary" onclick="saveNewSupply()">Salvar Item</button>
+  </div>`);
+}
+function openEditSupply(s){
+  openModal('Editar Item',`
+  <div class="form-group"><label>Nome</label><input id="f-nome" value="${esc(s.nome)}"></div>
+  <div class="form-grid-2">
+    <div class="form-group"><label>Categoria</label><input id="f-cat" value="${esc(s.categoria)}"></div>
+    <div class="form-group"><label>Unidade</label><input id="f-unidade" value="${esc(s.unidade)}"></div>
+    <div class="form-group"><label>Estoque</label><input id="f-estoque" type="number" value="${s.estoque}"></div>
+    <div class="form-group"><label>Mínimo</label><input id="f-minimo" type="number" value="${s.minimo}"></div>
+    <div class="form-group span-2"><label>Preço</label><input id="f-preco" type="number" step="0.01" value="${s.preco}"></div>
+  </div>
+  <div class="modal-footer">
+    <button class="btn btn-default" onclick="closeModal()">Cancelar</button>
+    <button class="btn btn-primary" onclick="saveEditSupply('${s.id}')">Salvar</button>
+  </div>`);
+}
+async function saveNewSupply(){
+  await api('/supplies','POST',{nome:$('f-nome').value,categoria:$('f-cat').value,unidade:$('f-unidade').value,estoque:$('f-estoque').value,minimo:$('f-minimo').value,preco:$('f-preco').value});
+  toast('Item cadastrado'); closeModal(); renderInsumos();
+}
+async function saveEditSupply(id){
+  await api(`/supplies/${id}`,'PUT',{nome:$('f-nome').value,categoria:$('f-cat').value,unidade:$('f-unidade').value,estoque:$('f-estoque').value,minimo:$('f-minimo').value,preco:$('f-preco').value});
+  toast('Item atualizado'); closeModal(); renderInsumos();
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// ATIVOS
+// ══════════════════════════════════════════════════════════════════════════
+async function renderAtivos(q='',cat=''){
+  const data=await api(`/assets?q=${encodeURIComponent(q)}&categoria=${encodeURIComponent(cat)}`);
+  const cats=['Todos',...new Set(data.map(a=>a.categoria))];
+  $('content').innerHTML=`
+  <div class="flex-between mb-16">
+    <div class="flex-gap">
+      <div class="search-wrap"><span class="search-icon">${inlineIcon('search')}</span>
+        <input placeholder="Hostname, colaborador, service tag..." value="${esc(q)}" onkeyup="renderAtivos(this.value,document.getElementById('ac').value)">
+      </div>
+      <select id="ac" style="width:auto" onchange="renderAtivos(document.querySelector('#content input').value,this.value)">
+        ${cats.map(c=>`<option ${c===cat?'selected':''}>${c}</option>`).join('')}
+      </select>
+    </div>
+    <div class="flex-gap">
+      <a class="btn btn-default" href="/api/export/assets.csv" download>Exportar CSV</a>
+      <button class="btn btn-primary" onclick="openNewAsset()">Novo Ativo</button>
+    </div>
+  </div>
+  <div class="card"><div class="table-wrap"><table>
+    <thead><tr><th>ID</th><th>Hostname</th><th>Categoria</th><th>Fabricante / Modelo</th><th>Service Tag</th><th>Colaborador</th><th>Status</th><th>Garantia</th><th></th></tr></thead>
+    <tbody>${data.map(a=>{
+      const d=daysUntil(a.garantia); const wG=d>=0&&d<=60;
+      return `<tr>
+        <td class="mono" style="color:var(--text3)">${esc(a.id)}</td>
+        <td class="mono" style="font-weight:700">${esc(a.hostname)}</td>
+        <td>${badge(a.categoria,'blue')}</td>
+        <td>${esc(a.fabricante)} ${esc(a.modelo)}</td>
+        <td class="mono">${esc(a.serviceTag)}</td>
+        <td>${a.colaborador||'<span style="color:var(--text3)">—</span>'}</td>
+        <td>${badge(a.status)}</td>
+        <td style="font-size:12px;color:${wG?'var(--amber)':'inherit'}">${fmtDate(a.garantia)}${wG?` <small>(${d}d)</small>`:''}</td>
+        <td><div class="flex-gap">
+          <button class="btn btn-default btn-icon btn-sm" onclick="viewAsset('${a.id}')">Ver</button>
+          <button class="btn btn-default btn-icon btn-sm" onclick="editAsset(${JSON.stringify(a).replace(/"/g,'&quot;')})">Editar</button>
+        </div></td>
+      </tr>`;}).join('')}
+    </tbody>
+  </table></div></div>`;
+}
+
+async function viewAsset(id){
+  const a=await api(`/assets/${id}`);
+  openModal('Perfil do Ativo',`
+  <div style="display:flex;gap:16px;margin-bottom:18px;align-items:flex-start">
+    <div style="font-size:32px;padding:12px;background:var(--blue-bg);border-radius:var(--rl)"></div>
+    <div style="flex:1">
+      <div class="flex-gap" style="margin-bottom:4px"><span class="mono" style="font-size:16px;font-weight:700">${esc(a.hostname)}</span>${badge(a.status)}</div>
+      <div style="font-size:13px;color:var(--text2)">${esc(a.fabricante)} ${esc(a.modelo)} · ${esc(a.categoria)}</div>
+    </div>
+    <div style="padding:8px;background:white;border:1px solid var(--border2);border-radius:var(--r)">
+      <img src="/api/assets/${id}/qrcode" width="80" height="80" alt="QR">
+      <div style="text-align:center;font-family:var(--mono);font-size:10px;color:var(--text3);margin-top:3px">${id}</div>
+    </div>
+  </div>
+  <div class="form-grid-2">
+    ${[['Service Tag',a.serviceTag,true],['Patrimônio',a.patrimonio,true],['Nota Fiscal',a.nf,false],['S.O.',a.os,false],['IP',a.ip,true],['MAC',a.mac,true],['Colaborador',a.colaborador||'Não alocado',false],['Setor',a.setor||'—',false],['Unidade',a.unidade,false],['Garantia',fmtDate(a.garantia),false]].map(([k,v,m])=>`
+    <div style="background:var(--bg3);border-radius:var(--r);padding:8px 10px">
+      <div style="font-size:11px;color:var(--text2);margin-bottom:2px">${k}</div>
+      <div style="font-size:13px;font-weight:600;${m?'font-family:var(--mono)':''}">${esc(v)||'—'}</div>
+    </div>`).join('')}
+  </div>
+  ${a.incidentes&&a.incidentes.length?`<div style="margin-top:14px">
+    <div class="section-title" style="font-size:13px">Incidentes (${a.incidentes.length})</div>
+    ${a.incidentes.map(i=>`<div style="padding:8px;border-radius:var(--r);border:1px solid var(--border);margin-bottom:6px;font-size:13px">
+      ${badge(i.tipo,'amber')} ${esc(i.descricao)}<span style="float:right;font-size:11px;color:var(--text3)">${new Date(i.data).toLocaleDateString('pt-BR')}</span>
+    </div>`).join('')}
+  </div>`:''}
+  <div class="modal-footer">
+    <button class="btn btn-default" onclick="openIncident('${id}')">Registrar Incidente</button>
+    <button class="btn btn-default" onclick="viewAssetHistory('${id}')">Histórico</button>
+    <button class="btn btn-primary" onclick="closeModal();editAsset(${JSON.stringify(a).replace(/"/g,'&quot;')})">Editar Editar</button>
+  </div>`,true);
+}
+
+function openIncident(aid){
+  openModal('Registrar Incidente',`
+  <div class="form-group"><label>Tipo</label>
+    <select id="inc-tipo"><option>Dano</option><option>Perda</option><option>Roubo</option><option>Mau uso</option><option>Manutenção</option></select>
+  </div>
+  <div class="form-group"><label>Descrição</label><textarea id="inc-desc" rows="3"></textarea></div>
+  <div class="modal-footer">
+    <button class="btn btn-default" onclick="closeModal()">Cancelar</button>
+    <button class="btn btn-danger" onclick="saveIncident('${aid}')">Registrar</button>
+  </div>`);
+}
+async function saveIncident(refId){
+  await api('/incidents','POST',{refId,tipo:$('inc-tipo').value,descricao:$('inc-desc').value});
+  toast('Incidente registrado'); closeModal();
+}
+
+const ASSET_CATS=['Notebook','Desktop','Monitor','Smartphone','Dock Station','Switch','Firewall','Access Point','Servidor','Storage','Rack','Nobreak','DVR','NVR','Câmera IP','Tablet','Impressora'];
+
+function onCatChange(cat){
+  const isUni = catIsUnidade(cat);
+  $('fa-colab-wrap').style.display = isUni ? 'none' : '';
+  $('fa-resp-wrap').style.display  = isUni ? '' : 'none';
+  const lbl = $('fa-setor-lbl');
+  if(lbl) lbl.textContent = isUni ? 'Setor / Local Físico' : 'Setor';
+}
+
+function assetFormHtml(a={}){
+  const isUni = catIsUnidade(a.categoria||'');
+  return `<div class="form-grid-2">
+    <div class="form-group"><label>Hostname / Identificação</label><input id="fa-hn" value="${esc(a.hostname||'')}"></div>
+    <div class="form-group"><label>Service Tag / Nº Série</label><input id="fa-st" value="${esc(a.serviceTag||'')}"></div>
+    <div class="form-group"><label>Patrimônio</label><input id="fa-pat" value="${esc(a.patrimonio||'')}"></div>
+    <div class="form-group"><label>Nota Fiscal</label><input id="fa-nf" value="${esc(a.nf||'')}"></div>
+    <div class="form-group"><label>IP</label><input id="fa-ip" value="${esc(a.ip||'DHCP')}"></div>
+    <div class="form-group"><label>MAC Address</label><input id="fa-mac" value="${esc(a.mac||'')}"></div>
+    <div class="form-group"><label>Fabricante</label><input id="fa-fab" value="${esc(a.fabricante||'')}"></div>
+    <div class="form-group"><label>Modelo</label><input id="fa-mod" value="${esc(a.modelo||'')}"></div>
+    <div class="form-group"><label>Sistema Operacional</label><input id="fa-os" value="${esc(a.os||'Windows 11 Pro')}"></div>
+    <div class="form-group"><label>Garantia</label><input id="fa-gar" type="date" value="${a.garantia||''}"></div>
+    <div class="form-group"><label>Categoria</label>
+      <select id="fa-cat" onchange="onCatChange(this.value)">
+        ${ASSET_CATS.map(c=>`<option ${c===(a.categoria||'')?'selected':''}>${c}</option>`).join('')}
+      </select>
+    </div>
+    <div class="form-group"><label>Status</label>
+      <select id="fa-st2">${['Disponível','Alocado','Manutenção','Ativo','Baixado','Descartado','Extraviado','Inativo'].map(s=>`<option ${s===a.status?'selected':''}>${s}</option>`).join('')}</select>
+    </div>
+
+    <!-- Colaborador — visível apenas para categorias de uso pessoal -->
+    <div class="form-group" id="fa-colab-wrap" style="${isUni?'display:none':''}">
+      <label>Colaborador</label>
+      <input id="fa-colab" value="${esc(a.colaborador||'')}" list="fa-colab-list" placeholder="Nome do colaborador">
+      <datalist id="fa-colab-list">${_colab_cache.map(c=>`<option>${esc(c.nome)}</option>`).join('')}</datalist>
+    </div>
+
+    <!-- Responsável — visível para categorias de unidade (switch, firewall, etc.) -->
+    <div class="form-group" id="fa-resp-wrap" style="${!isUni?'display:none':''}">
+      <label>Responsável Técnico</label>
+      <input id="fa-resp" value="${esc(a.colaborador||'')}" placeholder="Técnico responsável (opcional)">
+    </div>
+
+    <div class="form-group"><label id="fa-setor-lbl">${isUni?'Setor / Local Físico':'Setor'}</label>
+      <select id="fa-setor"><option value="">—</option>${setorOpts(a.setor||'')}</select>
+    </div>
+    <div class="form-group"><label>Unidade</label>
+      <select id="fa-uni"><option value="">—</option>${unidadeOpts(a.unidade||'')}</select>
+    </div>
+  </div>`;
+}
+function getAssetForm(){
+  const isUni = catIsUnidade($('fa-cat').value);
+  return {hostname:$('fa-hn').value,serviceTag:$('fa-st').value,patrimonio:$('fa-pat').value,nf:$('fa-nf').value,
+          ip:$('fa-ip').value,mac:$('fa-mac').value,fabricante:$('fa-fab').value,modelo:$('fa-mod').value,
+          os:$('fa-os').value,categoria:$('fa-cat').value,status:$('fa-st2').value,
+          colaborador: isUni ? $('fa-resp').value : $('fa-colab').value,
+          setor:$('fa-setor').value,unidade:$('fa-uni').value,garantia:$('fa-gar').value};
+}
+function openNewAsset(){
+  openModal('Novo Ativo de TI',assetFormHtml()+`<div class="modal-footer"><button class="btn btn-default" onclick="closeModal()">Cancelar</button><button class="btn btn-primary" onclick="saveNewAsset()">Cadastrar</button></div>`,true);
+}
+function editAsset(a){
+  openModal('Editar Ativo',assetFormHtml(a)+`<div class="modal-footer"><button class="btn btn-default" onclick="closeModal()">Cancelar</button><button class="btn btn-primary" onclick="saveEditAsset('${a.id}')">Salvar</button></div>`,true);
+}
+async function saveNewAsset(){await api('/assets','POST',getAssetForm());toast('Ativo cadastrado');closeModal();renderAtivos();}
+async function saveEditAsset(id){await api(`/assets/${id}`,'PUT',getAssetForm());toast('Ativo atualizado');closeModal();renderAtivos();}
+
+// ══════════════════════════════════════════════════════════════════════════
+// ALOCAÇÕES
+// ══════════════════════════════════════════════════════════════════════════
+async function renderAlocacoes(q=''){
+  const [data,assets]=await Promise.all([api('/allocations?q='+encodeURIComponent(q)),api('/assets')]);
+  const avail=assets.filter(a=>a.status==='Disponível');
+  $('content').innerHTML=`
+  <div class="flex-between mb-16">
+    <div class="search-wrap"><span class="search-icon">${inlineIcon('search')}</span>
+      <input placeholder="Colaborador, ativo, setor..." value="${esc(q)}" onkeyup="renderAlocacoes(this.value)">
+    </div>
+    <div class="flex-gap">
+      <a class="btn btn-default" href="/api/export/alocacoes.csv" download>Exportar CSV</a>
+      <button class="btn btn-primary" onclick="openNewAlloc(${JSON.stringify(avail).replace(/"/g,'&quot;')})">Nova Alocação</button>
+    </div>
+  </div>
+  <div class="card"><div class="table-wrap"><table>
+    <thead><tr><th>ID</th><th>Colaborador</th><th>Ativo</th><th>Setor</th><th>Unidade</th><th>Data</th><th>Status</th><th>Termo</th><th></th></tr></thead>
+    <tbody>${data.map(a=>`<tr>
+      <td class="mono" style="color:var(--text3)">${esc(a.id)}</td>
+      <td style="font-weight:600">${esc(a.colaborador)}</td>
+      <td class="mono">${esc((a.ativoNome||'').split(' ')[0])}</td>
+      <td>${esc(a.setor)}</td><td>${esc(a.unidade)}</td><td>${fmtDate(a.dataAloc)}</td>
+      <td>${badge(a.status)}</td><td>${badge(a.termoStatus)}</td>
+      <td><button class="btn btn-default btn-sm" onclick="viewTermo(${JSON.stringify(a).replace(/"/g,'&quot;')})">Termo</button></td>
+    </tr>`).join('')}
+    </tbody>
+  </table></div></div>`;
+}
+
+let _allocPerifs = []; // periféricos selecionados na modal de alocação
+
+async function openNewAlloc(avail){
+  const supplies = await api('/supplies');
+  const perifericos = supplies.filter(s => s.categoria === 'Periférico' && s.estoque > 0);
+  const colabOpts = _colab_cache.filter(c=>c.status==='Ativo'||c.status==='Férias');
+  _allocPerifs = [];
+
+  openModal('Nova Alocação', `
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+
+    <!-- Coluna esquerda: ativo + colaborador -->
+    <div>
+      <div class="section-title" style="font-size:13px">Ativo a Alocar</div>
+      <div class="form-group"><label>Ativo Disponível</label>
+        <select id="al-ativo">
+          <option value="">Selecione um ativo...</option>
+          ${avail.map(a=>`<option value="${a.id}">${esc(a.hostname)} — ${esc(a.fabricante)} ${esc(a.modelo)}</option>`).join('')}
+        </select>
+      </div>
+
+      <hr class="divider">
+      <div class="section-title" style="font-size:13px">Colaborador</div>
+      <div class="form-group"><label>Selecionar Colaborador</label>
+        <select id="al-colab-sel" onchange="preencheColab(this.value)">
+          <option value="">Selecione o colaborador...</option>
+          ${colabOpts.map(c=>`<option value="${c.id}" data-nome="${esc(c.nome)}" data-setor="${esc(c.setor)}" data-uni="${esc(c.unidade)}" data-email="${esc(c.email)}" data-cargo="${esc(c.cargo)}">${esc(c.nome)} — ${esc(c.setor)}</option>`).join('')}
+        </select>
+      </div>
+      <div id="colab-preview" style="display:none;padding:10px 12px;background:var(--blue-bg);border-radius:var(--r);margin-bottom:10px;font-size:12px;color:var(--blue-text)"></div>
+      <div class="form-group"><label>Nome (confirmação)</label><input id="al-colab" placeholder="Preenchido ao selecionar acima"></div>
+      <div class="form-grid-2">
+        <div class="form-group"><label>Setor</label><input id="al-setor"></div>
+        <div class="form-group"><label>Unidade</label><input id="al-uni" value="Sede SP"></div>
+      </div>
+      <div class="form-group"><label>E-mail</label><input id="al-email" type="email"></div>
+    </div>
+
+    <!-- Coluna direita: periféricos -->
+    <div>
+      <div class="section-title" style="font-size:13px">Periféricos no Termo <span id="al-perf-count" class="badge badge-blue" style="display:none">0</span></div>
+      <div class="info-box blue" style="margin-bottom:10px;font-size:12px">Opcional. Os itens selecionados serão entregues e incluídos no termo.</div>
+      <div style="display:flex;flex-direction:column;gap:4px;max-height:320px;overflow-y:auto" id="perf-list">
+        ${perifericos.map(s=>`
+        <div class="perm-item" id="perf-row-${s.id}" style="cursor:pointer;justify-content:space-between" onclick="togglePerif('${s.id}','${esc(s.nome)}',${s.estoque})">
+          <div class="flex-gap">
+            <span id="perf-chk-${s.id}" style="font-size:14px">-</span>
+            <div><div style="font-size:12px;font-weight:600">${esc(s.nome)}</div>
+              <div style="font-size:11px;color:var(--text3)">${esc(s.categoria)} · ${s.estoque} em estoque</div>
+            </div>
+          </div>
+          <div class="flex-gap" id="perf-qty-wrap-${s.id}" style="display:none" onclick="event.stopPropagation()">
+            <button class="btn btn-default btn-icon btn-sm" onclick="changeQty('${s.id}',-1)">−</button>
+            <span id="perf-qty-${s.id}" style="font-weight:700;min-width:20px;text-align:center">1</span>
+            <button class="btn btn-default btn-icon btn-sm" onclick="changeQty('${s.id}',1,${s.estoque})">+</button>
+          </div>
+        </div>`).join('')}
+        ${perifericos.length===0?'<p style="font-size:12px;color:var(--text3);text-align:center;padding:20px">Nenhum periférico disponível em estoque.</p>':''}
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-footer">
+    <button class="btn btn-default" onclick="closeModal()">Cancelar</button>
+    <button class="btn btn-primary" onclick="saveNewAlloc()">Criar Alocação + Termo</button>
+  </div>`, true);
+}
+
+function preencheColab(id){
+  const sel = $('al-colab-sel');
+  const opt = sel.options[sel.selectedIndex];
+  if(!id){ $('colab-preview').style.display='none'; return; }
+  $('al-colab').value = opt.dataset.nome||'';
+  $('al-setor').value = opt.dataset.setor||'';
+  $('al-uni').value   = opt.dataset.uni||'';
+  $('al-email').value = opt.dataset.email||'';
+  $('colab-preview').style.display='block';
+  $('colab-preview').innerHTML = `<strong>${opt.dataset.nome}</strong> · ${opt.dataset.cargo} · ${opt.dataset.setor} · ${opt.dataset.uni}<br><span style="opacity:.7">${opt.dataset.email||'Sem e-mail cadastrado'}</span>`;
+}
+
+function togglePerif(id, nome, maxQty){
+  const idx = _allocPerifs.findIndex(p=>p.supplyId===id);
+  if(idx>=0){
+    _allocPerifs.splice(idx,1);
+    $('perf-chk-'+id).textContent='-';
+    $('perf-qty-wrap-'+id).style.display='none';
+    $('perf-row-'+id).classList.remove('on');
+  } else {
+    _allocPerifs.push({supplyId:id,nome,quantidade:1,maxQty});
+    $('perf-chk-'+id).textContent='OK';
+    $('perf-qty-wrap-'+id).style.display='flex';
+    $('perf-row-'+id).classList.add('on');
+  }
+  const cnt = $('al-perf-count');
+  cnt.style.display = _allocPerifs.length?'':'none';
+  cnt.textContent = _allocPerifs.length;
+}
+
+function changeQty(id, delta, max=99){
+  const p = _allocPerifs.find(x=>x.supplyId===id);
+  if(!p) return;
+  p.quantidade = Math.min(max, Math.max(1, p.quantidade+delta));
+  $('perf-qty-'+id).textContent = p.quantidade;
+}
+
+async function saveNewAlloc(){
+  if(!$('al-ativo').value){toast('Selecione um ativo','error');return;}
+  if(!$('al-colab').value){toast('Informe o colaborador','error');return;}
+  try{
+    const r = await api('/allocations','POST',{
+      ativo:$('al-ativo').value, colaborador:$('al-colab').value,
+      setor:$('al-setor').value, unidade:$('al-uni').value,
+      email:$('al-email').value, perifericos:_allocPerifs,
+    });
+    const nPerifs = (r.perifericosAlocados||[]).length;
+    toast(`Alocação criada${nPerifs?' + '+nPerifs+' periférico(s)':''}`);
+    closeModal(); renderAlocacoes();
+  }catch(e){toast(e.message,'error');}
+}
+
+async function viewTermo(a){
+  const perifericos=await api(`/allocations/${a.id}/perifericos`);
+  const perfList=perifericos.length
+    ? perifericos.map(p=>`<div style="display:flex;gap:10px;align-items:center;padding:6px 10px;background:var(--bg3);border-radius:var(--r);margin-bottom:4px;font-size:13px">
+        <span style="font-size:16px"></span>
+        <span style="flex:1">${esc(p.nome)}</span>
+        <span class="badge badge-blue">${p.quantidade}x</span>
+      </div>`).join('')
+    : '<p style="font-size:12px;color:var(--text3)">Nenhum periférico vinculado a este colaborador.</p>';
+
+  openModal('Termo de Responsabilidade',`
+  <div style="border:1px solid var(--border2);border-radius:var(--r);padding:22px;font-size:13px;line-height:1.8">
+    <div style="text-align:center;margin-bottom:16px">
+      <div style="font-size:15px;font-weight:700">TERMO DE RESPONSABILIDADE DE EQUIPAMENTO</div>
+      <div style="font-size:12px;color:var(--text2)">Nº ${esc(a.termo)} — ${fmtDate(a.dataAloc)}</div>
+    </div>
+    <p>Eu, <strong>${esc(a.colaborador)}</strong>, lotado(a) no setor de <strong>${esc(a.setor)}</strong>, unidade <strong>${esc(a.unidade)}</strong>, declaro ter recebido:</p>
+    <div style="margin:12px 0;padding:10px 14px;background:var(--blue-bg);border-radius:var(--r);font-family:var(--mono);font-size:12px;font-weight:700;color:var(--blue-text)">[ATIVO] ${esc(a.ativoNome)}</div>
+    ${perifericos.length?`<div style="margin-bottom:10px"><div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:6px">PERIFÉRICOS VINCULADOS:</div>${perfList}</div>`:''}
+    <p>Comprometo-me a utilizar exclusivamente para fins profissionais, zelar pela conservação, comunicar danos/perdas e devolver ao encerramento do vínculo.</p>
+    <div style="display:flex;gap:16px;margin-top:22px;flex-wrap:wrap">
+      <!-- Assinatura colaborador -->
+      <div style="flex:1;min-width:200px">
+        <div style="font-size:11px;font-weight:600;color:var(--text2);margin-bottom:6px;text-transform:uppercase;letter-spacing:.04em">Assinatura — ${esc(a.colaborador)}</div>
+        ${a.hasSignImg
+          ? `<div style="border:1px solid var(--border2);border-radius:var(--r);padding:6px;background:#fff">
+               <img src="/api/allocations/${a.id}/assinatura.png" style="max-height:72px;max-width:100%;display:block" alt="Assinatura">
+             </div>`
+          : `<div style="border-top:2px solid var(--text);margin-top:36px"></div>`
+        }
+        ${a.termoStatus==='Assinado'
+          ? `<div style="font-size:11px;color:var(--text3);margin-top:4px">
+               Assinado em ${fmtDateTime(a.dataAssinatura)}
+               ${a.assinaturaIp?`<span style="font-family:var(--mono)">&nbsp;·&nbsp;IP: ${esc(a.assinaturaIp)}</span>`:''}
+             </div>`
+          : `<div style="font-size:11px;color:var(--amber,#d97706);margin-top:4px">Pendente de assinatura</div>`
+        }
+      </div>
+      <!-- Assinatura Responsável TI -->
+      <div style="flex:1;min-width:200px">
+        <div style="font-size:11px;font-weight:600;color:var(--text2);margin-bottom:6px;text-transform:uppercase;letter-spacing:.04em">Responsável TI</div>
+        ${a.hasSignTiImg
+          ? `<div style="border:1px solid var(--border2);border-radius:var(--r);padding:6px;background:#fff">
+               <img src="/api/allocations/${a.id}/assinatura-ti.png" style="max-height:72px;max-width:100%;display:block" alt="Assinatura TI">
+             </div>
+             <div style="font-size:11px;color:var(--text3);margin-top:4px">
+               Assinado por ${esc(a.assinaturaTiNome||'')} · ${fmtDateTime(a.dataAssinaturaTi)}
+             </div>`
+          : `<div style="border-top:2px solid var(--text);margin-top:36px"></div>
+             <div style="margin-top:8px">
+               <button class="btn btn-default btn-sm" onclick="openSignTi('${a.id}')">Assinar como TI</button>
+             </div>`
+        }
+      </div>
+    </div>
+  </div>
+  <div class="modal-footer">
+    <a href="/api/allocations/${a.id}/termo.pdf" class="btn btn-primary" download>Baixar PDF</a>
+    ${a.termoStatus!=='Assinado'?`
+      <button class="btn btn-success" onclick="signTermo('${a.id}')">Marcar Assinado</button>
+      <button class="btn btn-default" onclick="gerarLinkAssinatura('${a.id}')">Link p/ Assinar</button>
+    `:''}
+  </div>`,true);
+}
+async function signTermo(id){await api(`/allocations/${id}/sign`,'POST',{});toast('Termo assinado');closeModal();renderAlocacoes();}
+
+async function gerarLinkAssinatura(aid){
+  const r = await api(`/allocations/${aid}/sign-link`,'POST',{});
+  if(!r||r.error){toast('Erro: '+(r?.error||'falha'),'error');return;}
+  const expiry = r.expiry ? new Date(r.expiry).toLocaleDateString('pt-BR') : '';
+  openModal(' Link de Assinatura Remota',`
+    <div style="display:flex;flex-direction:column;gap:14px">
+      <div style="font-size:13px;color:var(--text2)">
+        Compartilhe o link abaixo com o colaborador. Ele poderá acessar pelo celular,
+        ler o termo e assinar digitalmente com o dedo.
+        ${expiry?`<br><br><strong>Válido até ${expiry}.</strong>`:''}
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <input id="sign-link-url" value="${esc(r.url)}" readonly
+          style="flex:1;padding:10px 12px;border:1px solid var(--border2);border-radius:var(--r);
+                 font-size:12px;font-family:var(--mono);color:var(--text);background:var(--bg3)">
+        <button class="btn btn-primary btn-sm" onclick="copiarLink()">Copiar</button>
+      </div>
+      <a href="${esc(r.url)}" target="_blank" style="font-size:12px;color:var(--primary)">
+        Abrir em nova aba para testar →
+      </a>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-default" onclick="closeModal()">Fechar</button>
+    </div>
+  `,true);
+}
+function copiarLink(){
+  const el=document.getElementById('sign-link-url');
+  if(!el)return;
+  navigator.clipboard.writeText(el.value).then(()=>toast('Link copiado!'));
+}
+
+function openSignTi(aid){
+  openModal(' Assinatura do Responsável TI',`
+    <div style="display:flex;flex-direction:column;gap:14px">
+      <div style="font-size:13px;color:var(--text2)">Desenhe sua assinatura abaixo para registrar como responsável TI neste termo.</div>
+      <div>
+        <div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:6px">Nome do responsável</div>
+        <input id="ti-nome" placeholder="Seu nome completo" value=""
+          style="width:100%;padding:9px 12px;border:1px solid var(--border2);border-radius:var(--r);font-size:13px;font-family:inherit">
+      </div>
+      <div>
+        <div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:6px">Assinatura</div>
+        <canvas id="ti-canvas" style="width:100%;height:140px;background:#fff;border:2px dashed var(--border2);border-radius:var(--r);display:block;touch-action:none;cursor:crosshair"></canvas>
+        <button type="button" onclick="tiClearCanvas()" class="btn btn-default btn-sm" style="margin-top:6px">Limpar Limpar</button>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-default" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-success" onclick="saveSignTi('${aid}')">Salvar Assinatura</button>
+    </div>
+  `,true);
+  // Inicializa canvas após o modal abrir
+  requestAnimationFrame(()=>tiInitCanvas());
+}
+
+let _tiCtx=null, _tiDrawing=false, _tiHasSig=false;
+function tiInitCanvas(){
+  const cv=document.getElementById('ti-canvas');
+  if(!cv)return;
+  const rect=cv.getBoundingClientRect();
+  cv.width=rect.width*devicePixelRatio; cv.height=rect.height*devicePixelRatio;
+  _tiCtx=cv.getContext('2d');
+  _tiCtx.scale(devicePixelRatio,devicePixelRatio);
+  _tiCtx.lineWidth=2.5; _tiCtx.lineCap='round'; _tiCtx.lineJoin='round'; _tiCtx.strokeStyle='#1a1917';
+  _tiHasSig=false;
+  function pos(e){const r=cv.getBoundingClientRect(),s=e.touches?e.touches[0]:e;return{x:s.clientX-r.left,y:s.clientY-r.top};}
+  cv.onmousedown=cv.ontouchstart=e=>{e.preventDefault();_tiDrawing=true;const p=pos(e);_tiCtx.beginPath();_tiCtx.moveTo(p.x,p.y);};
+  cv.onmousemove=cv.ontouchmove=e=>{if(!_tiDrawing)return;e.preventDefault();const p=pos(e);_tiCtx.lineTo(p.x,p.y);_tiCtx.stroke();_tiHasSig=true;cv.style.borderStyle='solid';cv.style.borderColor='var(--primary)';};
+  cv.onmouseup=cv.onmouseleave=cv.ontouchend=()=>{_tiDrawing=false;};
+}
+function tiClearCanvas(){
+  const cv=document.getElementById('ti-canvas');
+  if(!cv||!_tiCtx)return;
+  _tiCtx.clearRect(0,0,cv.width/devicePixelRatio,cv.height/devicePixelRatio);
+  _tiHasSig=false; cv.style.borderStyle='dashed'; cv.style.borderColor='var(--border2)';
+}
+async function saveSignTi(aid){
+  if(!_tiHasSig){toast('Desenhe a assinatura antes de salvar.','error');return;}
+  const nome=document.getElementById('ti-nome')?.value.trim();
+  if(!nome){toast('Informe o nome do responsável.','error');return;}
+  const cv=document.getElementById('ti-canvas');
+  const sigData=cv.toDataURL('image/png');
+  await api(`/allocations/${aid}/sign-ti`,'POST',{assinatura:sigData,nomeTi:nome});
+  toast('Assinatura TI salva!');
+  closeModal();
+  renderAlocacoes();
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// QR CODE
+// ══════════════════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════════════
+// QR CODE & ETIQUETAS
+// ══════════════════════════════════════════════════════════════════════════
+let _qrSel=null;
+let _lblCfg={
+  size:'media',
+  campos:{hostname:true,patrimonio:true,serviceTag:true,setor:true,colaborador:false,ip:false,garantia:false},
+  copias:1,
+  empresa:'',
+  qr:'normal',
+  borda:'preta',
+  mostrarSistema:true
+};
+
+async function renderQRCode(q=''){
+  const assets=await api('/assets?q='+encodeURIComponent(q));
+  if(!_qrSel&&assets.length) _qrSel=assets[0].id;
+  const sel=assets.find(a=>a.id===_qrSel)||assets[0];
+  $('content').innerHTML=`
+  <div style="display:grid;grid-template-columns:240px 1fr;gap:16px">
+    <div class="card" style="padding:14px">
+      <div style="font-size:12px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.04em;margin-bottom:10px">Selecionar Ativo</div>
+      <div class="search-wrap" style="margin-bottom:10px"><span class="search-icon">${inlineIcon('search')}</span>
+        <input style="width:100%" value="${esc(q)}" placeholder="Buscar ativo..." onkeyup="renderQRCode(this.value)">
+      </div>
+      <div style="display:flex;flex-direction:column;gap:2px;max-height:440px;overflow-y:auto">
+        ${assets.map(a=>`<div onclick="qrSel('${a.id}')" style="padding:8px 10px;border-radius:var(--r);cursor:pointer;font-family:var(--mono);font-size:12px;transition:background .1s;${a.id===_qrSel?'background:var(--blue);color:#fff;font-weight:700':'color:var(--text)'}">${esc(a.hostname)}</div>`).join('')}
+      </div>
+    </div>
+    <div>
+      <!-- Abas -->
+      <div style="display:flex;gap:0;margin-bottom:16px;border-bottom:2px solid var(--border)">
+        <button id="tab-qr" onclick="qrTab('qr')" style="padding:8px 18px;font-size:13px;font-weight:600;border:none;background:none;cursor:pointer;color:var(--blue);border-bottom:2px solid var(--blue);margin-bottom:-2px">QR Code</button>
+        <button id="tab-etq" onclick="qrTab('etq')" style="padding:8px 18px;font-size:13px;font-weight:600;border:none;background:none;cursor:pointer;color:var(--text2);border-bottom:2px solid transparent;margin-bottom:-2px">Etiquetas</button>
+      </div>
+      <!-- QR Code -->
+      <div id="panel-qr">
+        ${sel?`<div class="card">
+          <div style="display:flex;gap:28px;align-items:flex-start">
+            <div style="text-align:center;flex-shrink:0">
+              <div style="padding:16px;background:white;border:1px solid var(--border);border-radius:var(--rl);display:inline-block;margin-bottom:10px;box-shadow:var(--shadow-sm)">
+                <img src="/api/assets/${sel.id}/qrcode" width="164" height="164" alt="QR">
+              </div>
+              <div class="mono" style="font-size:11px;color:var(--text3);margin-bottom:4px">${sel.id}</div>
+              <div style="font-weight:700;font-size:13px;margin-bottom:14px">${esc(sel.hostname)}</div>
+              <div style="display:flex;flex-direction:column;gap:6px">
+                <a href="/api/assets/${sel.id}/qrcode" class="btn btn-primary btn-sm" download>Baixar QR</a>
+                <a href="/asset/${sel.id}" class="btn btn-default btn-sm" target="_blank">Ver Perfil</a>
+              </div>
+            </div>
+            <div style="flex:1">
+              <div style="font-size:15px;font-weight:700;margin-bottom:14px">Dados do Perfil Público</div>
+              <div class="form-grid-2" style="gap:8px">
+                ${[['Status',badge(sel.status)],['Categoria',sel.categoria],['Fabricante',sel.fabricante],['Modelo',sel.modelo],['S.O.',sel.os||'—'],['IP',sel.ip||'—'],['Colaborador',sel.colaborador||'Não alocado'],['Setor',sel.setor||'—'],['Unidade',sel.unidade||'—'],['Garantia',fmtDate(sel.garantia)]].map(([k,v])=>`
+                <div style="background:var(--bg3);border-radius:var(--r);padding:9px 12px;border:1px solid var(--border)">
+                  <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.04em;margin-bottom:3px">${k}</div>
+                  <div style="font-size:13px;font-weight:600">${v||'—'}</div>
+                </div>`).join('')}
+              </div>
+              <div style="margin-top:12px;padding:10px 14px;background:var(--bg3);border-radius:var(--r);border:1px solid var(--border)">
+                <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.04em;margin-bottom:3px">URL do QR</div>
+                <div class="mono" style="font-size:12px;color:var(--blue)">${APP_BASE_URL}/asset/${sel.id}</div>
+              </div>
+            </div>
+          </div>
+        </div>`:''}
+      </div>
+      <!-- Etiquetas -->
+      <div id="panel-etq" style="display:none">
+        ${sel?renderEtiquetaPanel(sel):'<div class="card"><p style="color:var(--text3)">Selecione um ativo.</p></div>'}
+      </div>
+    </div>
+  </div>`;
+}
+
+function qrTab(tab){
+  $('panel-qr').style.display  = tab==='qr'  ? '' : 'none';
+  $('panel-etq').style.display = tab==='etq' ? '' : 'none';
+  $('tab-qr').style.color  = tab==='qr'  ? 'var(--blue)' : 'var(--text2)';
+  $('tab-etq').style.color = tab==='etq' ? 'var(--blue)' : 'var(--text2)';
+  $('tab-qr').style.borderBottomColor  = tab==='qr'  ? 'var(--blue)' : 'transparent';
+  $('tab-etq').style.borderBottomColor = tab==='etq' ? 'var(--blue)' : 'transparent';
+}
+
+function renderEtiquetaPanel(sel){
+  const sizes=[{id:'pequena',label:'Pequena',dim:'58 × 38 mm',w:'120px',h:'72px'},
+               {id:'media',label:'Média',dim:'88 × 38 mm',w:'180px',h:'72px'},
+               {id:'grande',label:'Grande',dim:'100 × 70 mm',w:'200px',h:'136px'}];
+  const bordas=[['preta','Preta'],['azul','Azul'],['cinza','Cinza'],['sem','Sem borda']];
+  const campos=[['hostname','Nome / Hostname'],['patrimonio','Patrimônio'],['serviceTag','Service Tag'],
+                ['setor','Setor'],['colaborador','Colaborador'],['ip','IP'],['garantia','Garantia']];
+  return `<div class="card">
+    <div style="font-size:15px;font-weight:700;margin-bottom:18px">Configurar Etiqueta</div>
+    <div style="display:grid;grid-template-columns:260px 1fr;gap:20px">
+      <div>
+        <div style="font-size:12px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.04em;margin-bottom:10px">Tamanho</div>
+        <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:18px">
+          ${sizes.map(s=>`<label style="display:flex;align-items:center;gap:10px;padding:9px 12px;border:1px solid ${_lblCfg.size===s.id?'var(--blue)':'var(--border)'};border-radius:var(--r);cursor:pointer;background:${_lblCfg.size===s.id?'var(--blue-bg)':'var(--bg3)'};transition:all .15s" onclick="lblSetSize('${s.id}')">
+            <input type="radio" name="lbl-size" value="${s.id}" ${_lblCfg.size===s.id?'checked':''} style="width:auto">
+            <div>
+              <div style="font-size:13px;font-weight:600;color:${_lblCfg.size===s.id?'var(--blue-text)':'var(--text)'}">${s.label}</div>
+              <div style="font-size:11px;color:var(--text3)">${s.dim}</div>
+            </div>
+          </label>`).join('')}
+        </div>
+        <div style="font-size:12px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.04em;margin-bottom:10px">Campos</div>
+        <div style="display:flex;flex-direction:column;gap:5px;margin-bottom:16px">
+          ${campos.map(([k,lbl])=>`<label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;padding:5px 0">
+            <input type="checkbox" id="lbl-c-${k}" ${_lblCfg.campos[k]?'checked':''} onchange="lblToggle('${k}',this.checked)" style="width:auto">
+            ${lbl}
+          </label>`).join('')}
+        </div>
+        <div style="font-size:12px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.04em;margin-bottom:10px">Aparência</div>
+        <div class="form-grid-2" style="gap:8px;margin-bottom:14px">
+          <div class="form-group" style="margin-bottom:0">
+            <label>QR Code</label>
+            <select id="lbl-qr" onchange="_lblCfg.qr=this.value;atualizarPreviewEtiqueta('${sel.id}')">
+              <option value="normal" ${_lblCfg.qr==='normal'?'selected':''}>Normal</option>
+              <option value="grande" ${_lblCfg.qr==='grande'?'selected':''}>Maior</option>
+              <option value="compacto" ${_lblCfg.qr==='compacto'?'selected':''}>Compacto</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin-bottom:0">
+            <label>Borda</label>
+            <select id="lbl-borda" onchange="_lblCfg.borda=this.value;atualizarPreviewEtiqueta('${sel.id}')">
+              ${bordas.map(([v,l])=>`<option value="${v}" ${_lblCfg.borda===v?'selected':''}>${l}</option>`).join('')}
+            </select>
+          </div>
+        </div>
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;padding:0 0 14px">
+          <input type="checkbox" ${_lblCfg.mostrarSistema?'checked':''} onchange="_lblCfg.mostrarSistema=this.checked;atualizarPreviewEtiqueta('${sel.id}')" style="width:auto">
+          Exibir identificação TI Control
+        </label>
+        <div style="font-size:12px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px">Nome da empresa (opcional)</div>
+        <input id="lbl-empresa" value="${esc(_lblCfg.empresa)}" placeholder="Ex: ACME Corp" oninput="_lblCfg.empresa=this.value;atualizarPreviewEtiqueta('${sel.id}')" style="margin-bottom:16px">
+        <div style="font-size:12px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px">Cópias por ativo</div>
+        <input id="lbl-copias" type="number" min="1" max="20" value="${_lblCfg.copias}" oninput="_lblCfg.copias=Math.max(1,+this.value||1);atualizarPreviewEtiqueta('${sel.id}')" style="width:80px;margin-bottom:18px">
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-primary" onclick="imprimirEtiqueta('${sel.id}')">Imprimir etiqueta</button>
+        </div>
+      </div>
+      <div>
+        <div style="font-size:12px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.04em;margin-bottom:12px">Pré-visualização</div>
+        <div id="lbl-preview" style="background:var(--bg3);border-radius:var(--rl);padding:20px;min-height:120px;display:flex;flex-wrap:wrap;gap:10px;align-items:flex-start;border:1px solid var(--border)">
+          ${buildLabelHtml(sel,'preview')}
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function buildLabelHtml(asset,mode){
+  const sz={pequena:{w:'116px',h:'72px',qr:48,fs:11,fssub:9},
+            media  :{w:'176px',h:'72px',qr:56,fs:12,fssub:9},
+            grande :{w:'200px',h:'140px',qr:72,fs:13,fssub:10}}[_lblCfg.size]||{w:'176px',h:'72px',qr:56,fs:12,fssub:9};
+  const qrDelta = _lblCfg.qr === 'grande' ? 14 : (_lblCfg.qr === 'compacto' ? -12 : 0);
+  const qrSize = Math.max(34, sz.qr + qrDelta);
+  const borderMap = {
+    preta: '1.5px solid #111827',
+    azul: '1.5px solid #2563eb',
+    cinza: '1.5px solid #94a3b8',
+    sem: '1px solid transparent',
+  };
+  const cls=mode==='print'?'label-print-item':'label-card';
+  const campos=_lblCfg.campos;
+  const emp=_lblCfg.empresa?`<div class="lbl-empresa">${esc(_lblCfg.empresa)}</div>`:'';
+  const lines=[];
+  if(campos.patrimonio&&asset.patrimonio) lines.push(`<div class="lbl-field">Pat: <b>${esc(asset.patrimonio)}</b></div>`);
+  if(campos.serviceTag&&asset.serviceTag) lines.push(`<div class="lbl-field">ST: <b>${esc(asset.serviceTag)}</b></div>`);
+  if(campos.setor&&asset.setor)          lines.push(`<div class="lbl-field">Setor: ${esc(asset.setor)}</div>`);
+  if(campos.colaborador&&asset.colaborador) lines.push(`<div class="lbl-field">Usuário: ${esc(asset.colaborador)}</div>`);
+  if(campos.ip&&asset.ip)                lines.push(`<div class="lbl-field">IP: <span style="font-family:monospace">${esc(asset.ip)}</span></div>`);
+  if(campos.garantia&&asset.garantia)    lines.push(`<div class="lbl-field">Gar: ${fmtDate(asset.garantia)}</div>`);
+  const inner=`
+      <div class="${cls}" style="width:${sz.w};min-height:${sz.h};padding:7px 8px;display:flex;flex-direction:column;justify-content:space-between;border:${borderMap[_lblCfg.borda]||borderMap.preta}">
+      <div style="overflow:hidden">
+        ${emp}
+        <div style="display:flex;gap:6px;align-items:flex-start">
+          <div style="flex:1;overflow:hidden">
+            ${campos.hostname?`<div class="lbl-hostname" style="font-size:${sz.fs}px">${esc(asset.hostname||asset.id)}</div>`:''}
+            ${lines.join('')}
+          </div>
+          <div class="lbl-qr" style="flex-shrink:0">
+            <img src="/api/assets/${asset.id}/qrcode" width="${qrSize}" height="${qrSize}" style="display:block">
+          </div>
+        </div>
+      </div>
+      ${_lblCfg.mostrarSistema?'<div class="lbl-tag">TI Control</div>':''}
+    </div>`;
+  if(mode==='print'){
+    let out='';
+    for(let i=0;i<(_lblCfg.copias||1);i++) out+=inner;
+    return out;
+  }
+  return inner;
+}
+
+function lblSetSize(size){
+  _lblCfg.size=size;
+  // Re-render the etiqueta panel for the current asset
+  const sel=_qrSel;
+  renderQRCode().then(()=>{qrTab('etq');});
+}
+function lblToggle(campo,val){
+  _lblCfg.campos[campo]=val;
+  atualizarPreviewEtiqueta(_qrSel);
+}
+function atualizarPreviewEtiqueta(aid){
+  // Fetch fresh asset data to rebuild preview
+  api('/assets/'+aid).then(asset=>{
+    const el=$('lbl-preview');
+    if(el) el.innerHTML=buildLabelHtml(asset,'preview');
+  });
+}
+
+async function imprimirEtiqueta(aid){
+  const asset=await api('/assets/'+aid);
+  // Create / reuse a hidden print zone
+  let pz=document.getElementById('print-zone');
+  if(!pz){pz=document.createElement('div');pz.id='print-zone';pz.className='print-zone';document.body.appendChild(pz);}
+  pz.innerHTML=buildLabelHtml(asset,'print');
+  window.print();
+}
+
+function qrSel(id){_qrSel=id;renderQRCode();}
+
+// ══════════════════════════════════════════════════════════════════════════
+// LICENÇAS
+// ══════════════════════════════════════════════════════════════════════════
+async function renderLicencas(){
+  const data=await api('/licenses');
+  $('content').innerHTML=`
+  <div class="flex-between mb-16"><div></div><button class="btn btn-primary" onclick="openNewLicense()">Nova Licença</button></div>
+  <div class="card mb-16"><div class="table-wrap"><table>
+    <thead><tr><th>Software</th><th>Fornecedor</th><th>Tipo</th><th>Compradas</th><th>Atribuídas</th><th>Saldo</th><th>Vencimento</th><th>Custo Anual</th><th>Situação</th></tr></thead>
+    <tbody>${data.map(l=>{
+      const saldo=l.total-l.atribuidas; const d=daysUntil(l.vencimento); const wV=d>=0&&d<=60;
+      const sit=l.atribuidas>l.total?['Excedido','red']:wV?['Vence em breve','amber']:saldo===0?['Sem saldo','amber']:['Regular','green'];
+      return `<tr>
+        <td style="font-weight:600">${esc(l.software)}</td>
+        <td>${esc(l.fornecedor)}</td>
+        <td>${badge(l.tipo,'gray')}</td>
+        <td>${l.total}</td><td>${l.atribuidas}</td>
+        <td style="font-weight:700;color:${saldo<0?'var(--red)':saldo===0?'var(--amber)':'var(--green)'}">${saldo<0?'−'+Math.abs(saldo):saldo}</td>
+        <td style="font-size:12px;color:${wV?'var(--amber)':'inherit'}">${fmtDate(l.vencimento)}${wV?` <small>(${d}d)</small>`:''}</td>
+        <td>${fmtCur(l.custo)}</td>
+        <td>${badge(...sit)}</td>
+      </tr>`;}).join('')}
+    </tbody>
+  </table></div></div>
+  <div class="grid-3">
+    <div class="stat-card"><div class="stat-label">Total de Licenças</div><div class="stat-value">${data.reduce((s,l)=>s+l.total,0)}</div></div>
+    <div class="stat-card"><div class="stat-label">Custo Anual Total</div><div class="stat-value" style="font-size:20px">${fmtCur(data.reduce((s,l)=>s+l.custo,0))}</div></div>
+    <div class="stat-card"><div class="stat-label">Vencendo em 60 dias</div><div class="stat-value" style="color:var(--amber)">${data.filter(l=>{const d=daysUntil(l.vencimento);return d>=0&&d<=60}).length}</div></div>
+  </div>`;
+}
+function openNewLicense(){
+  openModal('Nova Licença',`
+  <div class="form-group"><label>Software</label><input id="fl-sw"></div>
+  <div class="form-grid-2">
+    <div class="form-group"><label>Fornecedor</label><input id="fl-forn"></div>
+    <div class="form-group"><label>Tipo</label><select id="fl-tipo"><option>Assinatura</option><option>Anual</option><option>Perpétua</option><option>Por uso</option></select></div>
+    <div class="form-group"><label>Total</label><input id="fl-tot" type="number" value="10"></div>
+    <div class="form-group"><label>Atribuídas</label><input id="fl-atr" type="number" value="0"></div>
+    <div class="form-group"><label>Custo (R$)</label><input id="fl-custo" type="number" value="0"></div>
+    <div class="form-group"><label>Vencimento</label><input id="fl-venc" type="date"></div>
+  </div>
+  <div class="modal-footer"><button class="btn btn-default" onclick="closeModal()">Cancelar</button><button class="btn btn-primary" onclick="saveLicense()">Salvar</button></div>`);
+}
+async function saveLicense(){
+  await api('/licenses','POST',{software:$('fl-sw').value,fornecedor:$('fl-forn').value,tipo:$('fl-tipo').value,total:$('fl-tot').value,atribuidas:$('fl-atr').value,custo:$('fl-custo').value,vencimento:$('fl-venc').value});
+  toast('Licença cadastrada');closeModal();renderLicencas();
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// ALERTAS
+// ══════════════════════════════════════════════════════════════════════════
+async function renderAlertas(){
+  const [assets,supplies,licenses]=await Promise.all([api('/assets'),api('/supplies'),api('/licenses')]);
+  const gA=assets.filter(a=>{const d=daysUntil(a.garantia);return d>=0&&d<=90}).sort((a,b)=>daysUntil(a.garantia)-daysUntil(b.garantia));
+  const sA=supplies.filter(s=>s.estoque<=s.minimo).sort((a,b)=>a.estoque-b.estoque);
+  const lA=licenses.filter(l=>{const d=daysUntil(l.vencimento);return d>=0&&d<=90}).sort((a,b)=>daysUntil(a.vencimento)-daysUntil(b.vencimento));
+  const sec=(title,ic,arr,html)=>`<div class="card mb-16">
+    <div class="section-title">${ic} ${title} ${badge(arr.length,arr.length>0?'red':'green')}</div>
+    ${arr.length===0?'<p style="color:var(--text3);font-size:13px">Sem alertas nesta categoria.</p>':html}
+  </div>`;
+  $('content').innerHTML=
+    sec('Garantias Vencendo (90 dias)','',gA,`<div class="table-wrap"><table>
+      <thead><tr><th>Hostname</th><th>Fabricante / Modelo</th><th>Colaborador</th><th>Vencimento</th><th>Dias</th></tr></thead>
+      <tbody>${gA.map(a=>{const d=daysUntil(a.garantia);return `<tr><td class="mono" style="font-weight:700">${esc(a.hostname)}</td><td>${esc(a.fabricante)} ${esc(a.modelo)}</td><td>${a.colaborador||'—'}</td><td>${fmtDate(a.garantia)}</td><td>${badge(d+'d',d<=30?'red':'amber')}</td></tr>`;}).join('')}
+      </tbody></table></div>`) +
+    sec('Estoque Mínimo Atingido','',sA,`<div class="table-wrap"><table>
+      <thead><tr><th>Item</th><th>Categoria</th><th>Unidade</th><th>Estoque</th><th>Mínimo</th><th>Situação</th></tr></thead>
+      <tbody>${sA.map(s=>`<tr><td style="font-weight:600">${esc(s.nome)}</td><td>${esc(s.categoria)}</td><td>${esc(s.unidade)}</td><td style="font-weight:700;color:${s.estoque===0?'var(--red)':'var(--amber)'}">${s.estoque}</td><td>${s.minimo}</td><td>${badge(s.estoque===0?'Esgotado':'Baixo',s.estoque===0?'red':'amber')}</td></tr>`).join('')}
+      </tbody></table></div>`) +
+    sec('Licenças Vencendo (90 dias)','',lA,`<div class="table-wrap"><table>
+      <thead><tr><th>Software</th><th>Fornecedor</th><th>Vencimento</th><th>Dias</th><th>Ação</th></tr></thead>
+      <tbody>${lA.map(l=>{const d=daysUntil(l.vencimento);return `<tr><td style="font-weight:600">${esc(l.software)}</td><td>${esc(l.fornecedor)}</td><td>${fmtDate(l.vencimento)}</td><td>${badge(d+'d',d<=30?'red':'amber')}</td><td style="font-size:12px;color:var(--text2)">${d<=30?'Renovar imediatamente':'Iniciar renovação'}</td></tr>`;}).join('')}
+      </tbody></table></div>`);
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// COLABORADORES
+// ══════════════════════════════════════════════════════════════════════════
+const STATUS_COL=['Ativo','Inativo','Férias','Afastado'];
+
+function colAvatar(nome,size=36){
+  const cols=[['#e8f1fb','#1a4e8a'],['#e6f4ec','#145c34'],['#fdf0e0','#7a3e07'],['#fdecea','#8a1c13'],['#f0ecfe','#4a2ab5'],['#efefed','#2c2c2a']];
+  let h=0; for(let i=0;i<(nome||'').length;i++) h=(h*31+nome.charCodeAt(i))&0xfffffff;
+  const [bg,fg]=cols[h%cols.length];
+  const ini=(nome||'?').trim().split(' ');
+  const letters=(ini[0][0]+(ini.length>1?ini[ini.length-1][0]:'')).toUpperCase();
+  return `<div style="width:${size}px;height:${size}px;border-radius:99px;background:${bg};color:${fg};display:inline-flex;align-items:center;justify-content:center;font-size:${Math.round(size*.35)}px;font-weight:700;flex-shrink:0">${letters}</div>`;
+}
+
+async function renderColaboradores(q='',setor='',status=''){
+  const [data,stats]=await Promise.all([api(`/colaboradores?q=${encodeURIComponent(q)}&setor=${encodeURIComponent(setor)}&status=${encodeURIComponent(status)}`),api('/colaboradores/stats')]);
+  _colab_cache=data;
+  const setores=['', ...new Set(data.map(u=>u.setor).filter(Boolean))];
+  $('content').innerHTML=`
+  <div class="grid-4 mb-16">
+    ${[['Total',stats.total,'','blue'],['Ativos',stats.ativos,'OK','green'],['Afastados / Férias',stats.afastados,'','amber'],['Com Equipamento',stats.comAtivos,'','blue']].map(([l,v,ic,c])=>`
+    <div class="stat-card"><div style="display:flex;justify-content:space-between;align-items:flex-start">
+      <div><div class="stat-label">${l}</div><div class="stat-value">${v}</div></div>
+      <div style="font-size:22px;padding:8px;background:var(--${c}-bg);border-radius:var(--r)">${ic}</div>
+    </div></div>`).join('')}
+  </div>
+  <div class="flex-between mb-16" style="flex-wrap:wrap;gap:8px">
+    <div class="flex-gap" style="flex-wrap:wrap">
+      <div class="search-wrap"><span class="search-icon">${inlineIcon('search')}</span>
+        <input id="cs" placeholder="Nome, e-mail, cargo, matrícula..." value="${esc(q)}"
+          onkeyup="renderColaboradores(this.value,document.getElementById('cst').value,document.getElementById('css').value)">
+      </div>
+      <select id="cst" style="width:auto" onchange="renderColaboradores(document.getElementById('cs').value,this.value,document.getElementById('css').value)">
+        <option value="">Todos os setores</option>
+        ${setores.filter(Boolean).map(s=>`<option ${s===setor?'selected':''}>${esc(s)}</option>`).join('')}
+      </select>
+      <select id="css" style="width:auto" onchange="renderColaboradores(document.getElementById('cs').value,document.getElementById('cst').value,this.value)">
+        <option value="">Todos os status</option>
+        ${STATUS_COL.map(s=>`<option ${s===status?'selected':''}>${s}</option>`).join('')}
+      </select>
+    </div>
+    <div class="flex-gap">
+      <a class="btn btn-default" href="/api/export/colaboradores.csv" download>Exportar CSV</a>
+      <button class="btn btn-primary" onclick="openNewColab()">Novo Colaborador</button>
+    </div>
+  </div>
+  <div style="display:flex;gap:16px;align-items:flex-start">
+    <div class="card" style="flex:1;min-width:0">
+      <div class="table-wrap"><table>
+        <thead><tr><th>Colaborador</th><th>Matrícula</th><th>Cargo</th><th>Setor</th><th>Unidade</th><th>Status</th><th>Equipamentos</th><th></th></tr></thead>
+        <tbody>${data.map(c=>`<tr>
+          <td><div class="flex-gap">${colAvatar(c.nome)}<div>
+            <div style="font-weight:600;font-size:13px">${esc(c.nome)}</div>
+            <div style="font-size:11px;color:var(--text3)">${esc(c.email)}</div>
+          </div></div></td>
+          <td class="mono" style="color:var(--text3)">${esc(c.matricula||'—')}</td>
+          <td style="font-size:12px">${esc(c.cargo)}</td>
+          <td>${esc(c.setor)}</td>
+          <td style="font-size:12px">${esc(c.unidade)}</td>
+          <td>${badge(c.status,STATUS_COLAB_COLOR[c.status]||'gray')}</td>
+          <td style="text-align:center" id="ca-${c.id}"><span style="color:var(--text3)">…</span></td>
+          <td><div class="flex-gap">
+            <button class="btn btn-default btn-icon btn-sm" onclick="viewColab('${c.id}')">Ver</button>
+            <button class="btn btn-default btn-icon btn-sm" onclick="editColab('${c.id}')">Editar</button>
+            ${c.status==='Ativo'?`<button class="btn btn-danger btn-sm" onclick="confirmOffboarding('${c.id}','${esc(c.nome)}')">Desligar</button>`:''}
+          </div></td>
+        </tr>`).join('')}
+        </tbody>
+      </table></div>
+    </div>
+    <div class="card" style="min-width:180px">
+      <div style="font-size:13px;font-weight:600;margin-bottom:12px">Por Setor</div>
+      ${Object.entries(stats.porSetor).sort((a,b)=>b[1]-a[1]).map(([s,n])=>{
+        const p=Math.round(n/stats.total*100);
+        return `<div style="margin-bottom:8px">
+          <div class="flex-between" style="font-size:12px;margin-bottom:3px"><span>${esc(s)}</span><span style="color:var(--text2)">${n}</span></div>
+          <div class="progress-wrap"><div class="progress-bar" style="width:${p}%;background:var(--green-bg)"></div></div>
+        </div>`;}).join('')}
+    </div>
+  </div>`;
+
+  // Busca contagem de ativos em background
+  api('/assets').then(assets=>{
+    const cnt={};
+    assets.forEach(a=>{if(a.colaborador) cnt[a.colaborador]=(cnt[a.colaborador]||0)+1;});
+    data.forEach(c=>{
+      const el=$('ca-'+c.id);
+      if(el) el.innerHTML=`<span style="font-weight:700;color:var(--blue)">${cnt[c.nome]||0}</span>`;
+    });
+  });
+}
+
+async function viewColab(id){
+  const c=await api(`/colaboradores/${id}`);
+  const perfHtml=c.perifericos&&c.perifericos.length
+    ?c.perifericos.map(p=>`<div class="flex-gap" style="padding:7px;border-bottom:1px solid var(--border)">
+        <span></span><span style="flex:1;font-size:13px">${esc(p.nome)}</span>
+        <span class="badge badge-blue">${p.quantidade}x</span>
+      </div>`).join('')
+    :'<p style="font-size:12px;color:var(--text3)">Nenhum periférico vinculado.</p>';
+  const ativosHtml=c.ativos&&c.ativos.length
+    ?c.ativos.map(a=>`<div class="flex-gap" style="padding:7px;border-bottom:1px solid var(--border)">
+        <span></span><div style="flex:1"><div class="mono" style="font-size:12px;font-weight:700">${esc(a.hostname)}</div>
+        <div style="font-size:11px;color:var(--text3)">${esc(a.fabricante)} ${esc(a.modelo)}</div></div>${badge(a.status)}</div>`).join('')
+    :'<p style="font-size:12px;color:var(--text3)">Nenhum ativo alocado.</p>';
+
+  openModal(`Perfil — ${c.nome}`,`
+  <div style="display:flex;gap:16px;margin-bottom:18px">
+    ${colAvatar(c.nome,60)}
+    <div><div style="font-size:17px;font-weight:700;margin-bottom:4px">${esc(c.nome)}</div>
+      <div style="font-size:13px;color:var(--text2);margin-bottom:6px">${esc(c.cargo)} · ${esc(c.setor)}</div>
+      <div class="flex-gap">${badge(c.status,STATUS_COLAB_COLOR[c.status]||'gray')}</div>
+    </div>
+  </div>
+  <div class="form-grid-2" style="margin-bottom:14px">
+    ${[['E-mail',c.email],['Telefone',c.telefone],['Matrícula',c.matricula],['Unidade',c.unidade],['Admissão',fmtDate(c.dataAdmissao)],['Cadastro',fmtDate(c.dataCadastro)]].map(([k,v])=>`
+    <div style="background:var(--bg3);border-radius:var(--r);padding:8px 10px">
+      <div style="font-size:11px;color:var(--text2);margin-bottom:2px">${k}</div>
+      <div style="font-size:13px;font-weight:600">${esc(v)||'—'}</div>
+    </div>`).join('')}
+    ${c.observacao?`<div style="grid-column:span 2;background:var(--amber-bg);border-radius:var(--r);padding:8px 10px">
+      <div style="font-size:11px;color:var(--amber-text);margin-bottom:2px">Observação</div>
+      <div style="font-size:13px;color:var(--amber-text)">${esc(c.observacao)}</div>
+    </div>`:''}
+  </div>
+  <div class="grid-2">
+    <div><div class="section-title" style="font-size:13px">Ativos (${(c.ativos||[]).length})</div>${ativosHtml}</div>
+    <div><div class="section-title" style="font-size:13px">Periféricos (${(c.perifericos||[]).length})</div>${perfHtml}</div>
+  </div>
+  <div class="modal-footer">
+    <button class="btn btn-default" onclick="editColab('${id}');closeModal()">Editar Editar</button>
+    ${c.status==='Ativo'?`<button class="btn btn-danger" onclick="closeModal();confirmOffboarding('${id}','${esc(c.nome)}')">Desligar</button>`:''}
+  </div>`,true);
+}
+
+function colabFormHtml(c={}){
+  return `<div class="form-grid-2">
+    <div class="form-group span-2"><label>Nome Completo</label><input id="fc-nome" value="${esc(c.nome||'')}"></div>
+    <div class="form-group"><label>E-mail</label><input id="fc-email" type="email" value="${esc(c.email||'')}"></div>
+    <div class="form-group"><label>Telefone</label><input id="fc-tel" value="${esc(c.telefone||'')}"></div>
+    <div class="form-group"><label>Cargo</label><input id="fc-cargo" value="${esc(c.cargo||'')}"></div>
+    <div class="form-group"><label>Matrícula</label><input id="fc-mat" value="${esc(c.matricula||'')}"></div>
+    <div class="form-group"><label>Setor</label>
+      <select id="fc-setor"><option value="">—</option>${setorOpts(c.setor||'')}</select>
+    </div>
+    <div class="form-group"><label>Unidade</label>
+      <select id="fc-uni"><option value="">—</option>${unidadeOpts(c.unidade||'')}</select>
+    </div>
+    <div class="form-group"><label>Status</label>
+      <select id="fc-status">${STATUS_COL.map(s=>`<option ${s===c.status?'selected':''}>${s}</option>`).join('')}</select>
+    </div>
+    <div class="form-group"><label>Data de Admissão</label><input id="fc-adm" type="date" value="${c.dataAdmissao||''}"></div>
+  </div>
+  <div class="form-group"><label>Observação</label><textarea id="fc-obs" rows="2">${esc(c.observacao||'')}</textarea></div>`;
+}
+function getColabForm(){
+  return {nome:$('fc-nome').value,email:$('fc-email').value,telefone:$('fc-tel').value,cargo:$('fc-cargo').value,matricula:$('fc-mat').value,setor:$('fc-setor').value,unidade:$('fc-uni').value,status:$('fc-status').value,dataAdmissao:$('fc-adm').value,observacao:$('fc-obs').value};
+}
+function openNewColab(){
+  openModal('Novo Colaborador',colabFormHtml()+`<div class="modal-footer"><button class="btn btn-default" onclick="closeModal()">Cancelar</button><button class="btn btn-primary" onclick="saveNewColab()">Cadastrar</button></div>`,true);
+}
+async function editColab(id){
+  const c=await api(`/colaboradores/${id}`);
+  openModal('Editar Colaborador',colabFormHtml(c)+`<div class="modal-footer"><button class="btn btn-default" onclick="closeModal()">Cancelar</button><button class="btn btn-primary" onclick="saveEditColab('${id}')">Salvar</button></div>`,true);
+}
+async function saveNewColab(){if(!$('fc-nome').value){toast('Informe o nome','error');return;}await api('/colaboradores','POST',getColabForm());toast('Colaborador cadastrado');closeModal();renderColaboradores();}
+async function saveEditColab(id){await api(`/colaboradores/${id}`,'PUT',getColabForm());toast('Colaborador atualizado');closeModal();renderColaboradores();}
+
+function confirmOffboarding(id,nome){
+  openModal('Confirmar Desligamento',`
+  <div style="text-align:center;padding:10px 0 20px">
+    <div style="font-size:40px;margin-bottom:12px">Atenção</div>
+    <div style="font-size:15px;font-weight:700;margin-bottom:8px">Desligar ${esc(nome)}?</div>
+    <div style="font-size:13px;color:var(--text2);line-height:1.8">Esta ação irá:<br>
+    • Devolver todos os <strong>ativos de TI</strong> ao estoque<br>
+    • Devolver todos os <strong>periféricos</strong> ao estoque<br>
+    • Encerrar <strong>alocações ativas</strong><br>
+    • Marcar o colaborador como <strong>Inativo</strong></div>
+  </div>
+  <div class="modal-footer" style="justify-content:center">
+    <button class="btn btn-default" onclick="closeModal()">Cancelar</button>
+    <button class="btn btn-danger" onclick="executeOffboarding('${id}')">Confirmar Desligamento</button>
+  </div>`,false,true);
+}
+async function executeOffboarding(id){
+  const r=await api(`/colaboradores/${id}/offboarding`,'POST',{});
+  closeModal();
+  const temItens = r.ativosDevolvidos.length||r.perifericosDevolvidos.length;
+  openModal('Desligamento Concluído',`
+  <div style="text-align:center;padding:8px 0 14px">
+    <div style="font-size:40px;margin-bottom:10px">OK</div>
+    <div style="font-size:15px;font-weight:700;margin-bottom:4px">Desligamento realizado</div>
+    <div style="font-size:12px;color:var(--text2)">${esc(r.colaborador)} · ${r.dataDesligamento}</div>
+    <div style="font-size:12px;color:var(--text2)">${esc(r.setor||'')} ${r.unidade?'· '+esc(r.unidade):''}</div>
+  </div>
+  ${r.ativosDevolvidos.length?`<div class="info-box green"><strong>Ativos devolvidos:</strong><br>${r.ativosDevolvidos.map(h=>`• ${esc(h)}`).join('<br>')}</div>`:''}
+  ${r.perifericosDevolvidos.length?`<div class="info-box green"><strong>Periféricos devolvidos:</strong><br>${r.perifericosDevolvidos.map(p=>`• ${esc(p)}`).join('<br>')}</div>`:'<p style="font-size:12px;color:var(--text3);text-align:center">Nenhum periférico estava vinculado.</p>'}
+  <div class="modal-footer" style="justify-content:center">
+    ${temItens?`<a href="/api/colaboradores/${r.colaboradorId}/termo-devolucao.pdf" class="btn btn-primary" download>Baixar Termo de Devolução</a>`:''}
+    <button class="btn btn-default" onclick="closeModal()">Fechar</button>
+  </div>`,false,true);
+  renderColaboradores();
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// USUÁRIOS DO SISTEMA
+// ══════════════════════════════════════════════════════════════════════════
+const PERFIS_SYS=['Administrador','Técnico TI','Gestor','Visualizador'];
+const PERFIL_COR={Administrador:'red','Técnico TI':'blue',Gestor:'amber',Visualizador:'gray'};
+const MODULO_LABEL={dashboard:'Dashboard',ativos:'Ativos de TI',insumos:'Insumos & Periféricos',colaboradores:'Colaboradores',alocacoes:'Alocações',qrcode:'QR Code',licencas:'Licenças',alertas:'Alertas',system_users:'Usuários do Sistema'};
+
+async function renderSystemUsers(){
+  const [data,perfis]=await Promise.all([api('/system-users'),api('/system-users/perfis')]);
+  const cfg_cats = _settings.categorias_config || {};
+  const perfilCards=Object.entries(perfis).map(([p,info])=>`
+  <div class="card" style="border-top:3px solid var(--${info.cor}-text)">
+    <div class="flex-between" style="margin-bottom:8px">
+      <span style="font-weight:700;font-size:14px">${p}</span>
+      <div class="flex-gap">
+        ${badge(data.filter(u=>u.perfil===p&&u.status==='Ativo').length+' usuário(s)','gray')}
+        <button class="btn btn-default btn-icon btn-sm" onclick='editPerfilPerms(${JSON.stringify(p)},${JSON.stringify(info)})' title="Editar permissões">Editar</button>
+      </div>
+    </div>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:10px">${esc(info.label)}</div>
+    <div class="perm-grid">
+      ${['pode_editar','pode_excluir','pode_exportar'].map(k=>`
+      <div class="perm-item ${info[k]?'on':'off'}">${info[k]?'OK':'x'} ${k.replace('pode_','').replace('_',' ')}</div>`).join('')}
+    </div>
+    <div style="font-size:11px;font-weight:600;color:var(--text2);margin-bottom:6px">MÓDULOS LIBERADOS:</div>
+    <div style="display:flex;flex-wrap:wrap;gap:4px">
+      ${info.modulos.map(m=>`<span class="badge badge-${info.cor}" style="font-size:10px">${MODULO_LABEL[m]||m}</span>`).join('')}
+    </div>
+  </div>`).join('');
+
+  $('content').innerHTML=`
+  <div class="flex-between mb-16">
+    <div style="font-size:13px;color:var(--text2)">${data.length} usuários cadastrados · ${data.filter(u=>u.status==='Ativo').length} ativos</div>
+    <button class="btn btn-primary" onclick="openNewSysUser()">Novo Usuário</button>
+  </div>
+  <div class="card mb-16"><div class="table-wrap"><table>
+    <thead><tr><th>Username</th><th>Nome</th><th>E-mail</th><th>Perfil</th><th>Status</th><th>Último Acesso</th><th>Criado em</th><th>Ações</th></tr></thead>
+    <tbody>${data.map(u=>`<tr>
+      <td class="mono" style="font-weight:700">${esc(u.username)}</td>
+      <td style="font-weight:600">${esc(u.nome)}</td>
+      <td style="font-size:12px;color:var(--text2)">${esc(u.email)}</td>
+      <td>${badge(u.perfil,PERFIL_COR[u.perfil]||'gray')}</td>
+      <td>${badge(u.status,u.status==='Ativo'?'green':'red')}</td>
+      <td style="font-size:12px;color:var(--text3)">${u.ultimoAcesso?new Date(u.ultimoAcesso).toLocaleString('pt-BR'):'—'}</td>
+      <td style="font-size:12px;color:var(--text3)">${fmtDate(u.criadoEm)}</td>
+      <td><div class="flex-gap">
+        <button class="btn btn-default btn-icon btn-sm" onclick="editSysUser('${u.id}','${esc(u.username)}','${esc(u.nome)}','${esc(u.email)}','${u.perfil}','${u.status}')">Editar</button>
+        <button class="btn ${u.status==='Ativo'?'btn-warning':'btn-success'} btn-sm" onclick="toggleSysUser('${u.id}','${esc(u.nome)}')">${u.status==='Ativo'?'Desativar':'Ativar'}</button>
+        <button class="btn btn-default btn-sm" onclick="openResetSenha('${u.id}','${esc(u.username)}')">Senha</button>
+      </div></td>
+    </tr>`).join('')}
+    </tbody>
+  </table></div></div>
+  <!-- CATEGORIA CONFIG -->
+  <div class="card" style="grid-column:span 2;margin-top:16px">
+    <div class="flex-between" style="margin-bottom:14px">
+      <div class="section-title" style="margin-bottom:0">Tipo de Alocação por Categoria</div>
+      <div style="font-size:12px;color:var(--text2)">Define se o ativo vai para <strong>Colaborador</strong> (uso pessoal) ou <strong>Unidade</strong> (infraestrutura)</div>
+    </div>
+    <div id="cats-config-list" class="form-grid-2">
+      ${ASSET_CATS.map(cat=>{
+        const cfg = cfg_cats[cat] || {tipo_alocacao:'colaborador'};
+        return `<div style="display:flex;align-items:center;justify-content:space-between;padding:9px 12px;border:1px solid var(--border);border-radius:var(--r);background:var(--bg3)">
+          <span style="font-size:13px;font-weight:600">${esc(cat)}</span>
+          <select data-cat="${esc(cat)}" style="width:auto;font-size:12px;border:1px solid var(--border2);padding:3px 6px;border-radius:5px" onchange="saveCatConfig()">
+            <option value="colaborador" ${cfg.tipo_alocacao==='colaborador'?'selected':''}>Colaborador</option>
+            <option value="unidade"    ${cfg.tipo_alocacao==='unidade'   ?'selected':''}>Unidade</option>
+          </select>
+        </div>`;
+      }).join('')}
+    </div>
+    <div class="info-box blue" style="margin-top:12px;font-size:12px">
+      Nota: Categorias definidas como <strong>Unidade</strong> não exibem campo Colaborador no formulário de ativo — apenas Responsável Técnico (opcional) e Unidade.
+    </div>
+  </div>
+
+  <div style="font-size:14px;font-weight:700;margin-bottom:12px;margin-top:4px">Perfis de Acesso</div>
+  <div class="grid-4">${perfilCards}</div>`;
+}
+
+function openNewSysUser(){
+  openModal('Novo Usuário do Sistema',`
+  <div class="form-grid-2">
+    <div class="form-group span-2"><label>Nome Completo</label><input id="su-nome"></div>
+    <div class="form-group"><label>Username</label><input id="su-user" placeholder="ex: joao.silva"></div>
+    <div class="form-group"><label>Senha Inicial</label><input id="su-senha" type="password" placeholder="mín. 6 caracteres"></div>
+    <div class="form-group"><label>E-mail</label><input id="su-email" type="email"></div>
+    <div class="form-group"><label>Perfil de Acesso</label>
+      <select id="su-perfil">${PERFIS_SYS.map(p=>`<option>${p}</option>`).join('')}</select>
+    </div>
+  </div>
+  <div class="info-box blue">As permissões são definidas automaticamente pelo perfil selecionado.</div>
+  <div class="modal-footer">
+    <button class="btn btn-default" onclick="closeModal()">Cancelar</button>
+    <button class="btn btn-primary" onclick="saveNewSysUser()">Criar Usuário</button>
+  </div>`);
+}
+async function saveNewSysUser(){
+  if($('su-senha').value.length<6){toast('Senha deve ter ao menos 6 caracteres','error');return;}
+  try{
+    await api('/system-users','POST',{nome:$('su-nome').value,username:$('su-user').value,email:$('su-email').value,perfil:$('su-perfil').value,senha:$('su-senha').value});
+    toast('Usuário criado');closeModal();renderSystemUsers();
+  }catch(e){toast(e.message,'error');}
+}
+
+function editSysUser(id,username,nome,email,perfil,status){
+  openModal('Editar Usuário do Sistema',`
+  <div class="form-grid-2">
+    <div class="form-group span-2"><label>Nome Completo</label><input id="su-nome" value="${esc(nome)}"></div>
+    <div class="form-group"><label>Username</label><input id="su-user" value="${esc(username)}" disabled style="background:var(--bg3);color:var(--text3)"></div>
+    <div class="form-group"><label>E-mail</label><input id="su-email" type="email" value="${esc(email)}"></div>
+    <div class="form-group"><label>Perfil</label>
+      <select id="su-perfil">${PERFIS_SYS.map(p=>`<option ${p===perfil?'selected':''}>${p}</option>`).join('')}</select>
+    </div>
+    <div class="form-group"><label>Status</label>
+      <select id="su-status"><option ${status==='Ativo'?'selected':''}>Ativo</option><option ${status==='Inativo'?'selected':''}>Inativo</option></select>
+    </div>
+  </div>
+  <div class="modal-footer">
+    <button class="btn btn-default" onclick="closeModal()">Cancelar</button>
+    <button class="btn btn-primary" onclick="saveEditSysUser('${id}')">Salvar</button>
+  </div>`);
+}
+async function saveEditSysUser(id){
+  await api(`/system-users/${id}`,'PUT',{nome:$('su-nome').value,email:$('su-email').value,perfil:$('su-perfil').value,status:$('su-status').value});
+  toast('Usuário atualizado');closeModal();renderSystemUsers();
+}
+
+async function toggleSysUser(id,nome){
+  const r=await api(`/system-users/${id}/toggle`,'POST',{});
+  toast(`${nome} → ${r.status}`);renderSystemUsers();
+}
+
+function openResetSenha(id,username){
+  openModal(`Redefinir Senha — ${username}`,`
+  <div class="form-group"><label>Nova Senha</label><input id="rs-nova" type="password" placeholder="mín. 6 caracteres"></div>
+  <div class="form-group"><label>Confirmar</label><input id="rs-conf" type="password" placeholder="repita a senha"></div>
+  <div class="modal-footer">
+    <button class="btn btn-default" onclick="closeModal()">Cancelar</button>
+    <button class="btn btn-danger" onclick="doResetSenha('${id}')">Redefinir</button>
+  </div>`,false,true);
+}
+async function doResetSenha(id){
+  if($('rs-nova').value.length<6){toast('Mín. 6 caracteres','error');return;}
+  if($('rs-nova').value!==$('rs-conf').value){toast('Senhas não coincidem','error');return;}
+  await api(`/system-users/${id}/reset-senha`,'POST',{senha:$('rs-nova').value});
+  toast('Senha redefinida com sucesso');closeModal();
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// CONFIGURAÇÕES
+// ══════════════════════════════════════════════════════════════════════════
+
+async function renderConfiguracoes(){
+  const cfg = await api('/settings');
+  const {empresa, setores, unidades, alertas, regras_usuario, campos_ativo_obrigatorios} = cfg;
+  const cfg_cats   = cfg.categorias_config    || {};
+  const cfg_email  = cfg.email                || {};
+  const cfg_tr     = cfg.termo_recebimento    || {};
+  const cfg_td     = cfg.termo_devolucao      || {};
+
+  $('content').innerHTML = `
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+
+    <!-- EMPRESA -->
+    <div class="card" style="grid-column:span 2">
+      <div class="section-title">Dados da Empresa</div>
+      <div class="form-grid-2">
+        ${[['Nome da Empresa','cfg-emp-nome',empresa.nome],['CNPJ','cfg-emp-cnpj',empresa.cnpj],
+           ['E-mail TI','cfg-emp-email',empresa.email],['Telefone','cfg-emp-tel',empresa.telefone],
+           ['Site','cfg-emp-site',empresa.site],['Endereço','cfg-emp-end',empresa.endereco]].map(([l,id,v])=>`
+        <div class="form-group"><label>${l}</label><input id="${id}" value="${esc(v)}"></div>`).join('')}
+      </div>
+      <div class="modal-footer" style="padding-top:10px;margin-top:0;border-top:none;justify-content:flex-start">
+        <button class="btn btn-primary" onclick="saveEmpresa()">Salvar Empresa</button>
+      </div>
+    </div>
+
+    <!-- SETORES -->
+    <div class="card">
+      <div class="flex-between" style="margin-bottom:12px">
+        <div class="section-title" style="margin-bottom:0">Setores</div>
+        <div class="flex-gap">
+          <input id="novo-setor" placeholder="Novo setor..." style="width:140px">
+          <button class="btn btn-primary btn-sm" onclick="addSetor()">Adicionar</button>
+        </div>
+      </div>
+      <div id="setores-list">
+        ${setores.map(s=>`
+        <div class="alert-row" style="padding:6px 0">
+          <span style="flex:1;font-size:13px">${esc(s)}</span>
+          <button class="btn btn-danger btn-sm btn-icon" onclick="delSetor('${esc(s)}')">x</button>
+        </div>`).join('')}
+      </div>
+    </div>
+
+    <!-- UNIDADES -->
+    <div class="card">
+      <div class="flex-between" style="margin-bottom:12px">
+        <div class="section-title" style="margin-bottom:0">Unidades / Locais</div>
+        <button class="btn btn-primary btn-sm" onclick="openNewUnidade()">Novo</button>
+      </div>
+      <div id="unidades-list">
+        ${unidades.map(u=>`
+        <div class="alert-row" style="padding:6px 0">
+          <div style="flex:1">
+            <div style="font-size:13px;font-weight:600">${esc(u.nome)}</div>
+            <div style="font-size:11px;color:var(--text3)">${esc(u.cidade)} — ${esc(u.estado)} · ${badge(u.tipo,'gray')}</div>
+          </div>
+          <button class="btn btn-default btn-icon btn-sm" onclick="editUnidade(${JSON.stringify(u).replace(/"/g,'&quot;')})">Editar</button>
+          <button class="btn btn-danger btn-sm btn-icon" onclick="delUnidade('${u.id}')">x</button>
+        </div>`).join('')}
+      </div>
+    </div>
+
+    <!-- ALERTAS -->
+    <div class="card">
+      <div class="section-title">Configurações de Alertas</div>
+      <div class="form-group"><label>Dias de antecedência — Garantia</label>
+        <input id="cfg-al-gar" type="number" value="${alertas.dias_garantia}" min="1" max="365">
+      </div>
+      <div class="form-group"><label>Dias de antecedência — Licença</label>
+        <input id="cfg-al-lic" type="number" value="${alertas.dias_licenca}" min="1" max="365">
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+        <input type="checkbox" id="cfg-al-esq" ${alertas.estoque_minimo?'checked':''} style="width:auto">
+        <label for="cfg-al-esq" style="margin:0">Alertar quando estoque atingir mínimo</label>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
+        <input type="checkbox" id="cfg-al-email" ${alertas.notif_email?'checked':''} style="width:auto">
+        <label for="cfg-al-email" style="margin:0">Notificações por e-mail (requer config. SMTP)</label>
+      </div>
+      <button class="btn btn-primary btn-sm" onclick="saveAlertas()">Salvar Alertas</button>
+    </div>
+
+    <!-- REGRAS DE USUÁRIO -->
+    <div class="card">
+      <div class="section-title">Regras de Operação</div>
+      <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px">
+        ${[
+          ['cfg-r-termo','exige_termo_alocacao','Exigir termo ao alocar ativo'],
+          ['cfg-r-email','permite_alocar_sem_email','Permitir alocação sem e-mail do colaborador'],
+          ['cfg-r-vinculo','obriga_vinculo_saida','Obrigar vínculo em saídas de periférico'],
+        ].map(([id,key,label])=>`
+        <div style="display:flex;align-items:center;gap:10px">
+          <input type="checkbox" id="${id}" ${regras_usuario[key]?'checked':''} style="width:auto">
+          <label for="${id}" style="margin:0;font-size:13px">${label}</label>
+        </div>`).join('')}
+        <div class="form-group" style="margin-top:4px"><label>Máximo de periféricos por colaborador</label>
+          <input id="cfg-r-maxp" type="number" value="${regras_usuario.max_perifericos_por_colab}" min="1" max="50">
+        </div>
+      </div>
+      <button class="btn btn-primary btn-sm" onclick="saveRegras()">Salvar Regras</button>
+    </div>
+
+    <!-- E-MAIL / SMTP -->
+    <div class="card" style="grid-column:span 2">
+      <div class="section-title">Configurações de E-mail (SMTP)</div>
+      <div class="info-box blue" style="margin-bottom:14px">
+        Usado para enviar links de assinatura e notificações. Senha segura via variável de ambiente <code>SMTP_PASSWORD</code> (recomendado).
+        ${cfg_email.password_configurado ? '<span style="color:var(--green-text);font-weight:600;margin-left:8px">✓ Senha configurada</span>' : '<span style="color:var(--red-text);font-weight:600;margin-left:8px">⚠ Senha não configurada</span>'}
+        ${cfg_email.via_env ? '<span style="font-size:11px;color:var(--text3);margin-left:8px">(via variável de ambiente)</span>' : ''}
+      </div>
+      <div class="form-grid-2">
+        <div class="form-group"><label>Servidor SMTP</label><input id="email-host" value="${esc(cfg_email.host||'')}" placeholder="smtp.gmail.com"></div>
+        <div class="form-group"><label>Porta</label><input id="email-port" type="number" value="${cfg_email.port||587}" placeholder="587"></div>
+        <div class="form-group"><label>Usuário SMTP</label><input id="email-user" value="${esc(cfg_email.user||'')}" placeholder="ti@empresa.com"></div>
+        <div class="form-group"><label>Senha SMTP ${cfg_email.via_env?'<span style=\'color:var(--text3);font-size:10px\'>(controlada pela env SMTP_PASSWORD)</span>':''}</label>
+          <input id="email-password" type="password" placeholder="${cfg_email.password_configurado?'••••••••':'Não configurada'}" ${cfg_email.via_env?'disabled title="Definida via SMTP_PASSWORD — edite no servidor"':''}>
+        </div>
+        <div class="form-group"><label>Nome remetente</label><input id="email-from-name" value="${esc(cfg_email.from_name||'')}" placeholder="TI Empresa"></div>
+        <div class="form-group"><label>E-mail remetente</label><input id="email-from-email" value="${esc(cfg_email.from_email||'')}" placeholder="noreply@empresa.com"></div>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
+        <input type="checkbox" id="email-enabled" ${cfg_email.enabled?'checked':''} style="width:auto">
+        <label for="email-enabled" style="margin:0;font-size:13px">Habilitar envio de e-mail</label>
+        <input type="checkbox" id="email-tls" ${cfg_email.tls!==false?'checked':''} style="width:auto;margin-left:16px">
+        <label for="email-tls" style="margin:0;font-size:13px">Usar TLS/STARTTLS</label>
+      </div>
+      <div class="flex-gap">
+        <button class="btn btn-primary btn-sm" onclick="saveEmailCfg()">Salvar E-mail</button>
+        <button class="btn btn-default btn-sm" onclick="testEmailCfg()">Testar Conexão</button>
+      </div>
+    </div>
+
+    <!-- TERMOS — RECEBIMENTO -->
+    <div class="card" style="grid-column:span 2">
+      <div class="section-title">Personalização — Termo de Recebimento</div>
+      <div class="info-box blue" style="margin-bottom:14px">
+        Variáveis disponíveis: <code>{colaborador}</code> <code>{setor}</code> <code>{unidade}</code> <code>{ativo}</code> <code>{data}</code> <code>{empresa}</code> <code>{termo}</code>
+      </div>
+      <div class="form-grid-2">
+        <div class="form-group" style="grid-column:span 2"><label>Título do Termo</label>
+          <input id="tr-titulo" value="${esc(cfg_tr.titulo||'TERMO DE RESPONSABILIDADE DE EQUIPAMENTO')}">
+        </div>
+        <div class="form-group" style="grid-column:span 2"><label>Preâmbulo (texto após o título, antes do ativo)</label>
+          <textarea id="tr-preambulo" style="width:100%;min-height:70px;resize:vertical;padding:8px;border:1px solid var(--border);border-radius:var(--r);font-family:inherit;background:var(--bg2);color:var(--text)">${esc(cfg_tr.preambulo||'')}</textarea>
+        </div>
+        <div class="form-group" style="grid-column:span 2"><label>Cláusulas (uma por linha)</label>
+          <textarea id="tr-clausulas" style="width:100%;min-height:100px;resize:vertical;padding:8px;border:1px solid var(--border);border-radius:var(--r);font-family:inherit;background:var(--bg2);color:var(--text)">${(cfg_tr.clausulas||[]).join('\n')}</textarea>
+        </div>
+        <div class="form-group" style="grid-column:span 2"><label>Rodapé do PDF</label>
+          <input id="tr-rodape" value="${esc(cfg_tr.rodape||'')}">
+        </div>
+      </div>
+      <button class="btn btn-primary btn-sm" onclick="saveTermoRecebimento()">Salvar Termo de Recebimento</button>
+    </div>
+
+    <!-- TERMOS — DEVOLUÇÃO -->
+    <div class="card" style="grid-column:span 2">
+      <div class="section-title">Personalização — Termo de Devolução</div>
+      <div class="form-grid-2">
+        <div class="form-group" style="grid-column:span 2"><label>Título</label>
+          <input id="td-titulo" value="${esc(cfg_td.titulo||'TERMO DE DEVOLUÇÃO DE EQUIPAMENTOS')}">
+        </div>
+        <div class="form-group" style="grid-column:span 2"><label>Preâmbulo</label>
+          <textarea id="td-preambulo" style="width:100%;min-height:70px;resize:vertical;padding:8px;border:1px solid var(--border);border-radius:var(--r);font-family:inherit;background:var(--bg2);color:var(--text)">${esc(cfg_td.preambulo||'')}</textarea>
+        </div>
+        <div class="form-group" style="grid-column:span 2"><label>Cláusulas adicionais (uma por linha)</label>
+          <textarea id="td-clausulas" style="width:100%;min-height:80px;resize:vertical;padding:8px;border:1px solid var(--border);border-radius:var(--r);font-family:inherit;background:var(--bg2);color:var(--text)">${(cfg_td.clausulas||[]).join('\n')}</textarea>
+        </div>
+        <div class="form-group" style="grid-column:span 2"><label>Declaração (frase de encerramento antes da assinatura)</label>
+          <input id="td-declaracao" value="${esc(cfg_td.declaracao||'Declaro ter devolvido todos os equipamentos listados acima em plenas condições.')}">
+        </div>
+        <div class="form-group" style="grid-column:span 2"><label>Rodapé do PDF</label>
+          <input id="td-rodape" value="${esc(cfg_td.rodape||'')}">
+        </div>
+      </div>
+      <button class="btn btn-primary btn-sm" onclick="saveTermoDevolucao()">Salvar Termo de Devolução</button>
+    </div>
+
+    <!-- BACKUP -->
+    <div class="card" style="grid-column:span 2">
+      <div class="section-title">Backup e Exportação</div>
+      <div class="info-box blue">Gera uma cópia JSON dos principais cadastros e movimentos. Use antes de alterações grandes ou migrações.</div>
+      <div class="flex-gap" style="flex-wrap:wrap">
+        <a class="btn btn-primary" href="/api/backup.json" download>Baixar Backup JSON</a>
+        <a class="btn btn-default" href="/api/export/assets.csv" download>Ativos CSV</a>
+        <a class="btn btn-default" href="/api/export/colaboradores.csv" download>Colaboradores CSV</a>
+        <a class="btn btn-default" href="/api/export/alocacoes.csv" download>Alocações CSV</a>
+      </div>
+    </div>
+
+  </div>`;
+}
+
+async function saveCatConfig(){
+  const sels = document.querySelectorAll('[data-cat]');
+  const cats = {};
+  sels.forEach(s=>{ cats[s.dataset.cat]={tipo_alocacao:s.value}; });
+  await api('/settings','PUT',{categorias_config:cats});
+  _settings.categorias_config = cats;
+  toast('Configuração de categorias salva');
+}
+async function saveEmpresa(){
+  await api('/settings','PUT',{empresa:{nome:$('cfg-emp-nome').value,cnpj:$('cfg-emp-cnpj').value,email:$('cfg-emp-email').value,telefone:$('cfg-emp-tel').value,site:$('cfg-emp-site').value,endereco:$('cfg-emp-end').value}});
+  toast('Dados da empresa salvos');
+}
+async function saveAlertas(){
+  await api('/settings','PUT',{alertas:{dias_garantia:+$('cfg-al-gar').value,dias_licenca:+$('cfg-al-lic').value,estoque_minimo:$('cfg-al-esq').checked,notif_email:$('cfg-al-email').checked}});
+  toast('Configurações de alertas salvas');
+}
+async function saveRegras(){
+  await api('/settings','PUT',{regras_usuario:{exige_termo_alocacao:$('cfg-r-termo').checked,permite_alocar_sem_email:$('cfg-r-email').checked,obriga_vinculo_saida:$('cfg-r-vinculo').checked,max_perifericos_por_colab:+$('cfg-r-maxp').value}});
+  toast('Regras salvas');
+}
+
+async function addSetor(){
+  const nome = $('novo-setor').value.trim();
+  if(!nome){toast('Informe o nome do setor','error');return;}
+  try{
+    await api('/settings/setores','POST',{nome});
+    toast('Setor adicionado'); $('novo-setor').value=''; renderConfiguracoes();
+  }catch(e){toast(e.message,'error');}
+}
+async function delSetor(nome){
+  await api('/settings/setores/'+encodeURIComponent(nome),'DELETE');
+  toast('Setor removido'); renderConfiguracoes();
+}
+
+function openNewUnidade(){
+  openModal('Nova Unidade',`
+  <div class="form-grid-2">
+    <div class="form-group"><label>Nome</label><input id="nu-nome" placeholder="Ex: Filial SP Interior"></div>
+    <div class="form-group"><label>Tipo</label>
+      <select id="nu-tipo"><option>Sede</option><option>Filial</option><option>Depósito</option><option>Escritório</option><option>DataCenter</option></select>
+    </div>
+    <div class="form-group"><label>Cidade</label><input id="nu-cidade"></div>
+    <div class="form-group"><label>Estado</label><input id="nu-estado" placeholder="SP"></div>
+  </div>
+  <div class="modal-footer">
+    <button class="btn btn-default" onclick="closeModal()">Cancelar</button>
+    <button class="btn btn-primary" onclick="saveNewUnidade()">Salvar</button>
+  </div>`,false,true);
+}
+async function saveNewUnidade(){
+  await api('/settings/unidades','POST',{nome:$('nu-nome').value,tipo:$('nu-tipo').value,cidade:$('nu-cidade').value,estado:$('nu-estado').value});
+  toast('Unidade criada');closeModal();renderConfiguracoes();
+}
+function editUnidade(u){
+  openModal('Editar Unidade',`
+  <div class="form-grid-2">
+    <div class="form-group"><label>Nome</label><input id="nu-nome" value="${esc(u.nome)}"></div>
+    <div class="form-group"><label>Tipo</label>
+      <select id="nu-tipo">${['Sede','Filial','Depósito','Escritório','DataCenter'].map(t=>`<option ${t===u.tipo?'selected':''}>${t}</option>`).join('')}</select>
+    </div>
+    <div class="form-group"><label>Cidade</label><input id="nu-cidade" value="${esc(u.cidade)}"></div>
+    <div class="form-group"><label>Estado</label><input id="nu-estado" value="${esc(u.estado)}"></div>
+  </div>
+  <div class="modal-footer">
+    <button class="btn btn-default" onclick="closeModal()">Cancelar</button>
+    <button class="btn btn-primary" onclick="saveEditUnidade('${u.id}')">Salvar</button>
+  </div>`,false,true);
+}
+async function saveEditUnidade(id){
+  await api('/settings/unidades/'+id,'PUT',{nome:$('nu-nome').value,tipo:$('nu-tipo').value,cidade:$('nu-cidade').value,estado:$('nu-estado').value});
+  toast('Unidade atualizada');closeModal();renderConfiguracoes();
+}
+async function delUnidade(id){
+  await api('/settings/unidades/'+id,'DELETE');
+  toast('Unidade removida'); renderConfiguracoes();
+}
+
+async function saveEmailCfg(){
+  const pw = $('email-password')?.value;
+  const payload = {
+    host:       $('email-host').value.trim(),
+    port:       +$('email-port').value,
+    tls:        $('email-tls').checked,
+    user:       $('email-user').value.trim(),
+    from_name:  $('email-from-name').value.trim(),
+    from_email: $('email-from-email').value.trim(),
+    enabled:    $('email-enabled').checked,
+  };
+  if(pw) payload.password = pw;
+  try{
+    await api('/settings/email','PUT',payload);
+    toast('Configurações de e-mail salvas');
+  }catch(e){ toast(e.message,'error'); }
+}
+
+async function testEmailCfg(){
+  try{
+    const r = await api('/settings/email/test','POST',{});
+    if(r.ok) toast('E-mail de teste enviado com sucesso!');
+    else toast('Erro: '+(r.error||'falha no envio'),'error');
+  }catch(e){ toast(e.message,'error'); }
+}
+
+async function saveTermoRecebimento(){
+  const clausulas = ($('tr-clausulas').value||'').split('\n').map(s=>s.trim()).filter(Boolean);
+  await api('/settings/termos','PUT',{termo_recebimento:{
+    titulo:    $('tr-titulo').value,
+    preambulo: $('tr-preambulo').value,
+    clausulas,
+    rodape:    $('tr-rodape').value,
+  }});
+  toast('Termo de recebimento salvo');
+}
+
+async function saveTermoDevolucao(){
+  const clausulas = ($('td-clausulas').value||'').split('\n').map(s=>s.trim()).filter(Boolean);
+  await api('/settings/termos','PUT',{termo_devolucao:{
+    titulo:      $('td-titulo').value,
+    preambulo:   $('td-preambulo').value,
+    clausulas,
+    declaracao:  $('td-declaracao').value,
+    rodape:      $('td-rodape').value,
+  }});
+  toast('Termo de devolução salvo');
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// HISTÓRICO DO ATIVO
+// ══════════════════════════════════════════════════════════════════════════
+const HIST_COR_MAP = {
+  green:  ['var(--green-bg)',  'var(--green-text)',  'var(--green-border)'],
+  blue:   ['var(--blue-bg)',   'var(--blue-text)',   'var(--blue-border)'],
+  amber:  ['var(--amber-bg)',  'var(--amber-text)',  'var(--amber-border)'],
+  red:    ['var(--red-bg)',    'var(--red-text)',    'var(--red-border)'],
+  purple: ['var(--purple-bg)', 'var(--purple-text)', 'var(--border2)'],
+  gray:   ['var(--bg3)',       'var(--text2)',        'var(--border2)'],
+};
+
+async function viewAssetHistory(aid) {
+  const h = await api('/assets/' + aid + '/history');
+  if (!h) return;
+  const { asset, eventos, totalEventos } = h;
+
+  const fmtEvData = iso => {
+    if (!iso) return '—';
+    const d = new Date(iso);
+    return d.toLocaleDateString('pt-BR') + ' ' + d.toLocaleTimeString('pt-BR', {hour:'2-digit',minute:'2-digit'});
+  };
+
+  const tipoLabel = {
+    auditoria:'Sistema', alocacao:'Alocação', devolucao:'Devolução',
+    manutencao:'Manutenção', incidente:'Incidente', insumo:'Insumo',
+  };
+
+  const rowHtml = eventos.length ? eventos.map((e, i) => {
+    const [bg, fg, border] = HIST_COR_MAP[e.cor] || HIST_COR_MAP.gray;
+    const icone = (e.extra && e.extra.icone) || e.icone || 'clipboard';
+    const cor   = (e.extra && e.extra.cor)   || e.cor  || 'gray';
+    const [bg2, fg2] = HIST_COR_MAP[cor] || HIST_COR_MAP.gray;
+
+    let extraHtml = '';
+    if (e.extra) {
+      if (e.extra.alocacaoId) extraHtml += `<span class="badge badge-gray" style="font-size:10px">${esc(e.extra.alocacaoId)}</span> `;
+      if (e.extra.termoStatus) extraHtml += badge(e.extra.termoStatus) + ' ';
+      if (e.extra.motivo)      extraHtml += `<span style="font-size:11px;color:var(--text3)">${esc(e.extra.motivo)}</span>`;
+      if (e.extra.osId)        extraHtml += `<span class="badge badge-gray" style="font-size:10px">${esc(e.extra.osId)}</span> `;
+      if (e.extra.status && e.tipo === 'manutencao') extraHtml += badge(e.extra.status, MANUT_STATUS_COLOR[e.extra.status]||'gray') + ' ';
+      if (e.extra.custoTotal)  extraHtml += `<span style="font-size:11px;color:var(--text2)">${fmtCur(e.extra.custoTotal)}</span>`;
+      if (e.extra.incidenteId) extraHtml += `<span class="badge badge-gray" style="font-size:10px">${esc(e.extra.incidenteId)}</span>`;
+    }
+
+    return `
+    <div style="display:flex;gap:12px;align-items:flex-start;padding:10px 0;border-bottom:1px solid var(--border)">
+      <!-- ícone + linha vertical -->
+      <div style="display:flex;flex-direction:column;align-items:center;flex-shrink:0;width:32px">
+        <div style="width:32px;height:32px;border-radius:99px;background:${bg2};color:${fg2};display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0">${inlineIcon(icone)}</div>
+        ${i < eventos.length-1 ? `<div style="width:2px;flex:1;background:var(--border);margin-top:4px;min-height:16px"></div>` : ''}
+      </div>
+      <!-- conteúdo -->
+      <div style="flex:1;min-width:0">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;flex-wrap:wrap">
+          <div>
+            <span style="font-size:13px;font-weight:600">${esc(e.descricao)}</span>
+            ${e.usuario && e.usuario !== 'sistema' ? `<span style="font-size:11px;color:var(--text3);margin-left:6px">por ${esc(e.usuario)}</span>` : ''}
+          </div>
+          <div style="font-size:11px;color:var(--text3);white-space:nowrap;flex-shrink:0">${fmtEvData(e.data)}</div>
+        </div>
+        ${extraHtml ? `<div style="margin-top:4px;display:flex;flex-wrap:wrap;gap:4px;align-items:center">${extraHtml}</div>` : ''}
+        <div style="margin-top:3px">
+          <span style="font-size:10px;padding:1px 6px;border-radius:99px;background:${bg};color:${fg};border:1px solid ${border}">${tipoLabel[e.tipo]||e.tipo}</span>
+        </div>
+      </div>
+    </div>`;
+  }).join('') : '<p style="text-align:center;color:var(--text3);padding:32px 0">Nenhum evento registrado para este ativo.</p>';
+
+  openModal(`Histórico — ${esc(asset.hostname)}`, `
+  <!-- resumo do ativo -->
+  <div style="display:flex;gap:12px;align-items:center;padding:10px 14px;background:var(--bg3);border-radius:var(--r);margin-bottom:16px">
+    <div style="color:var(--blue)">${inlineIcon('ativos')}</div>
+    <div style="flex:1">
+      <div style="font-weight:700;font-size:14px">${esc(asset.hostname)}</div>
+      <div style="font-size:12px;color:var(--text2)">${esc(asset.fabricante)} ${esc(asset.modelo)} · ${esc(asset.categoria)}</div>
+    </div>
+    ${badge(asset.status)}
+    <span class="badge badge-gray" style="font-size:11px">${totalEventos} evento(s)</span>
+  </div>
+
+  <!-- filtro rápido por tipo -->
+  <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px" id="hist-filtros">
+    ${['Todos','Alocação','Manutenção','Incidente','Insumo','Sistema'].map(f=>
+      `<button class="btn btn-sm btn-default" onclick="filtrarHistorico('${f}')" id="hf-${f}">${f}</button>`
+    ).join('')}
+  </div>
+
+  <!-- linha do tempo -->
+  <div style="max-height:52vh;overflow-y:auto;padding-right:4px" id="hist-timeline">
+    ${rowHtml}
+  </div>
+  <div class="modal-footer">
+    <button class="btn btn-default" onclick="closeModal()">Fechar</button>
+  </div>`, true);
+
+  // guarda os eventos no modal para filtro client-side
+  $('modal-box').dataset.histEventos = JSON.stringify(eventos);
+  filtrarHistorico('Todos');
+}
+
+function filtrarHistorico(filtro) {
+  // destaca botão ativo
+  ['Todos','Alocação','Manutenção','Incidente','Insumo','Sistema'].forEach(f => {
+    const btn = document.getElementById('hf-' + f);
+    if (btn) btn.className = 'btn btn-sm ' + (f === filtro ? 'btn-primary' : 'btn-default');
+  });
+  const eventos = JSON.parse($('modal-box').dataset.histEventos || '[]');
+  const mapa = {Todos:null,Alocação:'alocacao',Manutenção:'manutencao',
+                Incidente:'incidente',Insumo:'insumo',Sistema:'auditoria'};
+  const tipo = mapa[filtro];
+
+  const HIST_COR_MAP2 = {
+    green:  ['var(--green-bg)',  'var(--green-text)',  'var(--green-border)'],
+    blue:   ['var(--blue-bg)',   'var(--blue-text)',   'var(--blue-border)'],
+    amber:  ['var(--amber-bg)',  'var(--amber-text)',  'var(--amber-border)'],
+    red:    ['var(--red-bg)',    'var(--red-text)',    'var(--red-border)'],
+    purple: ['var(--purple-bg)', 'var(--purple-text)', 'var(--border2)'],
+    gray:   ['var(--bg3)',       'var(--text2)',        'var(--border2)'],
+  };
+  const tipoLabel2 = {auditoria:'Sistema',alocacao:'Alocação',devolucao:'Devolução',
+                      manutencao:'Manutenção',incidente:'Incidente',insumo:'Insumo'};
+  const fmtEvData2 = iso => {
+    if (!iso) return '—';
+    const d = new Date(iso);
+    return d.toLocaleDateString('pt-BR') + ' ' + d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+  };
+
+  const filtrados = tipo ? eventos.filter(e => e.tipo === tipo || (tipo === 'alocacao' && e.tipo === 'devolucao')) : eventos;
+  const tl = $('hist-timeline');
+  if (!filtrados.length) {
+    tl.innerHTML = '<p style="text-align:center;color:var(--text3);padding:32px 0">Nenhum evento nesta categoria.</p>';
+    return;
+  }
+  tl.innerHTML = filtrados.map((e, i) => {
+    const [bg, fg, border] = HIST_COR_MAP2[e.cor] || HIST_COR_MAP2.gray;
+    const icone = (e.extra && e.extra.icone) || e.icone || 'clipboard';
+    const cor2  = (e.extra && e.extra.cor)   || e.cor  || 'gray';
+    const [bg2, fg2] = HIST_COR_MAP2[cor2] || HIST_COR_MAP2.gray;
+    let extraHtml = '';
+    if (e.extra) {
+      if (e.extra.alocacaoId) extraHtml += `<span class="badge badge-gray" style="font-size:10px">${esc(e.extra.alocacaoId)}</span> `;
+      if (e.extra.termoStatus) extraHtml += badge(e.extra.termoStatus) + ' ';
+      if (e.extra.motivo)      extraHtml += `<span style="font-size:11px;color:var(--text3)">${esc(e.extra.motivo)}</span>`;
+      if (e.extra.osId)        extraHtml += `<span class="badge badge-gray" style="font-size:10px">${esc(e.extra.osId)}</span> `;
+      if (e.extra.status && e.tipo === 'manutencao') extraHtml += badge(e.extra.status, (typeof MANUT_STATUS_COLOR !== 'undefined' ? MANUT_STATUS_COLOR[e.extra.status] : null)||'gray') + ' ';
+      if (e.extra.custoTotal)  extraHtml += `<span style="font-size:11px;color:var(--text2)">${fmtCur(e.extra.custoTotal)}</span>`;
+      if (e.extra.incidenteId) extraHtml += `<span class="badge badge-gray" style="font-size:10px">${esc(e.extra.incidenteId)}</span>`;
+    }
+    return `
+    <div style="display:flex;gap:12px;align-items:flex-start;padding:10px 0;border-bottom:1px solid var(--border)">
+      <div style="display:flex;flex-direction:column;align-items:center;flex-shrink:0;width:32px">
+        <div style="width:32px;height:32px;border-radius:99px;background:${bg2};color:${fg2};display:flex;align-items:center;justify-content:center;font-size:15px">${inlineIcon(icone)}</div>
+        ${i < filtrados.length-1 ? `<div style="width:2px;flex:1;background:var(--border);margin-top:4px;min-height:16px"></div>` : ''}
+      </div>
+      <div style="flex:1;min-width:0">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;flex-wrap:wrap">
+          <div>
+            <span style="font-size:13px;font-weight:600">${esc(e.descricao)}</span>
+            ${e.usuario && e.usuario !== 'sistema' ? `<span style="font-size:11px;color:var(--text3);margin-left:6px">por ${esc(e.usuario)}</span>` : ''}
+          </div>
+          <div style="font-size:11px;color:var(--text3);white-space:nowrap">${fmtEvData2(e.data)}</div>
+        </div>
+        ${extraHtml ? `<div style="margin-top:4px;display:flex;flex-wrap:wrap;gap:4px;align-items:center">${extraHtml}</div>` : ''}
+        <div style="margin-top:3px">
+          <span style="font-size:10px;padding:1px 6px;border-radius:99px;background:${bg};color:${fg};border:1px solid ${border}">${tipoLabel2[e.tipo]||e.tipo}</span>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// MANUTENÇÃO
+// ══════════════════════════════════════════════════════════════════════════
+const MANUT_STATUS_COLOR = {
+  'Aberta':'blue','Em análise':'amber','Aguardando peça':'amber',
+  'Em reparo':'amber','Concluída':'green','Sem reparo':'red','Cancelada':'gray'
+};
+const MANUT_STATUS_LIST  = ['Aberta','Em análise','Aguardando peça','Em reparo','Concluída','Sem reparo','Cancelada'];
+const MANUT_ENCERRADA    = ['Concluída','Sem reparo','Cancelada'];
+
+async function renderManutencao(statusFilter='') {
+  const url = '/maintenance' + (statusFilter ? '?status='+encodeURIComponent(statusFilter) : '');
+  const data = await api(url);
+  if (!data) return;
+
+  const cnt = {
+    Aberta:   data.filter(m=>m.status==='Aberta').length,
+    andamento:data.filter(m=>['Em análise','Aguardando peça','Em reparo'].includes(m.status)).length,
+    Concluída:data.filter(m=>m.status==='Concluída').length,
+    SemReparo:data.filter(m=>m.status==='Sem reparo').length,
+  };
+  const abertas = cnt.Aberta + cnt.andamento;
+  const mb = $('manut-badge');
+  if (mb) { mb.style.display = abertas ? '' : 'none'; mb.textContent = abertas; }
+
+  $('content').innerHTML = `
+  <div class="flex-between mb-16" style="flex-wrap:wrap;gap:8px">
+    <div class="flex-gap" style="flex-wrap:wrap">
+      ${['','Aberta','Em análise','Aguardando peça','Em reparo','Concluída','Sem reparo','Cancelada'].map(s=>
+        `<button class="btn btn-sm ${s===statusFilter?'btn-primary':'btn-default'}" onclick="renderManutencao('${s}')">${s||'Todas'}</button>`
+      ).join('')}
+    </div>
+    <button class="btn btn-primary" onclick="openNewManutencao()">Abrir OS</button>
+  </div>
+  <div class="grid-4 mb-16">
+    ${[['OS Abertas',cnt.Aberta,'blue'],['Em andamento',cnt.andamento,'amber'],['Concluídas',cnt.Concluída,'green'],['Sem reparo',cnt.SemReparo,'red']].map(([l,v,c])=>
+      `<div class="stat-card"><div class="stat-label">${l}</div><div class="stat-value" style="color:var(--${c}-text)">${v}</div></div>`
+    ).join('')}
+  </div>
+  <div class="card"><div class="table-wrap"><table>
+    <thead><tr><th>OS</th><th>Ativo</th><th>Tipo</th><th>Defeito</th><th>Técnico</th><th>Abertura</th><th>Status</th><th>Custo</th><th></th></tr></thead>
+    <tbody>${data.length ? data.map(m=>`<tr>
+      <td class="mono" style="color:var(--text3);font-weight:700">${esc(m.id)}</td>
+      <td class="mono" style="font-size:12px">${esc((m.assetNome||'').split('—')[0].trim())}</td>
+      <td>${badge(m.tipo, m.tipo==='Corretiva'?'red':m.tipo==='Preventiva'?'blue':'purple')}</td>
+      <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px">${esc(m.descricaoDefeito)}</td>
+      <td style="font-size:12px">${esc(m.tecnico||'—')}</td>
+      <td style="font-size:12px">${fmtDate(m.dataAbertura)}</td>
+      <td>${badge(m.status, MANUT_STATUS_COLOR[m.status]||'gray')}</td>
+      <td style="font-size:12px">${m.custoTotal>0?fmtCur(m.custoTotal):'—'}</td>
+      <td><button class="btn btn-default btn-sm" onclick="viewManutencao('${m.id}')">Detalhes</button></td>
+    </tr>`).join('') : '<tr><td colspan="9" style="text-align:center;color:var(--text3);padding:24px">Nenhuma OS encontrada.</td></tr>'}
+    </tbody>
+  </table></div></div>`;
+}
+
+async function openNewManutencao() {
+  const assets = await api('/assets');
+  const elegiveis = assets.filter(a=>!['Baixado','Descartado','Extraviado','Vendido'].includes(a.status));
+  openModal('Abrir Ordem de Serviço', `
+  <div class="form-group"><label>Ativo</label>
+    <select id="mn-asset">
+      <option value="">Selecione o ativo...</option>
+      ${elegiveis.map(a=>`<option value="${a.id}">[${esc(a.status)}] ${esc(a.hostname)} — ${esc(a.fabricante)} ${esc(a.modelo)}</option>`).join('')}
+    </select>
+  </div>
+  <div class="form-grid-2">
+    <div class="form-group"><label>Tipo</label>
+      <select id="mn-tipo"><option>Corretiva</option><option>Preventiva</option><option>Melhoria</option></select>
+    </div>
+    <div class="form-group"><label>Técnico Responsável</label>
+      <input id="mn-tec" list="mn-tec-list" placeholder="Nome do técnico">
+      <datalist id="mn-tec-list">${_colab_cache.map(c=>`<option>${esc(c.nome)}</option>`).join('')}</datalist>
+    </div>
+  </div>
+  <div class="form-group"><label>Descrição do Defeito / Motivo</label>
+    <textarea id="mn-defeito" rows="3" placeholder="Descreva o problema ou motivo da manutenção..."></textarea>
+  </div>
+  <div class="form-group"><label>Observação</label>
+    <textarea id="mn-obs" rows="2" placeholder="Informações adicionais (opcional)"></textarea>
+  </div>
+  <div class="info-box amber">Atenção: Ao abrir a OS, o status do ativo será alterado para <strong>Manutenção</strong> automaticamente.</div>
+  <div class="modal-footer">
+    <button class="btn btn-default" onclick="closeModal()">Cancelar</button>
+    <button class="btn btn-primary" onclick="saveNewManutencao()">Abrir OS</button>
+  </div>`, true);
+}
+
+async function saveNewManutencao() {
+  const assetId = $('mn-asset').value;
+  const defeito = $('mn-defeito').value.trim();
+  if (!assetId) { toast('Selecione um ativo', 'error'); return; }
+  if (!defeito)  { toast('Descreva o defeito', 'error'); return; }
+  try {
+    const r = await api('/maintenance', 'POST', {
+      assetId, tipo: $('mn-tipo').value, tecnico: $('mn-tec').value,
+      descricaoDefeito: defeito, observacao: $('mn-obs').value
+    });
+    toast('OS aberta: ' + r.id);
+    closeModal(); renderManutencao();
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+async function viewManutencao(mid) {
+  const m = await api('/maintenance/' + mid);
+  if (!m) return;
+  const isClosed = MANUT_ENCERRADA.includes(m.status);
+
+  const pecasList = m.pecas && m.pecas.length
+    ? m.pecas.map(p=>`
+      <div style="display:flex;gap:10px;align-items:center;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);margin-bottom:6px">
+        <span></span>
+        <div style="flex:1">
+          <div style="font-size:13px;font-weight:600">${esc(p.nome)}</div>
+          <div style="font-size:11px;color:var(--text3)">${p.quantidade}x · ${fmtCur(p.custoUnitario)}/un</div>
+        </div>
+        <span class="badge badge-blue">${fmtCur(p.custoTotal)}</span>
+        ${!isClosed?`<button class="btn btn-danger btn-icon btn-sm" onclick="removePeca('${mid}','${p.id}')">x</button>`:''}
+      </div>`).join('')
+    : '<p style="font-size:12px;color:var(--text3);padding:6px 0">Nenhuma peça registrada.</p>';
+
+  openModal(`OS ${m.id}`, `
+  <div class="form-grid-2" style="margin-bottom:16px">
+    ${[['Ativo',esc(m.assetNome||'—')],['Tipo',badge(m.tipo,m.tipo==='Corretiva'?'red':m.tipo==='Preventiva'?'blue':'purple')],
+       ['Status',badge(m.status,MANUT_STATUS_COLOR[m.status]||'gray')],['Técnico',esc(m.tecnico||'—')],
+       ['Abertura',fmtDate(m.dataAbertura)],['Conclusão',fmtDate(m.dataConclusao)||'—'],
+       ['Custo Total',fmtCur(m.custoTotal)],['Status anterior do ativo',esc(m.statusAnterior||'—')]
+    ].map(([k,v])=>`<div style="background:var(--bg3);border-radius:var(--r);padding:8px 10px">
+      <div style="font-size:11px;color:var(--text2);margin-bottom:2px">${k}</div>
+      <div style="font-size:13px;font-weight:600">${v}</div>
+    </div>`).join('')}
+  </div>
+
+  <div class="form-group"><label>Defeito Reportado</label>
+    <div style="padding:8px 10px;background:var(--bg3);border-radius:var(--r);font-size:13px">${esc(m.descricaoDefeito||'—')}</div>
+  </div>
+
+  ${!isClosed ? `
+  <div class="form-grid-2">
+    <div class="form-group"><label>Status</label>
+      <select id="mn-upd-status">
+        ${MANUT_STATUS_LIST.filter(s=>!MANUT_ENCERRADA.includes(s)).map(s=>`<option ${s===m.status?'selected':''}>${s}</option>`).join('')}
+      </select>
+    </div>
+    <div class="form-group"><label>Técnico</label>
+      <input id="mn-upd-tec" value="${esc(m.tecnico||'')}" list="mn-tec-list3">
+      <datalist id="mn-tec-list3">${_colab_cache.map(c=>`<option>${esc(c.nome)}</option>`).join('')}</datalist>
+    </div>
+  </div>
+  <div class="form-group"><label>Diagnóstico</label>
+    <textarea id="mn-upd-diag" rows="3" placeholder="O que foi identificado?">${esc(m.diagnostico||'')}</textarea>
+  </div>` : `
+  <div class="form-group"><label>Diagnóstico</label>
+    <div style="padding:8px 10px;background:var(--bg3);border-radius:var(--r);font-size:13px">${esc(m.diagnostico||'—')}</div>
+  </div>`}
+
+  <hr class="divider">
+  <div class="section-title" style="font-size:13px">Peças / Insumos (${m.pecas?m.pecas.length:0})</div>
+  ${pecasList}
+  ${!isClosed?`<button class="btn btn-default btn-sm" style="margin-bottom:12px" onclick="openAddPeca('${mid}')">Adicionar Peça</button>`:''}
+
+  <div class="modal-footer">
+    <button class="btn btn-default" onclick="closeModal()">Fechar</button>
+    ${!isClosed?`
+    <button class="btn btn-warning" onclick="updateManutencao('${mid}')">Salvar Alterações</button>
+    <button class="btn btn-success" onclick="openEncerrarOS('${mid}',${m.custoTotal||0})">Encerrar OS</button>`:''}
+  </div>`, true);
+}
+
+async function updateManutencao(mid) {
+  try {
+    await api('/maintenance/'+mid, 'PUT', {
+      status:      $('mn-upd-status').value,
+      diagnostico: $('mn-upd-diag').value,
+      tecnico:     $('mn-upd-tec').value,
+    });
+    toast('OS atualizada'); closeModal(); renderManutencao();
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+async function openAddPeca(mid) {
+  const supplies = await api('/supplies');
+  const disponiveis = supplies.filter(s=>s.estoque>0);
+  openModal('Adicionar Peça / Insumo', `
+  <div class="form-group"><label>Item do Estoque</label>
+    <select id="mp-supply" onchange="preenchePreco(this)">
+      <option value="" data-preco="0">Selecione...</option>
+      ${disponiveis.map(s=>`<option value="${s.id}" data-preco="${s.preco}">${esc(s.nome)} — estoque: ${s.estoque} · ${fmtCur(s.preco)}</option>`).join('')}
+    </select>
+  </div>
+  <div class="form-grid-2">
+    <div class="form-group"><label>Quantidade</label><input id="mp-qty" type="number" min="1" value="1"></div>
+    <div class="form-group"><label>Custo Unitário (R$)</label><input id="mp-custo" type="number" step="0.01" min="0" value="0"></div>
+  </div>
+  <div class="info-box blue">O item será deduzido do estoque e o custo somado ao total da OS.</div>
+  <div class="modal-footer">
+    <button class="btn btn-default" onclick="closeModal()">Cancelar</button>
+    <button class="btn btn-primary" onclick="saveAddPeca('${mid}')">Adicionar</button>
+  </div>`, false, true);
+}
+function preenchePreco(sel){
+  const opt = sel.options[sel.selectedIndex];
+  if(opt && opt.dataset.preco) $('mp-custo').value = opt.dataset.preco;
+}
+async function saveAddPeca(mid) {
+  const supplyId = $('mp-supply').value;
+  if (!supplyId) { toast('Selecione um item', 'error'); return; }
+  try {
+    await api('/maintenance/'+mid+'/parts', 'POST', {
+      supplyId, quantidade: +$('mp-qty').value, custoUnitario: +$('mp-custo').value
+    });
+    toast('Peça adicionada'); closeModal(); viewManutencao(mid);
+  } catch(e) { toast(e.message, 'error'); }
+}
+async function removePeca(mid, pid) {
+  try {
+    await api('/maintenance/'+mid+'/parts/'+pid, 'DELETE');
+    toast('Peça removida'); viewManutencao(mid);
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+function openEncerrarOS(mid, custoAtual) {
+  openModal('Encerrar Ordem de Serviço', `
+  <div class="form-group"><label>Resultado</label>
+    <select id="enc-resultado" onchange="sugerirStatusAtivo(this.value)">
+      <option value="Concluída">Concluída — equipamento reparado</option>
+      <option value="Sem reparo">Sem reparo — não foi possível reparar</option>
+      <option value="Cancelada">Cancelada — OS cancelada</option>
+    </select>
+  </div>
+  <div class="form-group"><label>Status do Ativo após encerramento</label>
+    <select id="enc-status-ativo">
+      <option value="Disponível">Disponível</option>
+      <option value="Alocado">Alocado (retornar ao colaborador)</option>
+      <option value="Ativo">Ativo (infraestrutura)</option>
+      <option value="Descartado">Descartado</option>
+      <option value="Baixado">Baixado (baixa patrimonial)</option>
+    </select>
+  </div>
+  <div class="form-group"><label>Diagnóstico / O que foi feito</label>
+    <textarea id="enc-diag" rows="3" placeholder="Descreva a resolução ou motivo do encerramento..."></textarea>
+  </div>
+  <div class="form-group"><label>Custo Total Final (R$)</label>
+    <input id="enc-custo" type="number" step="0.01" min="0" value="${custoAtual}">
+  </div>
+  <div class="modal-footer">
+    <button class="btn btn-default" onclick="closeModal()">Cancelar</button>
+    <button class="btn btn-success" onclick="encerrarOS('${mid}')">Encerrar OS</button>
+  </div>`, false, true);
+}
+function sugerirStatusAtivo(resultado) {
+  const sel = $('enc-status-ativo');
+  if(resultado==='Sem reparo') sel.value='Descartado';
+  else if(resultado==='Cancelada') sel.value='Disponível';
+  else sel.value='Disponível';
+}
+async function encerrarOS(mid) {
+  try {
+    await api('/maintenance/'+mid+'/close', 'POST', {
+      resultado:   $('enc-resultado').value,
+      statusAtivo: $('enc-status-ativo').value,
+      diagnostico: $('enc-diag').value,
+      custoTotal:  +$('enc-custo').value,
+    });
+    toast('OS encerrada com sucesso'); closeModal(); renderManutencao();
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// ALERT BADGE
+// ══════════════════════════════════════════════════════════════════════════
+const state={alertCount:0};
+async function updateAlertBadge(){
+  try{
+    const alerts=await api('/alerts');
+    state.alertCount=alerts.length;
+    const b=$('alert-badge');
+    b.style.display=alerts.length>0?'':'none';
+    if(alerts.length>0) b.textContent=alerts.length;
+    $('header-alerts').innerHTML=alerts.length>0
+      ?`<button class="btn btn-danger" onclick="document.querySelector('[data-module=alertas]').click()"> ${alerts.length} alertas</button>`:'';
+  }catch(e){}
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// INIT
+// ══════════════════════════════════════════════════════════════════════════
+(async()=>{
+  // Verifica sessão primeiro — se /api/me retornar 401, o redirect acontece aqui e o resto para
+  let me = null;
+  try { me = await api('/me'); } catch(e){}
+  if (!me || _redirectingToLogin) return;
+
+  // Preenche rodapé com dados do usuário logado
+  const initials = (me.nome||'?').split(' ').map(p=>p[0]).slice(0,2).join('').toUpperCase();
+  const avatarEl = document.getElementById('sb-avatar');
+  const nomeEl   = document.getElementById('sb-nome');
+  const perfilEl = document.getElementById('sb-perfil');
+  if(avatarEl)  avatarEl.textContent  = initials;
+  if(nomeEl)    nomeEl.textContent    = me.nome;
+  if(perfilEl)  perfilEl.textContent  = me.perfil;
+
+  // Carrega configurações para dropdowns
+  try {
+    const cfg = await api('/settings');
+    if (cfg) {
+      _settings = cfg;
+      if (!_settings.categorias_config) _settings.categorias_config = {};
+    }
+  } catch(e){}
+  if (_redirectingToLogin) return;
+
+  // Cache de colaboradores para autocomplete
+  try {
+    const col = await api('/colaboradores');
+    if (col) _colab_cache = col;
+  } catch(e){}
+  if (_redirectingToLogin) return;
+
+  render('dashboard');
+  setInterval(updateAlertBadge, 30000);
+})();
+</script>
+</body>
+</html>

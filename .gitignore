@@ -1,0 +1,17 @@
+.env
+.claude/
+.venv/
+__pycache__/
+*.py[cod]
+instance/
+*.db
+*.sqlite
+*.sqlite3
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+.DS_Store
+*.log
+o/
