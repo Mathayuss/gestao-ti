@@ -66,7 +66,8 @@
     }
     .logo-name { font-size: 17px; font-weight: 700; }
     .logo-sub  { font-size: 11px; color: var(--text3); }
-    .theme-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 38px; padding: 0 12px; border-radius: var(--r); border: 1px solid var(--border); background: var(--card); color: var(--text); font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
+    .theme-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 38px; padding: 0 12px; border-radius: var(--r); border: 1px solid var(--border); background: var(--card); color: var(--text); font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; transition: background 0.2s;}
+    .theme-btn:hover { background: var(--soft); }
     svg { width: 18px; height: 18px; stroke-width: 2.2; }
     .card {
       background: var(--card); border-radius: 14px;
@@ -121,22 +122,33 @@
     .cobranca-box.sem .cobranca-title { color: var(--ok-text); }
     .cobranca-valor { font-size: 22px; font-weight: 800; color: #dc2626; }
     .cobranca-box.sem .cobranca-valor { font-size: 15px; color: var(--ok-text); }
+
+    /* Melhorias no Formulário */
     .form-group { margin-bottom: 14px; }
-    .form-group label { display: block; font-size: 12px; font-weight: 600; color: var(--text2); margin-bottom: 6px; }
+    .form-group label { display: block; font-size: 12px; font-weight: 600; color: var(--text2); margin-bottom: 6px; cursor: pointer; }
     .form-group input, .form-group textarea {
       width: 100%; padding: 10px 12px; border: 1px solid var(--border);
       border-radius: var(--r); font-size: 14px; font-family: inherit;
       background: var(--soft); color: var(--text); outline: none; resize: vertical;
+      transition: border-color 0.2s, box-shadow 0.2s;
     }
     .form-group input:focus, .form-group textarea:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(37,99,235,.15); }
+
+    /* Prefixo de Moeda (R$) */
+    .input-wrapper { position: relative; display: flex; align-items: center; }
+    .input-prefix { position: absolute; left: 12px; color: var(--text2); font-size: 14px; font-weight: 600; pointer-events: none; }
+    .input-wrapper input { padding-left: 36px; }
+
     .btn {
       width: 100%; padding: 12px 18px; border-radius: var(--r); font-size: 15px;
       font-weight: 700; cursor: pointer; border: none; font-family: inherit;
-      transition: opacity .15s;
+      transition: opacity .15s, background .15s;
     }
     .btn:active { opacity: .75; }
+    .btn:disabled { opacity: 0.6; cursor: not-allowed; }
     .btn-primary { background: var(--primary); color: #fff; }
-    .btn-primary:hover { background: var(--primary-hover); }
+    .btn-primary:hover:not(:disabled) { background: var(--primary-hover); }
+
     .success-title { font-size: 18px; font-weight: 700; text-align: center; margin-bottom: 8px; }
     .success-sub { font-size: 13px; color: var(--text2); text-align: center; line-height: 1.6; }
     .link-box {
@@ -164,19 +176,19 @@
       </div>
     </div>
     <button class="theme-btn" type="button" onclick="toggleTheme()" aria-label="Alternar tema">
-      <svg id="theme-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"></svg>
+      <svg id="theme-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"></svg>
       <span id="theme-label">Tema</span>
     </button>
   </div>
 
   {% if erro %}
-    <div class="alert alert-err">
+    <div class="alert alert-err" role="alert">
       <div>{{ erro }}</div>
     </div>
 
   {% elif sucesso %}
     <div class="card" style="text-align:center;padding:36px 22px">
-      <div style="width:56px;height:56px;margin:0 auto 14px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--ok-bg);color:var(--ok-text);font-weight:800;font-size:20px;">✓</div>
+      <div style="width:56px;height:56px;margin:0 auto 14px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--ok-bg);color:var(--ok-text);font-weight:800;font-size:20px;" aria-hidden="true">✓</div>
       <div class="success-title">Ciência registrada com sucesso!</div>
       <div class="success-sub" style="margin-top:8px">
         Laudo de <strong>{{ dev.colaborador }}</strong> aprovado.<br>
@@ -235,7 +247,7 @@
         {% set estado = item.get('estado', 'OK') %}
         <div class="item-row">
           <div class="item-header">
-            <div class="item-dot {% if estado == 'OK' %}dot-ok{% elif estado == 'Dano' %}dot-dano{% else %}dot-mau{% endif %}"></div>
+            <div class="item-dot {% if estado == 'OK' %}dot-ok{% elif estado == 'Dano' %}dot-dano{% else %}dot-mau{% endif %}" aria-hidden="true"></div>
             <span style="font-weight:600;flex:1">{{ item.get('ativo', '—') }}</span>
             <span class="badge {% if estado == 'OK' %}badge-ok{% elif estado == 'Dano' %}badge-dano{% else %}badge-mau{% endif %}">
               {{ estado }}
@@ -280,28 +292,34 @@
         O colaborador receberá automaticamente o link para assinar o termo de devolução.
       </p>
 
-      <form method="POST" action="/rh/laudo/{{ rh_token }}">
+      <form id="form-ciencia" method="POST" action="/rh/laudo/{{ rh_token }}">
+        <!-- Proteção CSRF -->
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
         {% if laudo.tem_cobranca %}
         <div class="form-group">
-          <label>Valor de cobrança confirmado pelo RH (R$)</label>
-          <input type="number" name="cobranca_valor" step="0.01" min="0"
-                 value="{{ "%.2f"|format(laudo.valor_cobranca) }}"
-                 placeholder="0.00">
+          <label for="cobranca_valor">Valor de cobrança confirmado pelo RH</label>
+          <div class="input-wrapper">
+            <span class="input-prefix" aria-hidden="true">R$</span>
+            <input id="cobranca_valor" type="number" name="cobranca_valor" step="0.01" min="0"
+                   value="{{ "%.2f"|format(laudo.valor_cobranca) }}"
+                   placeholder="0.00">
+          </div>
         </div>
         {% else %}
         <input type="hidden" name="cobranca_valor" value="0">
         {% endif %}
 
         <div class="form-group">
-          <label>Observações do RH (opcional)</label>
-          <textarea name="cobranca_obs" rows="3"
+          <label for="cobranca_obs">Observações do RH (opcional)</label>
+          <textarea id="cobranca_obs" name="cobranca_obs" rows="3"
                     placeholder="Informe se houver ajuste na cobrança, justificativa ou qualquer nota relevante."></textarea>
         </div>
 
-        <button type="submit" class="btn btn-primary">Confirmar Ciência do RH</button>
+        <button id="btn-submit" type="submit" class="btn btn-primary">Confirmar Ciência do RH</button>
       </form>
 
-      <div style="font-size:11px;color:var(--text3);text-align:center;margin-top:10px">
+      <div style="font-size:11px;color:var(--text3);text-align:center;margin-top:14px">
         IP registrado para fins de auditoria.
       </div>
     </div>
@@ -317,6 +335,7 @@ const themeIcons = {
   sun:  '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>',
   moon: '<path d="M12 3a6 6 0 0 0 9 7.5A9 9 0 1 1 12 3Z"/>'
 };
+
 function applyTheme(theme) {
   document.documentElement.dataset.theme = theme;
   localStorage.setItem('ticontrol-theme', theme);
@@ -325,10 +344,24 @@ function applyTheme(theme) {
   if (icon)  icon.innerHTML = theme === 'dark' ? themeIcons.sun : themeIcons.moon;
   if (label) label.textContent = theme === 'dark' ? 'Claro' : 'Escuro';
 }
+
 function toggleTheme() {
   applyTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark');
 }
+
 applyTheme(localStorage.getItem('ticontrol-theme') || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'));
+
+// Prevenção de duplo envio (Double Submit)
+const form = document.getElementById('form-ciencia');
+if (form) {
+  form.addEventListener('submit', function() {
+    const btn = document.getElementById('btn-submit');
+    if (btn) {
+      btn.disabled = true;
+      btn.innerHTML = 'Processando...';
+    }
+  });
+}
 </script>
 </body>
 </html>

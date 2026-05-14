@@ -33,7 +33,6 @@ def do_login():
     flask_session.permanent = True
     login_user(user, remember=True)
     user.ultimo_acesso = datetime.now()
-    db.session.commit()
     audit("LOGIN", "auth", username, "Login bem-sucedido")
     db.session.commit()
     requested_next = request.args.get("next")

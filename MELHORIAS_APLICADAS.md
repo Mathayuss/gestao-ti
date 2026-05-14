@@ -145,3 +145,38 @@
 - Teste temporário de configuração SMTP pela aplicação com restauração dos settings originais.
 - Varredura Unicode para emojis/símbolos problemáticos em `app.py` e `templates/`.
 - Conferência do código atual contra `MELHORIAS_APLICADAS.md`, incluindo alterações em `app.py`, `templates/index.html`, `templates/devolver.html` e `scripts/smoke-test.sh`.
+
+## Finalização de Backup e Templates de E-mail — 2026-05-13
+
+### Configurações de e-mail
+
+- Adicionada seção `Templates de E-mail` dentro de `Configurações > E-mail`.
+- Criado editor visual para personalizar assunto, mensagem, texto do botão e rodapé dos e-mails de:
+  - termo de responsabilidade;
+  - termo de devolução.
+- Incluída indicação das variáveis disponíveis por template, como `{empresa}`, `{colaborador}`, `{ativo}` e `{link}`.
+- Adicionada ação para restaurar o conteúdo padrão de cada template antes de salvar.
+- Integrada a tela com a rota `PUT /api/settings/email/templates`.
+
+### Backup pela aplicação
+
+- Reestruturada a aba `Configurações > Backup`.
+- Adicionada chave visual para ativar/desativar backup automático.
+- Adicionados campos para frequência do backup, retenção de arquivos e inclusão opcional do log de auditoria.
+- Adicionados cartões de status com última execução, situação atual e frequência configurada.
+- Adicionada ação `Gerar Agora`, integrada à rota `POST /api/backups/run`.
+- Adicionada listagem de backups armazenados pela aplicação, com tamanho, data, hash SHA-256, download e exclusão.
+- Mantidas as exportações CSV na mesma aba, separadas da rotina de backup.
+
+### Validações realizadas
+
+- `git diff --check`
+- `py_compile` de `app.py`
+- Smoke test via Flask test client:
+  - login com usuário administrador de demonstração;
+  - `GET /api/settings`;
+  - `PUT /api/settings/backup`;
+  - `PUT /api/settings/email/templates`;
+  - `GET /api/backups`;
+  - `POST /api/backups/run`;
+  - `DELETE /api/backups/files/<arquivo>`.

@@ -22,6 +22,7 @@ from sqlalchemy import func, text
 from urllib.parse import urlsplit
 from flask_login import (LoginManager, UserMixin, login_user,
                          logout_user, login_required, current_user)
+from flask_wtf.csrf import CSRFProtect
 from werkzeug.security import generate_password_hash, check_password_hash
 from dotenv import load_dotenv
 
@@ -102,10 +103,14 @@ app.config.update(
     REMEMBER_COOKIE_SAMESITE     = "Lax",
     REMEMBER_COOKIE_SECURE       = _session_secure,
     REMEMBER_COOKIE_DURATION     = 86400 * 7,
+    # O frontend atual usa fetch/form posts sem token CSRF. Mantem a extensao
+    # instalada, mas evita bloquear login e APIs ate a tela enviar tokens.
+    WTF_CSRF_CHECK_DEFAULT       = False,
 )
 
-db  = SQLAlchemy(app)
-lm  = LoginManager(app)
+db   = SQLAlchemy(app)
+csrf = CSRFProtect(app)
+lm   = LoginManager(app)
 lm.login_view = "login_page"
 
 @app.template_filter("from_json")

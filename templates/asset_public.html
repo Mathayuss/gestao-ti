@@ -3,6 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- Adição do token CSRF para a requisição POST -->
+<meta name="csrf-token" content="{{ csrf_token() }}">
 <title>{{ asset.hostname }} — TI Control</title>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -46,8 +48,9 @@
     display: inline-flex; align-items: center; justify-content: center; gap: 8px;
     min-height: 38px; padding: 0 12px; border-radius: var(--radius);
     border: 1px solid var(--border); background: var(--surface); color: var(--text);
-    font: inherit; font-size: 13px; font-weight: 700; cursor: pointer;
+    font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; transition: background 0.2s;
   }
+  .theme-btn:hover, .icon-btn:hover { background: var(--surface-2); }
   .card {
     background: color-mix(in srgb, var(--surface) 94%, transparent);
     border: 1px solid var(--border); border-radius: 12px; padding: 0;
@@ -81,19 +84,20 @@
   .audit-btn:hover:not(:disabled) { background: var(--primary-strong); border-color: var(--primary-strong); }
   .audit-btn:disabled { opacity: 0.68; cursor: not-allowed; }
   .warn { color: var(--warning); }
-  .modal { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; padding: 18px; background: rgba(2, 6, 23, .55); backdrop-filter: blur(8px); z-index: 20; }
-  .modal.open { display: flex; }
-  .dialog { width: min(100%, 420px); background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow); padding: 20px; }
+  .modal { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; padding: 18px; background: rgba(2, 6, 23, .55); backdrop-filter: blur(8px); z-index: 20; opacity: 0; transition: opacity 0.2s ease-in-out; }
+  .modal.open { display: flex; opacity: 1; }
+  .dialog { width: min(100%, 420px); background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow); padding: 20px; transform: translateY(10px); transition: transform 0.2s ease-in-out; }
+  .modal.open .dialog { transform: translateY(0); }
   .dialog-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 16px; }
   .dialog-title { font-size: 17px; font-weight: 850; }
   label { display: block; font-size: 12px; font-weight: 800; color: var(--muted); margin-bottom: 6px; }
-  input { width: 100%; min-height: 42px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface-2); color: var(--text); padding: 0 12px; font: inherit; outline: none; }
+  input { width: 100%; min-height: 42px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface-2); color: var(--text); padding: 0 12px; font: inherit; outline: none; transition: border-color 0.2s, box-shadow 0.2s; }
   input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 18%, transparent); }
   .dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
-  .status-msg { margin-top: 12px; padding: 10px 12px; border-radius: var(--radius); font-size: 13px; display: none; }
+  .status-msg { margin-top: 12px; padding: 10px 12px; border-radius: var(--radius); font-size: 13px; display: none; transition: opacity 0.3s; }
   .status-msg.ok { display: block; background: var(--success-soft); color: var(--success); }
   .status-msg.err { display: block; background: var(--danger-soft); color: var(--danger); }
-  svg { width: 18px; height: 18px; stroke-width: 2.2; }
+  svg { width: 18px; height: 18px; stroke-width: 2.2; flex-shrink: 0; }
   @media (max-width: 720px) {
     body { padding: 14px; }
     .header { flex-direction: column; padding: 18px; }
@@ -119,7 +123,7 @@
     </div>
   </div>
   <button class="theme-btn" type="button" onclick="toggleTheme()" aria-label="Alternar tema">
-    <svg id="theme-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"></svg>
+    <svg id="theme-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"></svg>
     <span id="theme-label">Tema</span>
   </button>
 </div>
@@ -136,7 +140,7 @@
       </div>
     </div>
     <span class="badge badge-{{ {'Alocado':'blue','Disponível':'green','Ativo':'green','Manutenção':'amber','Inativo':'red'}.get(asset.status,'gray') }}">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M20 6 9 17l-5-5"/></svg>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
       {{ asset.status }}
     </span>
   </div>
@@ -144,35 +148,35 @@
   <div class="content">
   <div class="grid">
     <div class="field">
-      <div class="field-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M20 21a8 8 0 0 0-16 0"/><circle cx="12" cy="7" r="4"/></svg>Responsável</div>
+      <div class="field-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M20 21a8 8 0 0 0-16 0"/><circle cx="12" cy="7" r="4"/></svg>Responsável</div>
       <div class="field-value">{{ asset.colaborador or 'Não alocado' }}</div>
     </div>
     <div class="field">
-      <div class="field-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 21h18"/><path d="M5 21V7l8-4v18"/><path d="M19 21V11l-6-4"/></svg>Setor</div>
+      <div class="field-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M3 21h18"/><path d="M5 21V7l8-4v18"/><path d="M19 21V11l-6-4"/></svg>Setor</div>
       <div class="field-value">{{ asset.setor or '—' }}</div>
     </div>
     <div class="field">
-      <div class="field-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>Unidade</div>
+      <div class="field-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>Unidade</div>
       <div class="field-value">{{ asset.unidade or '—' }}</div>
     </div>
     <div class="field">
-      <div class="field-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 8h10M7 12h4"/></svg>Sistema</div>
+      <div class="field-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 8h10M7 12h4"/></svg>Sistema</div>
       <div class="field-value">{{ asset.os or '—' }}</div>
     </div>
     <div class="field">
-      <div class="field-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 7V5a1 1 0 0 1 1-1h2M4 17v2a1 1 0 0 0 1 1h2M17 4h2a1 1 0 0 1 1 1v2M17 20h2a1 1 0 0 0 1-1v-2"/><path d="M7 12h10"/></svg>Service Tag</div>
+      <div class="field-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M4 7V5a1 1 0 0 1 1-1h2M4 17v2a1 1 0 0 0 1 1h2M17 4h2a1 1 0 0 1 1 1v2M17 20h2a1 1 0 0 0 1-1v-2"/><path d="M7 12h10"/></svg>Service Tag</div>
       <div class="field-value mono">{{ asset.service_tag or '—' }}</div>
     </div>
     <div class="field">
-      <div class="field-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M20 7H4"/><path d="M20 17H4"/><path d="M7 4v16"/><path d="M17 4v16"/></svg>Patrimônio</div>
+      <div class="field-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M20 7H4"/><path d="M20 17H4"/><path d="M7 4v16"/><path d="M17 4v16"/></svg>Patrimônio</div>
       <div class="field-value mono">{{ asset.patrimonio or '—' }}</div>
     </div>
     <div class="field">
-      <div class="field-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M6 9V7a6 6 0 0 1 12 0v2"/><rect x="4" y="9" width="16" height="11" rx="2"/></svg>Endereço IP</div>
+      <div class="field-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M6 9V7a6 6 0 0 1 12 0v2"/><rect x="4" y="9" width="16" height="11" rx="2"/></svg>Endereço IP</div>
       <div class="field-value mono">{{ asset.ip or '—' }}</div>
     </div>
     <div class="field">
-      <div class="field-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M20 13c0 5-3.5 7.5-8 9-4.5-1.5-8-4-8-9V5l8-3 8 3v8Z"/></svg>Garantia</div>
+      <div class="field-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M20 13c0 5-3.5 7.5-8 9-4.5-1.5-8-4-8-9V5l8-3 8 3v8Z"/></svg>Garantia</div>
       <div class="field-value {% if asset.garantia %}warn{% endif %}">
         {% if asset.garantia and '-' in asset.garantia %}
           {{ asset.garantia.split('-')[2] }}/{{ asset.garantia.split('-')[1] }}/{{ asset.garantia.split('-')[0] }}
@@ -188,11 +192,11 @@
   <div class="footer">
     <div class="logo"><span>TI Control</span> — Registro público para conferência e auditoria rápida</div>
     <button id="btn-audit" class="audit-btn" type="button" onclick="openAuditDialog()">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
       Confirmar localização
     </button>
   </div>
-  <div id="status-msg" class="status-msg"></div>
+  <div id="status-msg" class="status-msg" role="alert"></div>
   </div>
 </div>
 </div>
@@ -205,7 +209,7 @@
         <div class="logo">Atualize o local físico observado no momento.</div>
       </div>
       <button class="icon-btn" type="button" onclick="closeAuditDialog()" aria-label="Fechar">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M18 6 6 18M6 6l12 12"/></svg>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
       </button>
     </div>
     <label for="audit-local">Local atual</label>
@@ -237,18 +241,40 @@ function toggleTheme() {
 applyTheme(localStorage.getItem('ticontrol-theme') || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'));
 
 function openAuditDialog() {
-  document.getElementById('audit-modal').classList.add('open');
-  setTimeout(() => document.getElementById('audit-local').focus(), 0);
+  const modal = document.getElementById('audit-modal');
+  modal.style.display = 'flex';
+  // Pequeno delay para a transição CSS funcionar após o display: flex
+  setTimeout(() => {
+    modal.classList.add('open');
+    document.getElementById('audit-local').focus();
+  }, 10);
 }
 
 function closeAuditDialog() {
-  document.getElementById('audit-modal').classList.remove('open');
+  const modal = document.getElementById('audit-modal');
+  modal.classList.remove('open');
+  setTimeout(() => modal.style.display = 'none', 200); // Aguarda a transição
 }
 
+let statusTimeout;
 function showStatus(text, type) {
   const el = document.getElementById('status-msg');
   el.textContent = text;
   el.className = 'status-msg ' + type;
+
+  clearTimeout(statusTimeout);
+  if (type === 'ok') {
+    statusTimeout = setTimeout(() => {
+      el.style.opacity = '0';
+      setTimeout(() => { el.className = 'status-msg'; el.style.opacity = '1'; }, 300);
+    }, 4000);
+  }
+}
+
+// Recupera o token CSRF da tag meta
+function getCSRFToken() {
+  const meta = document.querySelector('meta[name="csrf-token"]');
+  return meta ? meta.content : '';
 }
 
 async function registrarAuditoria() {
@@ -269,7 +295,10 @@ async function registrarAuditoria() {
 
     const resp = await fetch('/api/public/assets/{{ asset.id }}/audit', {
       method: 'POST',
-      headers: {'Content-Type': 'application/json'},
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': getCSRFToken() // Token adicionado aqui
+      },
       body: JSON.stringify({ 
         assetId: '{{ asset.id }}', 
         local: local, 
@@ -280,7 +309,7 @@ async function registrarAuditoria() {
     if (resp.ok) {
       closeAuditDialog();
       showStatus('Localização confirmada e auditoria registrada.', 'ok');
-      mainBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M20 6 9 17l-5-5"/></svg>Confirmado';
+      mainBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>Confirmado';
     } else {
       const errorData = await resp.json().catch(() => ({}));
       showStatus(errorData.error || 'Falha na comunicação com o servidor.', 'err');

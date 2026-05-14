@@ -343,8 +343,15 @@ const fmtDate = s => s ? new Date(s.length===10 ? s+'T00:00:00' : s).toLocaleDat
 const fmtDateTime = s => s ? new Date(s).toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'}) : '—';
 const APP_BASE_URL = {{ app_base_url|tojson }};
 const fmtCur = v => (v||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+const fmtBytes = v => {
+  const n = Number(v) || 0;
+  if(n < 1024) return n + ' B';
+  if(n < 1048576) return (n / 1024).toFixed(1) + ' KB';
+  return (n / 1048576).toFixed(1) + ' MB';
+};
 const daysUntil = d => { if(!d) return 9999; return Math.ceil((new Date(d+'T00:00:00')-new Date())/86400000); };
 const esc = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const escAttr = s => esc(s).replace(/"/g,'&quot;');
 
 const ICONS = {
   sun:'<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>',
@@ -2457,12 +2464,66 @@ async function savePerfilPerms(perfil){
 
 async function renderConfiguracoes(){
   const [cfg, perfis, sysUsers] = await Promise.all([api('/settings'), api('/system-users/perfis'), api('/system-users')]);
+  let backupState = {config: cfg.backup || {}, files: []};
+  try{
+    backupState = await api('/backups');
+  }catch(e){
+    backupState = {config: cfg.backup || {}, files: []};
+  }
   PERFIS_SYS = Object.keys(perfis);
   const {empresa, setores, unidades, alertas, regras_usuario, campos_ativo_obrigatorios} = cfg;
   const cfg_cats   = cfg.categorias_config    || {};
   const cfg_email  = cfg.email                || {};
+  const cfg_tpl    = cfg.email_templates      || {};
   const cfg_tr     = cfg.termo_recebimento    || {};
   const cfg_td     = cfg.termo_devolucao      || {};
+  const cfg_backup = backupState.config || cfg.backup || {};
+  const backupFiles = Array.isArray(backupState.files) ? backupState.files : [];
+  const backupFreqLabel = {daily:'Diário', weekly:'Semanal', monthly:'Mensal'};
+  const tplAss = cfg_tpl.assinatura || {};
+  const tplDev = cfg_tpl.devolucao || {};
+  const emailTemplateCard = (kind,title,subtitle,variables,tpl) => `
+    <div class="card" style="margin-top:16px">
+      <div class="flex-between" style="margin-bottom:12px;gap:12px;align-items:flex-start;flex-wrap:wrap">
+        <div>
+          <div class="section-title" style="margin-bottom:4px">${title}</div>
+          <div style="font-size:12px;color:var(--text3)">${subtitle}</div>
+        </div>
+        <button class="btn btn-default btn-sm" onclick="carregarTemplateEmailPadrao('${kind}')" type="button">Carregar padrão</button>
+      </div>
+      <div class="info-box blue" style="margin-bottom:14px;font-size:12px">
+        Variáveis: ${variables.map(v=>`<code>{${v}}</code>`).join(' ')}
+      </div>
+      <div class="form-grid-2">
+        <div class="form-group" style="grid-column:span 2"><label>Assunto</label>
+          <input id="email-tpl-${kind}-subject" value="${escAttr(tpl.subject||'')}">
+        </div>
+        <div class="form-group" style="grid-column:span 2"><label>Mensagem</label>
+          <textarea id="email-tpl-${kind}-body" style="min-height:150px;resize:vertical">${esc(tpl.body||'')}</textarea>
+        </div>
+        <div class="form-group"><label>Texto do botão</label>
+          <input id="email-tpl-${kind}-button" value="${escAttr(tpl.button_label||'')}">
+        </div>
+        <div class="form-group"><label>Rodapé</label>
+          <input id="email-tpl-${kind}-footer" value="${escAttr(tpl.footer||'')}">
+        </div>
+      </div>
+    </div>`;
+  const backupStatusBadge = cfg_backup.last_error ? badge('Erro','red') : (cfg_backup.last_run ? badge('OK','green') : badge('Pendente','gray'));
+  const backupFilesHtml = backupFiles.length ? backupFiles.map(f=>`
+    <div class="alert-row" style="padding:10px 0;gap:10px;align-items:flex-start">
+      <div style="flex:1;min-width:180px">
+        <div style="font-size:13px;font-weight:700;color:var(--text)">${esc(f.filename)}</div>
+        <div style="font-size:11px;color:var(--text3);margin-top:2px">
+          ${fmtBytes(f.size)} · ${fmtDateTime(f.createdAt || f.modified)}
+        </div>
+        <div class="mono" style="font-size:10px;color:var(--text3);margin-top:4px;word-break:break-all">${esc(f.sha256)}</div>
+      </div>
+      <div class="flex-gap" style="flex-wrap:wrap;justify-content:flex-end">
+        <a class="btn btn-default btn-sm" href="/api/backups/files/${encodeURIComponent(f.filename)}" download>Baixar</a>
+        <button class="btn btn-danger btn-sm" onclick="deleteBackupFile('${escAttr(f.filename)}')" type="button">Excluir</button>
+      </div>
+    </div>`).join('') : `<div style="font-size:12px;color:var(--text3);padding:10px 0">Nenhum backup armazenado pela aplicação ainda.</div>`;
   const perfilCards = Object.entries(perfis).map(([p,info])=>`
   <div class="card" style="border-top:3px solid var(--${info.cor}-text)">
     <div class="flex-between" style="margin-bottom:8px">
@@ -2668,6 +2729,17 @@ async function renderConfiguracoes(){
         <button class="btn btn-primary btn-sm" onclick="saveEmailCfg()">Salvar E-mail</button>
         <button class="btn btn-default btn-sm" onclick="saveEmailCfg(true)">Salvar e Testar</button>
       </div>
+      <div style="margin-top:18px">
+        <div class="flex-between" style="gap:12px;align-items:flex-end;flex-wrap:wrap;margin-bottom:2px">
+          <div>
+            <div class="section-title" style="margin-bottom:4px">Templates de E-mail</div>
+            <div style="font-size:12px;color:var(--text3)">Personalize os textos enviados nos links de assinatura sem alterar código.</div>
+          </div>
+          <button class="btn btn-primary btn-sm" onclick="saveEmailTemplates()" type="button">Salvar Templates</button>
+        </div>
+        ${emailTemplateCard('assinatura','Termo de Responsabilidade','Usado ao enviar link de assinatura para alocação de ativo.',['empresa','colaborador','ativo','link'],tplAss)}
+        ${emailTemplateCard('devolucao','Termo de Devolução','Usado ao enviar link de assinatura para devolução de equipamentos.',['empresa','colaborador','link'],tplDev)}
+      </div>
     </div>
   </div>`;
 
@@ -2729,10 +2801,62 @@ async function renderConfiguracoes(){
 
   const panelBackup = `<div id="cfg-panel-backup" style="display:none">
     <div class="card">
-      <div class="section-title">Backup e Exportação</div>
-      <div class="info-box blue">Gera uma cópia JSON dos principais cadastros e movimentos. Use antes de alterações grandes ou migrações.</div>
-      <div class="flex-gap" style="flex-wrap:wrap">
+      <div class="flex-between" style="margin-bottom:12px;gap:14px;align-items:flex-start;flex-wrap:wrap">
+        <div>
+          <div class="section-title" style="margin-bottom:4px">Backup da Aplicação</div>
+          <div style="font-size:12px;color:var(--text3)">Configure backups lógicos em JSON gerados e armazenados pela própria aplicação.</div>
+        </div>
+        <label class="switch-control" for="backup-enabled">
+          <input type="checkbox" id="backup-enabled" ${cfg_backup.enabled?'checked':''}>
+          <span class="switch-slider"></span>
+          <span>
+            <span class="switch-title">${cfg_backup.enabled?'Ativo':'Inativo'}</span>
+            <span class="switch-sub">Backup automático</span>
+          </span>
+        </label>
+      </div>
+      <div class="grid-3" style="margin-bottom:16px">
+        <div style="border:1px solid var(--border);border-radius:var(--r);padding:12px;background:var(--bg3)">
+          <div style="font-size:11px;color:var(--text3);font-weight:700;text-transform:uppercase;margin-bottom:4px">Última execução</div>
+          <div style="font-size:14px;font-weight:700;color:var(--text)">${cfg_backup.last_run ? fmtDateTime(cfg_backup.last_run) : 'Nunca executado'}</div>
+        </div>
+        <div style="border:1px solid var(--border);border-radius:var(--r);padding:12px;background:var(--bg3)">
+          <div style="font-size:11px;color:var(--text3);font-weight:700;text-transform:uppercase;margin-bottom:4px">Status</div>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">${backupStatusBadge}<span style="font-size:12px;color:var(--text2)">${esc(cfg_backup.last_error || cfg_backup.last_status || 'Sem execução')}</span></div>
+        </div>
+        <div style="border:1px solid var(--border);border-radius:var(--r);padding:12px;background:var(--bg3)">
+          <div style="font-size:11px;color:var(--text3);font-weight:700;text-transform:uppercase;margin-bottom:4px">Frequência atual</div>
+          <div style="font-size:14px;font-weight:700;color:var(--text)">${backupFreqLabel[cfg_backup.frequency] || 'Diário'} · retenção ${cfg_backup.retention || 7}</div>
+        </div>
+      </div>
+      <div class="form-grid-2">
+        <div class="form-group"><label>Frequência</label>
+          <select id="backup-frequency">
+            <option value="daily" ${cfg_backup.frequency==='daily'?'selected':''}>Diário</option>
+            <option value="weekly" ${cfg_backup.frequency==='weekly'?'selected':''}>Semanal</option>
+            <option value="monthly" ${cfg_backup.frequency==='monthly'?'selected':''}>Mensal</option>
+          </select>
+        </div>
+        <div class="form-group"><label>Retenção de arquivos</label>
+          <input id="backup-retention" type="number" min="1" max="90" value="${cfg_backup.retention || 7}">
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap">
+        <input type="checkbox" id="backup-include-audit" ${cfg_backup.include_audit?'checked':''} style="width:auto">
+        <label for="backup-include-audit" style="margin:0;font-size:13px">Incluir log de auditoria no backup</label>
+      </div>
+      <div class="flex-gap" style="flex-wrap:wrap;margin-bottom:18px">
+        <button class="btn btn-primary btn-sm" onclick="saveBackupCfg()" type="button">Salvar Backup</button>
+        <button class="btn btn-success btn-sm" onclick="runBackupNow()" type="button">Gerar Agora</button>
         <a class="btn btn-primary" href="/api/backup.json" download>Baixar Backup JSON</a>
+      </div>
+      <div class="info-box blue" style="margin-bottom:14px">
+        O backup lógico fica em <span class="mono">instance/backups</span> e não substitui snapshots do banco/servidor. Use retenção baixa em ambientes com pouco espaço em disco.
+      </div>
+      <div class="section-title" style="margin-top:4px">Backups Armazenados</div>
+      <div style="margin-bottom:20px">${backupFilesHtml}</div>
+      <div class="section-title">Exportações CSV</div>
+      <div class="flex-gap" style="flex-wrap:wrap">
         <a class="btn btn-default" href="/api/export/assets.csv" download>Ativos CSV</a>
         <a class="btn btn-default" href="/api/export/colaboradores.csv" download>Colaboradores CSV</a>
         <a class="btn btn-default" href="/api/export/alocacoes.csv" download>Alocações CSV</a>
@@ -2893,6 +3017,82 @@ async function testEmailCfg(){
     const r = await api('/settings/email/test','POST',email?{email}:{});
     if(r.ok) toast('E-mail de teste enviado com sucesso!');
     else toast('Erro: '+(r.error||'falha no envio'),'error');
+  }catch(e){ toast(e.message,'error'); }
+}
+
+const EMAIL_TEMPLATE_DEFAULTS = {
+  assinatura: {
+    subject: '[{empresa}] Termo de Responsabilidade - assinatura necessária',
+    body: 'Olá, {colaborador}!\n\nVocê recebeu o equipamento {ativo}.\n\nPara confirmar o recebimento, clique no botão abaixo e assine digitalmente o Termo de Responsabilidade.\n\nEste link expira em 7 dias. Em caso de dúvidas, contate o setor de TI.',
+    button_label: 'Assinar Termo',
+    footer: '{empresa} - Sistema de Gestão de TI',
+  },
+  devolucao: {
+    subject: '[{empresa}] Termo de Devolução - assinatura necessária',
+    body: 'Olá, {colaborador}!\n\nFoi registrada a devolução dos equipamentos sob sua responsabilidade.\n\nPor favor, acesse o link abaixo e assine o Termo de Devolução.\n\nEste link expira em 7 dias.',
+    button_label: 'Assinar Devolução',
+    footer: '{empresa} - Sistema de Gestão de TI',
+  },
+};
+
+function carregarTemplateEmailPadrao(kind){
+  const tpl = EMAIL_TEMPLATE_DEFAULTS[kind];
+  if(!tpl) return;
+  if(!confirm('Isso substituirá o template atual pelo padrão. Deseja continuar?')) return;
+  $(`email-tpl-${kind}-subject`).value = tpl.subject;
+  $(`email-tpl-${kind}-body`).value = tpl.body;
+  $(`email-tpl-${kind}-button`).value = tpl.button_label;
+  $(`email-tpl-${kind}-footer`).value = tpl.footer;
+}
+
+function getEmailTemplatePayload(kind){
+  return {
+    subject: $(`email-tpl-${kind}-subject`).value.trim(),
+    body: $(`email-tpl-${kind}-body`).value.trim(),
+    button_label: $(`email-tpl-${kind}-button`).value.trim(),
+    footer: $(`email-tpl-${kind}-footer`).value.trim(),
+  };
+}
+
+async function saveEmailTemplates(){
+  try{
+    await api('/settings/email/templates','PUT',{
+      assinatura: getEmailTemplatePayload('assinatura'),
+      devolucao: getEmailTemplatePayload('devolucao'),
+    });
+    toast('Templates de e-mail salvos');
+    renderConfiguracoes();
+  }catch(e){ toast(e.message,'error'); }
+}
+
+async function saveBackupCfg(){
+  const retention = Math.max(1, Math.min(90, Number($('backup-retention').value) || 7));
+  try{
+    await api('/settings/backup','PUT',{
+      enabled: $('backup-enabled').checked,
+      frequency: $('backup-frequency').value,
+      retention,
+      include_audit: $('backup-include-audit').checked,
+    });
+    toast('Configuração de backup salva');
+    renderConfiguracoes();
+  }catch(e){ toast(e.message,'error'); }
+}
+
+async function runBackupNow(){
+  try{
+    const r = await api('/backups/run','POST',{});
+    toast('Backup gerado: ' + r.filename);
+    renderConfiguracoes();
+  }catch(e){ toast(e.message,'error'); }
+}
+
+async function deleteBackupFile(filename){
+  if(!confirm('Excluir este backup armazenado?')) return;
+  try{
+    await api('/backups/files/' + encodeURIComponent(filename), 'DELETE');
+    toast('Backup excluído');
+    renderConfiguracoes();
   }catch(e){ toast(e.message,'error'); }
 }
 

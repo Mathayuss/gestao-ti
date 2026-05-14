@@ -45,7 +45,6 @@
     .page { width: 100%; max-width: 400px; }
     .topbar { display: flex; justify-content: flex-end; margin-bottom: 12px; }
 
-    /* ── Card — idêntico ao .card do app ── */
     .card {
       background: var(--bg2);
       border-radius: var(--rl);
@@ -54,7 +53,6 @@
       box-shadow: var(--shadow-lg);
     }
 
-    /* ── Logo — idêntico ao .sb-logo do app ── */
     .logo { display: flex; align-items: center; gap: 10px; margin-bottom: 26px; }
     .logo-icon {
       width: 36px; height: 36px;
@@ -70,7 +68,6 @@
 
     h2 { font-size: 15px; font-weight: 700; margin-bottom: 18px; }
 
-    /* ── Form — idêntico ao do app ── */
     .form-group { margin-bottom: 14px; }
     .label-row  { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 5px; }
     label {
@@ -82,6 +79,8 @@
     .label-row label { margin-bottom: 0; }
     .forgot { font-size: 11px; color: var(--blue); text-decoration: none; font-weight: 500; }
     .forgot:hover { text-decoration: underline; }
+
+    .input-wrapper { position: relative; display: flex; align-items: center; }
     input {
       width: 100%;
       padding: 8px 11px;
@@ -95,10 +94,20 @@
       transition: border-color .15s, box-shadow .15s;
       min-height: 40px;
     }
+    /* Espaço extra para não sobrepor o texto com o botão do olho */
+    input[type="password"], input[type="text"].pw-toggled { padding-right: 40px; }
     input:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(37,99,235,.12); }
     input::placeholder { color: var(--text3); }
+    input[aria-invalid="true"] { border-color: var(--red); }
 
-    /* ── Botão — idêntico ao .btn.btn-primary do app ── */
+    .toggle-pw {
+      position: absolute; right: 6px;
+      background: none; border: none; color: var(--text3);
+      cursor: pointer; padding: 6px; display: grid; place-items: center;
+      border-radius: 4px; transition: color 0.15s, background 0.15s;
+    }
+    .toggle-pw:hover { color: var(--text); background: var(--bg3); }
+
     .btn-submit {
       display: flex; align-items: center; justify-content: center; gap: 6px;
       width: 100%;
@@ -116,7 +125,6 @@
     .btn-submit:hover  { background: #1d4ed8; border-color: #1d4ed8; }
     .btn-submit:active { transform: scale(.98); }
 
-    /* ── Erro — idêntico ao .info-box.red do app ── */
     .error-box {
       padding: 10px 13px;
       border-radius: var(--r);
@@ -128,7 +136,6 @@
       display: flex; gap: 8px; align-items: flex-start;
     }
 
-    /* ── Demo — idêntico ao .info-box.blue do app ── */
     .demo-box {
       margin-top: 18px;
       padding: 10px 13px;
@@ -141,7 +148,6 @@
     }
     .demo-box strong { color: var(--text); font-weight: 700; }
 
-    /* ── Toggle de tema — idêntico ao .theme-toggle do app ── */
     .theme-btn {
       display: inline-flex; align-items: center; justify-content: center; gap: 8px;
       height: 36px; padding: 0 12px;
@@ -155,16 +161,15 @@
     .theme-btn:hover { background: var(--bg3); }
 
     footer { text-align: center; font-size: 11px; color: var(--text3); margin-top: 20px; }
-
     svg { width: 17px; height: 17px; stroke-width: 2.2; }
   </style>
 </head>
 <body>
-<div class="page">
+<main class="page">
 
   <div class="topbar">
     <button class="theme-btn" type="button" onclick="toggleTheme()" aria-label="Alternar tema">
-      <svg id="theme-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"></svg>
+      <svg id="theme-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"></svg>
       <span id="theme-label">Tema</span>
     </button>
   </div>
@@ -178,7 +183,7 @@
         </svg>
       </div>
       <div>
-        <div class="logo-name">TI Control</div>
+        <h1 class="logo-name">TI Control</h1>
         <div class="logo-sub">Gestão de Ativos de TI</div>
       </div>
     </div>
@@ -186,27 +191,38 @@
     <h2>Acesso ao Sistema</h2>
 
     {% if error %}
-    <div class="error-box" role="alert">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" style="flex-shrink:0;margin-top:1px"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
+    <div id="login-error" class="error-box" role="alert">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" style="flex-shrink:0;margin-top:1px" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
       <div>{{ error }}</div>
     </div>
     {% endif %}
 
     <form method="POST" action="{{ url_for('do_login', next=request.args.get('next')) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
       <div class="form-group">
         <label for="username">Username</label>
-        <input id="username" name="username" required autocomplete="username" autofocus placeholder="ex: admin.ti">
+        <input id="username" name="username" required autocomplete="username" autofocus placeholder="ex: admin.ti" {% if error %}aria-invalid="true" aria-describedby="login-error"{% endif %}>
       </div>
+
       <div class="form-group">
         <div class="label-row">
           <label for="senha">Senha</label>
           <a href="/recuperar" class="forgot" tabindex="-1">Esqueceu a senha?</a>
         </div>
-        <input id="senha" name="senha" type="password" required autocomplete="current-password" placeholder="••••••••">
+        <div class="input-wrapper">
+          <input id="senha" name="senha" type="password" required autocomplete="current-password" placeholder="••••••••" {% if error %}aria-invalid="true" aria-describedby="login-error"{% endif %}>
+          <button type="button" class="toggle-pw" onclick="togglePassword()" aria-label="Mostrar senha" tabindex="-1">
+            <svg id="pw-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+            </svg>
+          </button>
+        </div>
       </div>
+
       <button type="submit" class="btn-submit">
         Entrar
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
       </button>
     </form>
 
@@ -219,22 +235,42 @@
   </div>
 
   <footer>TI Control SRE — Gestão de Ativos de TI</footer>
-</div>
+</main>
 
 <script>
 const icons = {
   sun:  '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>',
-  moon: '<path d="M12 3a6 6 0 0 0 9 7.5A9 9 0 1 1 12 3Z"/>'
+  moon: '<path d="M12 3a6 6 0 0 0 9 7.5A9 9 0 1 1 12 3Z"/>',
+  eye:  '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>',
+  eyeOff: '<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/>'
 };
+
 function applyTheme(theme) {
   document.documentElement.dataset.theme = theme;
   localStorage.setItem('ticontrol-theme', theme);
   document.getElementById('theme-icon').innerHTML = theme === 'dark' ? icons.sun : icons.moon;
   document.getElementById('theme-label').textContent = theme === 'dark' ? 'Claro' : 'Escuro';
 }
+
 function toggleTheme() {
   applyTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark');
 }
+
+function togglePassword() {
+  const input = document.getElementById('senha');
+  const icon = document.getElementById('pw-icon');
+
+  if (input.type === 'password') {
+    input.type = 'text';
+    input.classList.add('pw-toggled');
+    icon.innerHTML = icons.eyeOff;
+  } else {
+    input.type = 'password';
+    input.classList.remove('pw-toggled');
+    icon.innerHTML = icons.eye;
+  }
+}
+
 applyTheme(localStorage.getItem('ticontrol-theme') || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'));
 </script>
 </body>
