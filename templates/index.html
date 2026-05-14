@@ -2862,33 +2862,23 @@ async function renderConfiguracoes(){
       <div class="form-grid-2">
         <div class="form-group"><label>Cor Primária (botões, links, destaques)</label>
           <div style="display:flex;align-items:center;gap:8px">
-            <input type="color" id="ap-cor-input" value="${cfg_ap.cor_primaria||'#2563eb'}" style="width:40px;height:36px;padding:2px;border:1px solid var(--border);border-radius:var(--r);cursor:pointer">
-            <input id="ap-cor" value="${esc(cfg_ap.cor_primaria||'')}" placeholder="#2563eb" style="flex:1">
+            <input type="color" id="ap-cor-input" value="${cfg_ap.cor_primaria||'#2563eb'}" oninput="$('ap-cor').value=this.value" style="width:40px;height:36px;padding:2px;border:1px solid var(--border);border-radius:var(--r);cursor:pointer">
+            <input id="ap-cor" value="${esc(cfg_ap.cor_primaria||'')}" placeholder="#2563eb" oninput="if(/^#[0-9a-fA-F]{6}$/.test(this.value))$('ap-cor-input').value=this.value" style="flex:1">
           </div>
         </div>
         <div class="form-group"><label>Cor dos Botões Primários</label>
           <div style="display:flex;align-items:center;gap:8px">
-            <input type="color" id="ap-cor-botao-input" value="${cfg_ap.cor_botao||'#2563eb'}" style="width:40px;height:36px;padding:2px;border:1px solid var(--border);border-radius:var(--r);cursor:pointer">
-            <input id="ap-cor-botao" value="${esc(cfg_ap.cor_botao||'')}" placeholder="#2563eb" style="flex:1">
+            <input type="color" id="ap-cor-botao-input" value="${cfg_ap.cor_botao||'#2563eb'}" oninput="$('ap-cor-botao').value=this.value" style="width:40px;height:36px;padding:2px;border:1px solid var(--border);border-radius:var(--r);cursor:pointer">
+            <input id="ap-cor-botao" value="${esc(cfg_ap.cor_botao||'')}" placeholder="#2563eb" oninput="if(/^#[0-9a-fA-F]{6}$/.test(this.value))$('ap-cor-botao-input').value=this.value" style="flex:1">
           </div>
         </div>
         <div class="form-group"><label>Cor de Fundo do Sidebar</label>
           <div style="display:flex;align-items:center;gap:8px">
-            <input type="color" id="ap-cor-sb-input" value="${cfg_ap.cor_sidebar||'#ffffff'}" style="width:40px;height:36px;padding:2px;border:1px solid var(--border);border-radius:var(--r);cursor:pointer">
-            <input id="ap-cor-sb" value="${esc(cfg_ap.cor_sidebar||'')}" placeholder="#ffffff" style="flex:1">
+            <input type="color" id="ap-cor-sb-input" value="${cfg_ap.cor_sidebar||'#ffffff'}" oninput="$('ap-cor-sb').value=this.value" style="width:40px;height:36px;padding:2px;border:1px solid var(--border);border-radius:var(--r);cursor:pointer">
+            <input id="ap-cor-sb" value="${esc(cfg_ap.cor_sidebar||'')}" placeholder="#ffffff" oninput="if(/^#[0-9a-fA-F]{6}$/.test(this.value))$('ap-cor-sb-input').value=this.value" style="flex:1">
           </div>
         </div>
       </div>
-      <script>
-        ['ap-cor','ap-cor-botao','ap-cor-sb'].forEach(id=>{
-          const inp = document.getElementById(id);
-          const col = document.getElementById(id+'-input');
-          if(inp&&col){
-            col.addEventListener('input', ()=>{ inp.value=col.value; });
-            inp.addEventListener('input', ()=>{ if(/^#[0-9a-fA-F]{6}$/.test(inp.value)) col.value=inp.value; });
-          }
-        });
-      </script>
       <div class="modal-footer" style="padding-top:10px;margin-top:0;border-top:none;justify-content:flex-start">
         <button class="btn btn-primary" onclick="saveAparenciaCores()">Salvar Cores</button>
         <button class="btn btn-default btn-sm" onclick="resetAparenciaCores()">Restaurar Padrão</button>
