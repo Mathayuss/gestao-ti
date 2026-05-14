@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>TI Control — Acesso</title>
+  <title>{{ aparencia.nome_sistema or 'TI Control' }} — Acesso</title>
   <style>
     :root {
       color-scheme: light;
@@ -41,7 +41,19 @@
       font-size: 14px;
       line-height: 1.5;
       padding: 20px;
+      {% if aparencia.bg_login %}
+      background-image: url('{{ aparencia.bg_login }}');
+      background-size: cover;
+      background-position: center;
+      background-attachment: fixed;
+      {% endif %}
     }
+    {% if aparencia.cor_primaria %}
+    :root { --blue: {{ aparencia.cor_primaria }}; }
+    {% endif %}
+    {% if aparencia.cor_botao %}
+    .btn-submit { background: {{ aparencia.cor_botao }}; border-color: {{ aparencia.cor_botao }}; }
+    {% endif %}
     .page { width: 100%; max-width: 400px; }
     .topbar { display: flex; justify-content: flex-end; margin-bottom: 12px; }
 
@@ -176,15 +188,21 @@
 
   <div class="card">
     <div class="logo">
+      {% if aparencia.logo_sistema %}
+      <img src="{{ aparencia.logo_sistema }}" alt="Logo" style="height:36px;max-width:140px;object-fit:contain">
+      {% elif empresa.logo_base64 %}
+      <img src="{{ empresa.logo_base64 }}" alt="Logo" style="height:36px;max-width:140px;object-fit:contain">
+      {% else %}
       <div class="logo-icon" aria-hidden="true">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
           <rect x="3" y="4" width="18" height="12" rx="2"/>
           <path d="M8 20h8M12 16v4"/>
         </svg>
       </div>
+      {% endif %}
       <div>
-        <h1 class="logo-name">TI Control</h1>
-        <div class="logo-sub">Gestão de Ativos de TI</div>
+        <h1 class="logo-name">{{ aparencia.nome_sistema or 'TI Control' }}</h1>
+        <div class="logo-sub">{{ aparencia.slogan_sistema or 'Gestão de Ativos de TI' }}</div>
       </div>
     </div>
 
@@ -234,7 +252,10 @@
     {% endif %}
   </div>
 
-  <footer>TI Control SRE — Gestão de Ativos de TI</footer>
+  <footer>
+    {{ aparencia.nome_sistema or 'TI Control' }} · v{{ build_version }}
+    {% if empresa.nome %} · {{ empresa.nome }}{% endif %}
+  </footer>
 </main>
 
 <script>

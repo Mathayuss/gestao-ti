@@ -12,7 +12,16 @@ globals().update(_export_route_globals())
 def login_page():
     if current_user.is_authenticated:
         return redirect(url_for("index"))
-    return render_template("login.html", error=request.args.get("error"), show_demo=app.config["SHOW_DEMO_CREDENTIALS"])
+    aparencia = _get_setting("aparencia", {}) or {}
+    empresa   = _get_setting("empresa", {}) or {}
+    return render_template(
+        "login.html",
+        error=request.args.get("error"),
+        show_demo=app.config["SHOW_DEMO_CREDENTIALS"],
+        aparencia=aparencia,
+        empresa=empresa,
+        build_version=app.config.get("BUILD_VERSION", "1.0"),
+    )
 
 
 @app.route("/login", methods=["POST"])

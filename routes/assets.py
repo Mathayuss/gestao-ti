@@ -11,7 +11,10 @@ globals().update(_export_route_globals())
 @app.route("/")
 @login_required
 def index():
-    return render_template("index.html", app_base_url=app.config["APP_BASE_URL"])
+    return render_template("index.html",
+        app_base_url=app.config["APP_BASE_URL"],
+        build_version=app.config.get("BUILD_VERSION", "1.0"),
+    )
 
 
 @app.route("/asset/<aid>")

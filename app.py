@@ -582,6 +582,9 @@ class LaudoTecnico(db.Model):
     tem_cobranca     = db.Column(db.Boolean, default=False)
     valor_cobranca   = db.Column(db.Float, default=0.0)
     data_avaliacao   = db.Column(db.DateTime, default=datetime.now)
+    editado_em       = db.Column(db.DateTime, nullable=True)
+    editado_por      = db.Column(db.String(120), nullable=True)
+    motivo_edicao    = db.Column(db.Text, nullable=True)
 
     def to_dict(self):
         return {
@@ -593,6 +596,9 @@ class LaudoTecnico(db.Model):
             "temCobranca": self.tem_cobranca,
             "valorCobranca": self.valor_cobranca,
             "dataAvaliacao": self.data_avaliacao.isoformat() if self.data_avaliacao else None,
+            "editadoEm": self.editado_em.isoformat() if self.editado_em else None,
+            "editadoPor": self.editado_por,
+            "motivoEdicao": self.motivo_edicao,
         }
 
 
@@ -1381,12 +1387,33 @@ def _normalize_termo_setting(key, value):
     return result, None
 
 
+def _normalize_aparencia_setting(value):
+    if not isinstance(value, dict):
+        return None, "Configurações de aparência precisam ser um objeto."
+    current = _get_setting("aparencia", {}) or {}
+    result = dict(current) if isinstance(current, dict) else {}
+    for key, max_len in (("nome_sistema", 80), ("slogan_sistema", 120)):
+        if key in value:
+            result[key] = clean_text(value.get(key), max_len)
+    for key in ("logo_sistema", "bg_login"):
+        if key in value:
+            result[key] = clean_text(value.get(key), None)
+    for key in ("cor_primaria", "cor_botao", "cor_sidebar"):
+        if key in value:
+            v = clean_text(value.get(key), 20)
+            if v and not re.match(r'^#[0-9a-fA-F]{3,8}$', v):
+                return None, f"Cor inválida para '{key}': use formato #RRGGBB."
+            result[key] = v
+    return result, None
+
+
 SETTING_NORMALIZERS = {
     "empresa": _normalize_empresa_setting,
     "alertas": _normalize_alertas_setting,
     "regras_usuario": _normalize_regras_usuario_setting,
     "campos_ativo_obrigatorios": _normalize_campos_ativos_setting,
     "categorias_config": _normalize_categorias_config_setting,
+    "aparencia": _normalize_aparencia_setting,
 }
 
 
@@ -1800,6 +1827,11 @@ def _migrate_db():
             ("rh_data_ciencia", "TEXT"),
             ("cobranca_valor",  "REAL"),
             ("cobranca_obs",    "TEXT"),
+        ],
+        "laudos_tecnicos": [
+            ("editado_em",    "TEXT"),
+            ("editado_por",   "VARCHAR(120)"),
+            ("motivo_edicao", "TEXT"),
         ],
     }
     is_sqlite = "sqlite" in app.config["SQLALCHEMY_DATABASE_URI"]

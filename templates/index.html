@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>TI Control</title>
+<title id="app-title">TI Control</title>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -266,8 +266,8 @@ input:focus,select:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 
 <div id="app">
   <div id="sidebar">
     <div class="sb-logo">
-      <div class="sb-logo-icon"></div>
-      <div><div class="sb-logo-name">TI Control</div><div class="sb-logo-sub">Gestão de Ativos · SRE</div></div>
+      <div class="sb-logo-icon" id="sb-logo-icon"></div>
+      <div><div class="sb-logo-name" id="sb-logo-nome">TI Control</div><div class="sb-logo-sub" id="sb-logo-sub">Gestão de Ativos</div></div>
     </div>
     <div class="sb-nav">
       <button class="nav-item active" data-module="dashboard"><span class="icon"></span><span class="lbl">Dashboard</span></button>
@@ -320,6 +320,10 @@ input:focus,select:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 
       </div>
     </div>
     <div id="content"><div class="loading">Carregando...</div></div>
+    <footer id="app-footer" style="padding:8px 26px;border-top:1px solid var(--border);background:var(--bg2);font-size:11px;color:var(--text3);display:flex;justify-content:space-between;align-items:center;flex-shrink:0">
+      <span id="footer-sistema">TI Control</span>
+      <span id="footer-empresa"></span>
+    </footer>
   </div>
 </div>
 
@@ -436,6 +440,52 @@ const STATUS_COLAB_COLOR = {Ativo:'green',Inativo:'red',Férias:'blue',Afastado:
 
 let _colab_cache = [];
 let _settings  = { setores:[], unidades:[], categorias_config:{} };
+const APP_VERSION = {{ build_version|tojson }};
+
+function _applyAparencia(aparencia, empresa){
+  const nomeSistema = aparencia.nome_sistema || 'TI Control';
+  const sloganSistema = aparencia.slogan_sistema || 'Gestão de Ativos';
+  const logoSistema = aparencia.logo_sistema || empresa.logo_base64 || '';
+  const nomeEmpresa = empresa.nome || '';
+
+  // Título da aba
+  document.title = nomeSistema;
+  const titleEl = document.getElementById('app-title');
+  if(titleEl) titleEl.textContent = nomeSistema;
+
+  // Sidebar logo
+  const sbIcon = document.getElementById('sb-logo-icon');
+  const sbNome = document.getElementById('sb-logo-nome');
+  const sbSub  = document.getElementById('sb-logo-sub');
+  if(sbNome) sbNome.textContent = nomeSistema;
+  if(sbSub)  sbSub.textContent  = sloganSistema;
+  if(sbIcon){
+    if(logoSistema){
+      sbIcon.innerHTML = `<img src="${logoSistema}" style="width:30px;height:30px;object-fit:contain;border-radius:6px">`;
+      sbIcon.style.background = 'transparent';
+      sbIcon.style.border = 'none';
+    } else {
+      sbIcon.innerHTML = svgIcon('app');
+    }
+  }
+
+  // Footer
+  const footerSistema  = document.getElementById('footer-sistema');
+  const footerEmpresa  = document.getElementById('footer-empresa');
+  if(footerSistema) footerSistema.textContent = `${nomeSistema} · v${APP_VERSION}`;
+  if(footerEmpresa) footerEmpresa.textContent = nomeEmpresa;
+
+  // Auto-preenche empresa na etiqueta se ainda não foi preenchido pelo usuário
+  if(nomeEmpresa && !_lblCfg.empresa) _lblCfg.empresa = nomeEmpresa;
+
+  // Cores customizadas via CSS variables
+  if(aparencia.cor_primaria){
+    document.documentElement.style.setProperty('--blue', aparencia.cor_primaria);
+  }
+  if(aparencia.cor_sidebar){
+    document.documentElement.style.setProperty('--sb', aparencia.cor_sidebar);
+  }
+}
 
 // Helpers para selects de setor/unidade
 function setorOpts(sel=''){
@@ -1083,10 +1133,15 @@ async function renderAlocacoes(q=''){
     const btns = [];
     if(ls==='Aguardando Laudo')
       btns.push(`<button class="btn btn-primary btn-sm" onclick="abrirLaudoPorId('${d.id}')">Registrar Laudo</button>`);
-    if(ls==='Aguardando RH')
+    if(ls==='Aguardando RH'){
       btns.push(`<span style="font-size:11px;color:var(--text3)">Aguardando ciência do RH</span>`);
-    if(ls==='Aprovado'&&d.status!=='Assinado')
-      btns.push(`<button class="btn btn-default btn-sm" onclick="verQrDevolucao('${d.id}')">Enviar link</button>`);
+      btns.push(`<button class="btn btn-warning btn-sm" onclick="editarLaudo('${d.id}')" title="Corrigir laudo enviado ao RH">Editar Laudo</button>`);
+    }
+    if(ls==='Aprovado'){
+      btns.push(`<button class="btn btn-warning btn-sm" onclick="editarLaudo('${d.id}')" title="Corrigir laudo após aprovação">Editar Laudo</button>`);
+      if(d.status!=='Assinado')
+        btns.push(`<button class="btn btn-default btn-sm" onclick="verQrDevolucao('${d.id}')">Enviar link</button>`);
+    }
     if(d.status==='Assinado')
       btns.push(`<a class="btn btn-default btn-sm" href="/api/devolucoes/${d.id}/termo.pdf" target="_blank">PDF</a>`);
     return `<div class="flex-gap">${btns.join('')}</div>`;
@@ -1211,6 +1266,73 @@ async function abrirLaudoPorId(devId){
   }
   _laudoPendente = {devId:d.id, colaborador:d.colaborador, ativos:d.ativosDevolvidos||[], perifs:d.perifericosDevolvidos||[]};
   abrirLaudo();
+}
+
+async function editarLaudo(devId){
+  let d = _devCache[devId];
+  if(!d){
+    d = await api(`/devolucoes/${devId}`).catch(()=>null);
+    if(!d) return;
+    _devCache[d.id] = d;
+  }
+  // Busca o laudo atual
+  const laudo = await api(`/devolucoes/${devId}`).catch(()=>null);
+  const itens = (d.ativosDevolvidos||[]).map(nome => {
+    return `<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--border)">
+      <span style="flex:1;font-size:13px">${esc(nome)}</span>
+      <select data-ativo="${escAttr(nome)}" style="width:auto;font-size:12px;border:1px solid var(--border2);padding:3px 8px;border-radius:5px">
+        <option value="OK">OK</option>
+        <option value="Dano">Dano</option>
+        <option value="Mau">Mau estado</option>
+      </select>
+      <input placeholder="Observação" data-obs="${escAttr(nome)}" style="width:160px;font-size:12px">
+    </div>`;
+  }).join('');
+
+  openModal(`Editar Laudo — ${esc(d.colaborador)}`, `
+    <div style="font-size:12px;color:var(--amber-text);background:var(--amber-bg);border:1px solid var(--amber-border);border-radius:var(--r);padding:10px 14px;margin-bottom:14px">
+      <strong>Atenção:</strong> Esta ação corrige o laudo já enviado ao RH. A alteração será registrada com data, usuário e motivo.
+    </div>
+    <div class="form-group"><label>Avaliação dos Equipamentos</label>${itens || '<div style="color:var(--text3);font-size:12px">Nenhum ativo listado nesta devolução.</div>'}</div>
+    <div class="form-group" style="margin-top:12px"><label>Observação geral</label>
+      <textarea id="edit-laudo-obs" style="width:100%;min-height:70px;resize:vertical;padding:8px;border:1px solid var(--border);border-radius:var(--r);font-family:inherit;background:var(--bg2);color:var(--text)"></textarea>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+      <input type="checkbox" id="edit-laudo-cobranca" style="width:auto">
+      <label for="edit-laudo-cobranca" style="margin:0;font-size:13px">Recomendação de cobrança</label>
+    </div>
+    <div class="form-group"><label>Valor (R$)</label>
+      <input id="edit-laudo-valor" type="number" step="0.01" min="0" value="0" style="width:160px">
+    </div>
+    <div class="form-group"><label>Motivo da Correção <span style="color:var(--red-text)">*</span></label>
+      <input id="edit-laudo-motivo" placeholder="Descreva o motivo da correção..." required>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-default" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-warning" onclick="salvarEdicaoLaudo('${devId}')">Salvar Correção</button>
+    </div>`, true);
+}
+
+async function salvarEdicaoLaudo(devId){
+  const motivo = $('edit-laudo-motivo')?.value?.trim();
+  if(!motivo){ toast('Motivo da correção é obrigatório','error'); return; }
+  const temCobranca = $('edit-laudo-cobranca')?.checked || false;
+  const valorCobranca = parseFloat($('edit-laudo-valor')?.value || 0);
+  const obs = $('edit-laudo-obs')?.value?.trim() || '';
+  const selects = document.querySelectorAll('[data-ativo]');
+  const avaliacaoItens = Array.from(selects).map(sel => ({
+    ativo: sel.dataset.ativo,
+    estado: sel.value,
+    observacao: document.querySelector(`[data-obs="${sel.dataset.ativo.replace(/"/g,'&quot;')}"]`)?.value || ''
+  }));
+  try{
+    await api(`/devolucoes/${devId}/laudo`, 'PUT', {
+      avaliacaoItens, observacaoGeral: obs, temCobranca, valorCobranca, motivoCorrecao: motivo
+    });
+    toast('Laudo corrigido com sucesso', 'success');
+    closeModal();
+    renderAlocacoes();
+  }catch(e){ toast(e.message,'error'); }
 }
 
 async function verQrDevolucao(devId){
@@ -2478,6 +2600,7 @@ async function renderConfiguracoes(){
   const cfg_tr     = cfg.termo_recebimento    || {};
   const cfg_td     = cfg.termo_devolucao      || {};
   const cfg_backup = backupState.config || cfg.backup || {};
+  const cfg_ap     = cfg.aparencia            || {};
   const backupFiles = Array.isArray(backupState.files) ? backupState.files : [];
   const backupFreqLabel = {daily:'Diário', weekly:'Semanal', monthly:'Mensal'};
   const tplAss = cfg_tpl.assinatura || {};
@@ -2546,12 +2669,13 @@ async function renderConfiguracoes(){
 
   // tab bar
   const CFG_TABS_DEF = [
-    ['geral',   'Geral'],
-    ['operacao','Operação'],
-    ['perfis',  'Perfis'],
-    ['email',   'E-mail'],
-    ['termos',  'Termos'],
-    ['backup',  'Backup'],
+    ['geral',     'Geral'],
+    ['operacao',  'Operação'],
+    ['aparencia', 'Aparência'],
+    ['perfis',    'Perfis'],
+    ['email',     'E-mail'],
+    ['termos',    'Termos'],
+    ['backup',    'Backup'],
   ];
   const tabBar = `<div style="display:flex;gap:0;margin-bottom:20px;border-bottom:2px solid var(--border);overflow-x:auto">
     ${CFG_TABS_DEF.map(([id,label])=>`<button id="cfg-tab-${id}" onclick="cfgTab('${id}')"
@@ -2677,6 +2801,97 @@ async function renderConfiguracoes(){
       </div>
       <div class="info-box blue" style="margin-top:12px;font-size:12px">
         Nota: Categorias definidas como <strong>Unidade</strong> não exibem campo Colaborador no formulário de ativo — apenas Responsável Técnico (opcional) e Unidade.
+      </div>
+    </div>
+  </div>`;
+
+  const panelAparencia = `<div id="cfg-panel-aparencia" style="display:none">
+    <div class="card">
+      <div class="section-title">Identidade do Sistema</div>
+      <div class="form-grid-2">
+        <div class="form-group"><label>Nome do Sistema</label>
+          <input id="ap-nome" value="${esc(cfg_ap.nome_sistema||'')}" placeholder="Ex: TI Control">
+        </div>
+        <div class="form-group"><label>Slogan / Subtítulo</label>
+          <input id="ap-slogan" value="${esc(cfg_ap.slogan_sistema||'')}" placeholder="Ex: Gestão de Ativos de TI">
+        </div>
+        <div class="form-group" style="grid-column:span 2">
+          <label>Logo do Sistema (substitui o ícone no menu e na tela de login)</label>
+          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:8px">
+            ${cfg_ap.logo_sistema
+              ? `<div style="padding:6px 10px;background:#fff;border:1px solid var(--border);border-radius:var(--r);display:inline-flex;align-items:center;gap:8px">
+                   <img src="${cfg_ap.logo_sistema}" style="height:28px;object-fit:contain;max-width:120px">
+                 </div>
+                 <button class="btn btn-danger btn-sm" onclick="removeLogoSistema()" type="button">Remover logo do sistema</button>`
+              : `<span style="font-size:12px;color:var(--text3)">Nenhuma logo do sistema cadastrada — usando ícone padrão</span>`}
+          </div>
+          <input type="file" id="ap-logo" accept="image/png,image/jpeg,image/svg+xml,image/webp" onchange="previewAparenciaLogo(this,'ap-logo-preview')">
+          <div class="hint">PNG, JPG ou SVG · Fundo transparente recomendado · Máx 300 KB</div>
+          <div id="ap-logo-preview" style="margin-top:8px"></div>
+        </div>
+      </div>
+      <div class="modal-footer" style="padding-top:10px;margin-top:0;border-top:none;justify-content:flex-start">
+        <button class="btn btn-primary" onclick="saveAparenciaIdentidade()">Salvar Identidade</button>
+      </div>
+    </div>
+    <div class="card" style="margin-top:16px">
+      <div class="section-title">Tela de Login</div>
+      <div class="form-group">
+        <label>Imagem de fundo</label>
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:8px">
+          ${cfg_ap.bg_login
+            ? `<div style="padding:4px;background:#fff;border:1px solid var(--border);border-radius:var(--r);display:inline-flex">
+                 <img src="${cfg_ap.bg_login}" style="height:48px;width:80px;object-fit:cover;border-radius:4px">
+               </div>
+               <button class="btn btn-danger btn-sm" onclick="removeBgLogin()" type="button">Remover fundo</button>`
+            : `<span style="font-size:12px;color:var(--text3)">Nenhuma imagem de fundo cadastrada</span>`}
+        </div>
+        <input type="file" id="ap-bg" accept="image/png,image/jpeg,image/webp" onchange="previewAparenciaLogo(this,'ap-bg-preview')">
+        <div class="hint">PNG ou JPG · Recomendado 1920×1080 · Máx 1 MB</div>
+        <div id="ap-bg-preview" style="margin-top:8px"></div>
+      </div>
+      <div class="modal-footer" style="padding-top:10px;margin-top:0;border-top:none;justify-content:flex-start">
+        <button class="btn btn-primary" onclick="saveAparenciaLogin()">Salvar Fundo de Login</button>
+      </div>
+    </div>
+    <div class="card" style="margin-top:16px">
+      <div class="section-title">Esquema de Cores</div>
+      <div class="info-box blue" style="margin-bottom:14px;font-size:12px">
+        Deixe em branco para usar as cores padrão do sistema. As alterações são aplicadas imediatamente após salvar.
+      </div>
+      <div class="form-grid-2">
+        <div class="form-group"><label>Cor Primária (botões, links, destaques)</label>
+          <div style="display:flex;align-items:center;gap:8px">
+            <input type="color" id="ap-cor-input" value="${cfg_ap.cor_primaria||'#2563eb'}" style="width:40px;height:36px;padding:2px;border:1px solid var(--border);border-radius:var(--r);cursor:pointer">
+            <input id="ap-cor" value="${esc(cfg_ap.cor_primaria||'')}" placeholder="#2563eb" style="flex:1">
+          </div>
+        </div>
+        <div class="form-group"><label>Cor dos Botões Primários</label>
+          <div style="display:flex;align-items:center;gap:8px">
+            <input type="color" id="ap-cor-botao-input" value="${cfg_ap.cor_botao||'#2563eb'}" style="width:40px;height:36px;padding:2px;border:1px solid var(--border);border-radius:var(--r);cursor:pointer">
+            <input id="ap-cor-botao" value="${esc(cfg_ap.cor_botao||'')}" placeholder="#2563eb" style="flex:1">
+          </div>
+        </div>
+        <div class="form-group"><label>Cor de Fundo do Sidebar</label>
+          <div style="display:flex;align-items:center;gap:8px">
+            <input type="color" id="ap-cor-sb-input" value="${cfg_ap.cor_sidebar||'#ffffff'}" style="width:40px;height:36px;padding:2px;border:1px solid var(--border);border-radius:var(--r);cursor:pointer">
+            <input id="ap-cor-sb" value="${esc(cfg_ap.cor_sidebar||'')}" placeholder="#ffffff" style="flex:1">
+          </div>
+        </div>
+      </div>
+      <script>
+        ['ap-cor','ap-cor-botao','ap-cor-sb'].forEach(id=>{
+          const inp = document.getElementById(id);
+          const col = document.getElementById(id+'-input');
+          if(inp&&col){
+            col.addEventListener('input', ()=>{ inp.value=col.value; });
+            inp.addEventListener('input', ()=>{ if(/^#[0-9a-fA-F]{6}$/.test(inp.value)) col.value=inp.value; });
+          }
+        });
+      </script>
+      <div class="modal-footer" style="padding-top:10px;margin-top:0;border-top:none;justify-content:flex-start">
+        <button class="btn btn-primary" onclick="saveAparenciaCores()">Salvar Cores</button>
+        <button class="btn btn-default btn-sm" onclick="resetAparenciaCores()">Restaurar Padrão</button>
       </div>
     </div>
   </div>`;
@@ -2864,14 +3079,14 @@ async function renderConfiguracoes(){
     </div>
   </div>`;
 
-  $('content').innerHTML = tabBar + panelGeral + panelOperacao + panelPerfis + panelEmail + panelTermos + panelBackup;
+  $('content').innerHTML = tabBar + panelGeral + panelOperacao + panelAparencia + panelPerfis + panelEmail + panelTermos + panelBackup;
   cfgTab(_cfgTab);
 }
 
 function cfgTab(tab){
   _cfgTab = tab;
   const panels = {
-    geral: 'grid', operacao: 'grid', perfis: 'block', email: 'block', termos: 'flex', backup: 'block'
+    geral: 'grid', operacao: 'grid', aparencia: 'block', perfis: 'block', email: 'block', termos: 'flex', backup: 'block'
   };
   Object.keys(panels).forEach(t=>{
     const panel = document.getElementById('cfg-panel-'+t);
@@ -2922,6 +3137,75 @@ async function removeLogo(){
   await api('/settings','PUT',{empresa:{...(_settings.empresa||{}),logo_base64:''}});
   if(_settings.empresa) _settings.empresa.logo_base64='';
   toast('Logo removido');
+  renderConfiguracoes();
+}
+function previewAparenciaLogo(input, previewId){
+  const file = input.files[0];
+  if(!file) return;
+  const maxKB = previewId === 'ap-bg-preview' ? 1024 : 300;
+  if(file.size > maxKB * 1024){ toast(`Arquivo muito grande (máx ${maxKB} KB)`, 'error'); input.value=''; return; }
+  const r = new FileReader();
+  r.onload = e => {
+    const el = $(previewId);
+    if(el) el.innerHTML = `<img src="${e.target.result}" style="max-height:60px;max-width:200px;object-fit:contain;border:1px solid var(--border);border-radius:var(--r);padding:4px">`;
+  };
+  r.readAsDataURL(file);
+}
+async function _readFile(inputId){
+  const file = $(inputId)?.files[0];
+  if(!file) return null;
+  return new Promise(res=>{ const r=new FileReader(); r.onload=e=>res(e.target.result); r.readAsDataURL(file); });
+}
+async function saveAparenciaIdentidade(){
+  const logo_sistema = (await _readFile('ap-logo')) || (_settings?.aparencia?.logo_sistema || '');
+  await api('/settings','PUT',{aparencia:{
+    ..._settings.aparencia,
+    nome_sistema: $('ap-nome')?.value?.trim() || '',
+    slogan_sistema: $('ap-slogan')?.value?.trim() || '',
+    logo_sistema,
+  }});
+  const cfg = await api('/settings');
+  if(cfg){ _settings = cfg; _applyAparencia(cfg.aparencia||{}, cfg.empresa||{}); }
+  toast('Identidade salva');
+  if($('ap-logo')) $('ap-logo').value='';
+  renderConfiguracoes();
+}
+async function removeLogoSistema(){
+  await api('/settings','PUT',{aparencia:{..._settings.aparencia, logo_sistema:''}});
+  if(_settings.aparencia) _settings.aparencia.logo_sistema='';
+  _applyAparencia(_settings.aparencia||{}, _settings.empresa||{});
+  toast('Logo do sistema removida');
+  renderConfiguracoes();
+}
+async function saveAparenciaLogin(){
+  const bg_login = (await _readFile('ap-bg')) || (_settings?.aparencia?.bg_login || '');
+  await api('/settings','PUT',{aparencia:{..._settings.aparencia, bg_login}});
+  if(_settings.aparencia) _settings.aparencia.bg_login = bg_login;
+  toast('Fundo de login salvo');
+  if($('ap-bg')) $('ap-bg').value='';
+  renderConfiguracoes();
+}
+async function removeBgLogin(){
+  await api('/settings','PUT',{aparencia:{..._settings.aparencia, bg_login:''}});
+  if(_settings.aparencia) _settings.aparencia.bg_login='';
+  toast('Fundo removido');
+  renderConfiguracoes();
+}
+async function saveAparenciaCores(){
+  const cor_primaria = $('ap-cor')?.value?.trim() || '';
+  const cor_botao    = $('ap-cor-botao')?.value?.trim() || '';
+  const cor_sidebar  = $('ap-cor-sb')?.value?.trim() || '';
+  await api('/settings','PUT',{aparencia:{..._settings.aparencia, cor_primaria, cor_botao, cor_sidebar}});
+  if(_settings.aparencia){ _settings.aparencia.cor_primaria=cor_primaria; _settings.aparencia.cor_botao=cor_botao; _settings.aparencia.cor_sidebar=cor_sidebar; }
+  _applyAparencia(_settings.aparencia||{}, _settings.empresa||{});
+  toast('Cores salvas');
+  renderConfiguracoes();
+}
+async function resetAparenciaCores(){
+  await api('/settings','PUT',{aparencia:{..._settings.aparencia, cor_primaria:'', cor_botao:'', cor_sidebar:''}});
+  document.documentElement.style.removeProperty('--blue');
+  document.documentElement.style.removeProperty('--sb');
+  toast('Cores restauradas ao padrão');
   renderConfiguracoes();
 }
 async function saveAlertas(){
@@ -3634,12 +3918,13 @@ async function updateAlertBadge(){
   if(nomeEl)    nomeEl.textContent    = me.nome;
   if(perfilEl)  perfilEl.textContent  = me.perfil;
 
-  // Carrega configurações para dropdowns
+  // Carrega configurações para dropdowns e aparência
   try {
     const cfg = await api('/settings');
     if (cfg) {
       _settings = cfg;
       if (!_settings.categorias_config) _settings.categorias_config = {};
+      _applyAparencia(cfg.aparencia || {}, cfg.empresa || {});
     }
   } catch(e){}
   if (_redirectingToLogin) return;

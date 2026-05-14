@@ -30,6 +30,7 @@ def get_settings():
         "backup":       _get_backup_config(),
         "termo_recebimento": _get_setting("termo_recebimento", {}),
         "termo_devolucao":   _get_setting("termo_devolucao", {}),
+        "aparencia":    _get_setting("aparencia", {}),
     })
 
 

@@ -174,6 +174,52 @@ def registrar_laudo(did):
     })
 
 
+@app.route("/api/devolucoes/<did>/laudo", methods=["PUT"])
+@requires("Administrador")
+def editar_laudo(did):
+    """Administrador edita/corrige um laudo já registrado após envio ao RH."""
+    dev = db.get_or_404(Devolucao, did)
+    if not dev.laudo_status or dev.laudo_status == "Aguardando Laudo":
+        return jsonify({"error": "Laudo ainda não registrado nesta devolução."}), 400
+
+    laudo = db.session.execute(
+        db.select(LaudoTecnico).filter_by(devolucao_id=did)
+        .order_by(LaudoTecnico.data_avaliacao.desc())
+    ).scalar_one_or_none()
+    if not laudo:
+        return jsonify({"error": "Laudo não encontrado."}), 404
+
+    d = json_payload()
+    motivo = clean_text(d.get("motivoCorrecao", ""), 500)
+    if not motivo:
+        return jsonify({"error": "Motivo da correção é obrigatório."}), 400
+
+    if "avaliacaoItens" in d:
+        itens = d.get("avaliacaoItens")
+        if not isinstance(itens, list):
+            return jsonify({"error": "avaliacaoItens deve ser uma lista."}), 400
+        laudo.avaliacao_itens = json.dumps(itens, ensure_ascii=False)
+
+    if "observacaoGeral" in d:
+        laudo.observacao_geral = clean_text(d.get("observacaoGeral", ""), 2000)
+    if "temCobranca" in d:
+        laudo.tem_cobranca = bool(d.get("temCobranca", False))
+    if "valorCobranca" in d:
+        laudo.valor_cobranca = float(d.get("valorCobranca", 0) or 0)
+
+    laudo.editado_em  = datetime.now()
+    laudo.editado_por = clean_text(session.get("user", "Administrador"), 120)
+    laudo.motivo_edicao = motivo
+
+    if "temCobranca" in d or "valorCobranca" in d:
+        dev.cobranca_valor = laudo.valor_cobranca if laudo.tem_cobranca else 0.0
+
+    db.session.commit()
+    audit("LAUDO_EDITADO", "laudos_tecnicos", laudo.id,
+          f"Laudo editado por {laudo.editado_por} — motivo: {motivo}")
+    return jsonify({"ok": True, "laudo": laudo.to_dict()})
+
+
 @app.route("/rh/laudo/<rh_token>", methods=["GET"])
 def pagina_rh_laudo(rh_token):
     """Página pública para o RH visualizar o laudo e dar ciência (sem login)."""
