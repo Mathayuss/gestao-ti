@@ -183,6 +183,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 
 #toast.show{opacity:1;transform:translateY(0)}
 #toast.success{background:var(--green);color:#fff}
 #toast.error{background:var(--red);color:#fff}
+#toast.warn{background:var(--amber);color:#fff}
 
 /* ── Misc ── */
 .loading{text-align:center;padding:48px;color:var(--text3);font-size:14px}
@@ -573,49 +574,164 @@ async function render(mod){
 // ══════════════════════════════════════════════════════════════════════════
 async function renderDashboard(){
   const d=await api('/dashboard');
-  if(!d) return;  // 401 redirect in progress
-  const {totais,categorias,alertas,ultimasAlocacoes,licencas}=d;
+  if(!d) return;
+  const {totais,colaboradores,devolucoes,categorias,alertas,ultimasAlocacoes,licencas}=d;
   state.alertCount=alertas.length; updateAlertBadge();
+
+  const devPend = (devolucoes?.aguardandoLaudo||0)+(devolucoes?.aguardandoRH||0);
+  const devPendentes = devolucoes?.pendentes||[];
+
+  // ── ícones svg inline para os stat cards ──────────────────────────────
+  const ico = {
+    box:    '<path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/>',
+    link:   '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>',
+    check:  '<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="m9 11 3 3L22 4"/>',
+    wrench: '<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>',
+    users:  '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
+    rotate: '<path d="M9 14l-4-4 4-4"/><path d="M5 10h11a4 4 0 0 1 0 8h-1"/>',
+    bell:   '<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/>',
+    chart:  '<line x1="18" x2="18" y1="20" y2="10"/><line x1="12" x2="12" y1="20" y2="4"/><line x1="6" x2="6" y1="20" y2="14"/>',
+  };
+  const svgIco = (k,c)=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:20px;height:20px;color:var(--${c})">${ico[k]}</svg>`;
+
+  // ── stat card helper ──────────────────────────────────────────────────
+  const statCard = (label,value,icoKey,color,sub='',onclick='')=>`
+  <div class="stat-card" ${onclick?`style="cursor:pointer" onclick="${onclick}"`:''}
+       title="${onclick?'Clique para ver detalhes':''}">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
+      <div style="min-width:0">
+        <div class="stat-label">${label}</div>
+        <div class="stat-value" style="color:var(--${color})">${value}</div>
+        ${sub?`<div style="font-size:11px;color:var(--text3);margin-top:2px">${sub}</div>`:''}
+      </div>
+      <div style="padding:9px;background:var(--${color}-bg);border-radius:var(--r);flex-shrink:0">
+        ${svgIco(icoKey,color)}
+      </div>
+    </div>
+  </div>`;
+
+  // ── badge laudo ───────────────────────────────────────────────────────
+  const laudoBadgeDash = s => {
+    if(!s||s==='Aguardando Laudo') return `<span style="display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700;background:var(--amber-bg);color:var(--amber-text)">Aguardando Laudo</span>`;
+    return `<span style="display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700;background:var(--blue-bg);color:var(--blue-text)">Aguardando RH</span>`;
+  };
+
+  // ── seção de devoluções pendentes ─────────────────────────────────────
+  const secDevPend = devPendentes.length===0 ? '' : `
+  <div class="card mb-16" style="border-left:3px solid var(--amber)">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+      <div style="display:flex;align-items:center;gap:8px">
+        ${svgIco('rotate','amber')}
+        <span style="font-size:14px;font-weight:700">Devoluções Aguardando Ação</span>
+        <span style="display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:800;background:var(--amber-bg);color:var(--amber-text)">${devPend}</span>
+      </div>
+      <button class="btn btn-default btn-sm" onclick="navigateTo('alocacoes');setTimeout(()=>allocTab('devol'),400)">Ver todas</button>
+    </div>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Colaborador</th><th>Setor</th><th>Data</th><th>Status</th><th>Ação</th></tr></thead>
+      <tbody>${devPendentes.map(dv=>`<tr>
+        <td style="font-weight:600">${esc(dv.colaborador)}</td>
+        <td style="font-size:12px;color:var(--text2)">${esc(dv.setor||'—')}</td>
+        <td style="font-size:12px;color:var(--text2)">${fmtDate(dv.dataDevolucao)}</td>
+        <td>${laudoBadgeDash(dv.laudoStatus)}</td>
+        <td>${(!dv.laudoStatus||dv.laudoStatus==='Aguardando Laudo')
+          ? `<button class="btn btn-primary btn-sm" onclick="abrirLaudoPorId('${dv.id}')">Registrar Laudo</button>`
+          : `<span style="font-size:11px;color:var(--text3)">Aguardando RH</span>`}
+        </td>
+      </tr>`).join('')}
+      </tbody>
+    </table></div>
+  </div>`;
+
+  // ── pct uso ativos ────────────────────────────────────────────────────
+  const pctAloc = totais.ativos>0?Math.round(totais.alocados/totais.ativos*100):0;
+  const licUsoPct= licencas.total>0?Math.round(licencas.atribuidas/licencas.total*100):0;
+
   $('content').innerHTML=`
   <div class="grid-4 mb-16">
-    ${[['Total de Ativos',totais.ativos,'','blue'],['Alocados',totais.alocados,'','blue'],
-       ['Disponíveis',totais.disponiveis,'OK','green'],['Em Manutenção',totais.manutencao,'','amber']].map(([l,v,ic,c])=>`
-    <div class="stat-card"><div style="display:flex;justify-content:space-between;align-items:flex-start">
-      <div><div class="stat-label">${l}</div><div class="stat-value">${v}</div></div>
-      <div style="font-size:22px;padding:8px;background:var(--${c}-bg);border-radius:var(--r)">${ic}</div>
-    </div></div>`).join('')}
+    ${statCard('Total de Ativos',   totais.ativos,      'box',    'blue',  `${pctAloc}% em uso`,    "navigateTo('ativos')")}
+    ${statCard('Alocados',          totais.alocados,    'link',   'blue',  '',                       "navigateTo('alocacoes')")}
+    ${statCard('Disponíveis',       totais.disponiveis, 'check',  'green', '',                       "navigateTo('ativos')")}
+    ${statCard('Em Manutenção',     totais.manutencao,  'wrench', 'amber', '',                       "navigateTo('manutencao')")}
+    ${statCard('Colaboradores',     colaboradores?.ativos||0,'users','blue',`${colaboradores?.inativos||0} inativos`,"navigateTo('colaboradores')")}
+    ${statCard(devPend>0?'Devoluções ⚠':'Devoluções OK', devPend>0?devPend:'—',
+               'rotate', devPend>0?'amber':'green',
+               devPend>0?`${devolucoes?.aguardandoLaudo||0} laudo · ${devolucoes?.aguardandoRH||0} aguard. RH`:'Nenhuma pendência',
+               "navigateTo('alocacoes');setTimeout(()=>allocTab('devol'),400)")}
   </div>
+
+  ${secDevPend}
+
   <div class="grid-2 mb-16">
     <div class="card">
-      <div class="section-title">Alertas Ativos ${badge(alertas.length,'red')}</div>
-      ${alertas.length===0?'<p style="color:var(--text3);font-size:13px">Sem alertas no momento.</p>':
-        alertas.slice(0,8).map(a=>`<div class="alert-row">
-          ${badge({garantia:'Garantia',estoque:'Estoque',licenca:'Licença'}[a.tipo]||a.tipo,a.nivel==='danger'?'red':'amber')}
-          <span style="flex:1;font-size:13px">${esc(a.titulo)}</span>
-          <span style="font-size:11px;color:var(--text3)">${esc(a.detalhe)}</span>
-        </div>`).join('')}
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
+        ${svgIco('bell','red')}
+        <span style="font-size:14px;font-weight:700">Alertas Ativos</span>
+        ${alertas.length>0?`<span style="display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:800;background:var(--red-bg);color:var(--red-text)">${alertas.length}</span>`:''}
+      </div>
+      ${alertas.length===0
+        ?`<div style="display:flex;align-items:center;gap:8px;color:var(--green-text);font-size:13px;padding:8px 0">
+            ${svgIco('check','green')} Nenhum alerta no momento.
+          </div>`
+        :alertas.slice(0,8).map(a=>`<div class="alert-row">
+            ${badge({garantia:'Garantia',estoque:'Estoque',licenca:'Licença'}[a.tipo]||a.tipo,a.nivel==='danger'?'red':'amber')}
+            <span style="flex:1;font-size:13px">${esc(a.titulo)}</span>
+            <span style="font-size:11px;color:var(--text3)">${esc(a.detalhe)}</span>
+          </div>`).join('')}
+      ${alertas.length>8?`<div style="text-align:center;margin-top:8px"><button class="btn btn-default btn-sm" onclick="navigateTo('alertas')">Ver todos (${alertas.length})</button></div>`:''}
     </div>
+
     <div class="card">
-      <div class="section-title">Ativos por Categoria</div>
-      ${Object.entries(categorias).sort((a,b)=>b[1]-a[1]).map(([cat,cnt])=>{
-        const pct=Math.round(cnt/totais.ativos*100);
-        return `<div style="margin-bottom:10px">
-          <div class="flex-between" style="font-size:13px;margin-bottom:3px"><span>${esc(cat)}</span><span style="color:var(--text2)">${cnt} (${pct}%)</span></div>
-          <div class="progress-wrap"><div class="progress-bar" style="width:${pct}%;background:var(--blue-bg)"></div></div>
-        </div>`;}).join('')}
-      <hr class="divider" style="margin:12px 0">
-      <div style="font-size:12px;color:var(--text2)">Licenças: <strong>${licencas.atribuidas}/${licencas.total}</strong> usadas · Custo anual: <strong>${fmtCur(licencas.custoAnual)}</strong></div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
+        ${svgIco('chart','blue')}
+        <span style="font-size:14px;font-weight:700">Ativos por Categoria</span>
+      </div>
+      ${totais.ativos===0
+        ?`<p style="font-size:13px;color:var(--text3)">Nenhum ativo cadastrado.</p>`
+        :Object.entries(categorias).sort((a,b)=>b[1]-a[1]).map(([cat,cnt])=>{
+          const pct=Math.round(cnt/totais.ativos*100);
+          return `<div style="margin-bottom:10px">
+            <div class="flex-between" style="font-size:13px;margin-bottom:4px">
+              <span style="font-weight:500">${esc(cat)}</span>
+              <span style="color:var(--text2);font-size:12px">${cnt} <span style="color:var(--text3)">(${pct}%)</span></span>
+            </div>
+            <div class="progress-wrap"><div class="progress-bar" style="width:${pct}%;background:var(--blue)"></div></div>
+          </div>`;}).join('')}
+      <hr class="divider" style="margin:14px 0 10px">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div style="background:var(--bg3);border-radius:var(--r);padding:8px 10px">
+          <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;margin-bottom:2px">Licenças</div>
+          <div style="font-size:14px;font-weight:700">${licencas.atribuidas}<span style="font-size:11px;font-weight:400;color:var(--text3)">/${licencas.total}</span></div>
+          <div style="font-size:10px;color:var(--text3)">${licUsoPct}% utilizado</div>
+          <div class="progress-wrap" style="margin-top:4px"><div class="progress-bar" style="width:${licUsoPct}%;background:var(--${licUsoPct>90?'red':licUsoPct>70?'amber':'green'})"></div></div>
+        </div>
+        <div style="background:var(--bg3);border-radius:var(--r);padding:8px 10px">
+          <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;margin-bottom:2px">Custo anual</div>
+          <div style="font-size:13px;font-weight:700;word-break:break-all">${fmtCur(licencas.custoAnual)}</div>
+          <div style="font-size:10px;color:var(--text3)">em licenças</div>
+        </div>
+      </div>
     </div>
   </div>
+
   <div class="card">
-    <div class="section-title"> Últimas Alocações</div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+      <div style="display:flex;align-items:center;gap:8px">
+        ${svgIco('link','blue')}
+        <span style="font-size:14px;font-weight:700">Últimas Alocações</span>
+      </div>
+      <button class="btn btn-default btn-sm" onclick="navigateTo('alocacoes')">Ver todas</button>
+    </div>
     <div class="table-wrap"><table>
       <thead><tr><th>Colaborador</th><th>Ativo</th><th>Setor</th><th>Data</th><th>Termo</th></tr></thead>
-      <tbody>${ultimasAlocacoes.map(a=>`<tr>
-        <td style="font-weight:600">${esc(a.colaborador)}</td>
-        <td class="mono">${esc((a.ativoNome||'').split(' ')[0])}</td>
-        <td>${esc(a.setor)}</td><td>${fmtDate(a.dataAloc)}</td>
-        <td>${badge(a.termoStatus)}</td></tr>`).join('')}
+      <tbody>${ultimasAlocacoes.length===0
+        ?`<tr><td colspan="5" style="text-align:center;color:var(--text3);padding:20px">Nenhuma alocação ainda.</td></tr>`
+        :ultimasAlocacoes.map(a=>`<tr>
+          <td style="font-weight:600">${esc(a.colaborador)}</td>
+          <td class="mono" style="font-size:12px">${esc((a.ativoNome||'').split(' ')[0])}</td>
+          <td style="font-size:12px;color:var(--text2)">${esc(a.setor)}</td>
+          <td style="font-size:12px;color:var(--text2)">${fmtDate(a.dataAloc)}</td>
+          <td>${badge(a.termoStatus)}</td></tr>`).join('')}
       </tbody>
     </table></div>
   </div>`;
@@ -926,12 +1042,48 @@ async function saveEditAsset(id){await api(`/assets/${id}`,'PUT',getAssetForm())
 // ══════════════════════════════════════════════════════════════════════════
 // ALOCAÇÕES
 // ══════════════════════════════════════════════════════════════════════════
+let _devCache = {};
+let _laudoPendente = null;
+
 async function renderAlocacoes(q=''){
-  const [data,assets]=await Promise.all([api('/allocations?q='+encodeURIComponent(q)),api('/assets')]);
+  const [data,assets,devs]=await Promise.all([
+    api('/allocations?q='+encodeURIComponent(q)),
+    api('/assets'),
+    api('/devolucoes').catch(()=>[])
+  ]);
   const avail=assets.filter(a=>a.status==='Disponível');
 
   const pendentes = data.filter(a=>a.termoStatus!=='Assinado');
   const assinados = data.filter(a=>a.termoStatus==='Assinado');
+
+  _devCache = {};
+  devs.forEach(d=>{ _devCache[d.id]=d; });
+
+  const laudoBadge = s => {
+    if(!s||s==='Aguardando Laudo') return `<span style="display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700;background:var(--amber-bg);color:var(--amber-text);border:1px solid var(--amber-border)">Aguardando Laudo</span>`;
+    if(s==='Aguardando RH')        return `<span style="display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700;background:var(--blue-bg);color:var(--blue-text);border:1px solid var(--blue-border)">Aguardando RH</span>`;
+    if(s==='Aprovado')             return `<span style="display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700;background:var(--green-bg);color:var(--green-text);border:1px solid var(--green-border)">RH Aprovado</span>`;
+    return `<span style="display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700;background:var(--bg3);color:var(--text2)">${esc(s)}</span>`;
+  };
+
+  const devStatus = d => {
+    if(d.status==='Assinado') return `<span style="display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700;background:var(--green-bg);color:var(--green-text);border:1px solid var(--green-border)">Assinado</span>`;
+    return `<span style="display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700;background:var(--bg3);color:var(--text2)">Pendente</span>`;
+  };
+
+  const devAcoes = d => {
+    const ls = d.laudoStatus||'Aguardando Laudo';
+    const btns = [];
+    if(ls==='Aguardando Laudo')
+      btns.push(`<button class="btn btn-primary btn-sm" onclick="abrirLaudoPorId('${d.id}')">Registrar Laudo</button>`);
+    if(ls==='Aguardando RH')
+      btns.push(`<span style="font-size:11px;color:var(--text3)">Aguardando ciência do RH</span>`);
+    if(ls==='Aprovado'&&d.status!=='Assinado')
+      btns.push(`<button class="btn btn-default btn-sm" onclick="verQrDevolucao('${d.id}')">Enviar link</button>`);
+    if(d.status==='Assinado')
+      btns.push(`<a class="btn btn-default btn-sm" href="/api/devolucoes/${d.id}/termo.pdf" target="_blank">PDF</a>`);
+    return `<div class="flex-gap">${btns.join('')}</div>`;
+  };
 
   const rowPend = a=>`<tr>
     <td class="mono" style="color:var(--text3);font-size:11px">${esc(a.id)}</td>
@@ -959,11 +1111,24 @@ async function renderAlocacoes(q=''){
     <td><button class="btn btn-default btn-sm" onclick="viewTermo(${JSON.stringify(a).replace(/"/g,'&quot;')})">Termo</button></td>
   </tr>`;
 
+  const rowDev = d=>`<tr>
+    <td class="mono" style="color:var(--text3);font-size:11px">${esc(d.id)}</td>
+    <td style="font-weight:600">${esc(d.colaborador)}</td>
+    <td style="font-size:12px">${esc(d.setor||'—')}</td>
+    <td style="font-size:12px">${fmtDate(d.dataDevolucao)}</td>
+    <td>${laudoBadge(d.laudoStatus)}</td>
+    <td>${devStatus(d)}</td>
+    <td style="font-size:11px;color:var(--text3)">${fmtDateTime(d.dataAssinatura)||'—'}</td>
+    <td>${devAcoes(d)}</td>
+  </tr>`;
+
   const tabBtn = (id,label,count)=>`<button id="tab-alloc-${id}" onclick="allocTab('${id}')"
     style="padding:8px 18px;font-size:13px;font-weight:600;border:none;background:none;cursor:pointer;
            color:var(--text2);border-bottom:2px solid transparent;margin-bottom:-2px;font-family:inherit">
     ${label} <span style="font-size:11px;font-weight:700;opacity:.7">(${count})</span>
   </button>`;
+
+  const devAguardando = devs.filter(d=>!d.laudoStatus||d.laudoStatus==='Aguardando Laudo').length;
 
   $('content').innerHTML=`
   <div class="flex-between mb-16">
@@ -979,6 +1144,7 @@ async function renderAlocacoes(q=''){
   <div style="display:flex;gap:0;margin-bottom:16px;border-bottom:2px solid var(--border)">
     ${tabBtn('pend','Pendentes',pendentes.length)}
     ${tabBtn('sign','Assinados',assinados.length)}
+    ${tabBtn('devol',devAguardando>0?`Devoluções ⚠`:'Devoluções',devs.length)}
   </div>
 
   <div id="panel-alloc-pend">
@@ -1001,6 +1167,15 @@ async function renderAlocacoes(q=''){
            <thead><tr><th>ID</th><th>Colaborador</th><th>Ativo</th><th>Setor</th><th>Unidade</th><th>Data Alocação</th><th>Status</th><th>Assinado em</th><th>Ações</th></tr></thead>
            <tbody>${assinados.map(rowSign).join('')}</tbody>
          </table></div></div>`}
+  </div>
+
+  <div id="panel-alloc-devol" style="display:none">
+    ${devs.length===0
+      ? `<div class="card" style="text-align:center;padding:28px;color:var(--text3);font-size:13px">Nenhuma devolução registrada.</div>`
+      : `<div class="card"><div class="table-wrap"><table>
+           <thead><tr><th>ID</th><th>Colaborador</th><th>Setor</th><th>Data</th><th>Laudo</th><th>Assinatura</th><th>Assinado em</th><th>Ações</th></tr></thead>
+           <tbody>${devs.map(rowDev).join('')}</tbody>
+         </table></div></div>`}
   </div>`;
 
   allocTab(_allocTab);
@@ -1008,7 +1183,7 @@ async function renderAlocacoes(q=''){
 
 function allocTab(tab){
   _allocTab = tab;
-  ['pend','sign'].forEach(t=>{
+  ['pend','sign','devol'].forEach(t=>{
     const btn = document.getElementById('tab-alloc-'+t);
     const panel = document.getElementById('panel-alloc-'+t);
     if(!btn||!panel) return;
@@ -1018,6 +1193,36 @@ function allocTab(tab){
     btn.style.borderBottomColor = active ? 'var(--blue)' : 'transparent';
     btn.style.fontWeight = active ? '700' : '600';
   });
+}
+
+async function abrirLaudoPorId(devId){
+  let d = _devCache[devId];
+  if(!d){
+    d = await api(`/devolucoes/${devId}`).catch(()=>null);
+    if(!d) return;
+    _devCache[d.id] = d;
+  }
+  _laudoPendente = {devId:d.id, colaborador:d.colaborador, ativos:d.ativosDevolvidos||[], perifs:d.perifericosDevolvidos||[]};
+  abrirLaudo();
+}
+
+async function verQrDevolucao(devId){
+  const r = await api(`/devolucoes/${devId}/sign-link`,'POST',{});
+  if(!r||r.error){toast('Erro: '+(r?.error||'falha ao gerar link'),'error');return;}
+  openModal('Link de Assinatura — Devolução',`
+    <div style="display:flex;flex-direction:column;align-items:center;gap:14px;padding:4px 0">
+      <div style="font-size:13px;color:var(--text2);text-align:center">
+        Compartilhe o link abaixo com o colaborador para assinar o termo de devolução.
+      </div>
+      <div style="width:100%;display:flex;gap:8px;align-items:center">
+        <input id="devol-link-url" value="${esc(r.url)}" readonly
+          style="flex:1;padding:9px 12px;border:1px solid var(--border);border-radius:var(--r);
+                 font-size:11px;font-family:var(--mono);color:var(--text);background:var(--bg3)">
+        <button class="btn btn-primary btn-sm" onclick="navigator.clipboard.writeText(document.getElementById('devol-link-url').value);toast('Link copiado!')">Copiar</button>
+      </div>
+      ${r.emailEnviado?'<div style="font-size:12px;color:var(--green-text)">Link enviado por e-mail ao colaborador.</div>':''}
+    </div>
+    <div class="modal-footer"><button class="btn btn-default" onclick="closeModal()">Fechar</button></div>`,false,true);
 }
 
 async function verQrTermo(aid){
@@ -1869,24 +2074,108 @@ function confirmOffboarding(id,nome){
     <button class="btn btn-danger" onclick="executeOffboarding('${id}')">Confirmar Desligamento</button>
   </div>`,false,true);
 }
+
 async function executeOffboarding(id){
   const r=await api(`/colaboradores/${id}/offboarding`,'POST',{});
   closeModal();
   const temItens = r.ativosDevolvidos.length||r.perifericosDevolvidos.length;
+  if(temItens) _laudoPendente = {devId:r.devolucaoId, colaborador:r.colaborador, ativos:r.ativosDevolvidos||[], perifs:r.perifericosDevolvidos||[]};
   openModal('Desligamento Concluído',`
   <div style="text-align:center;padding:8px 0 14px">
-    <div style="font-size:40px;margin-bottom:10px">OK</div>
+    <div style="font-size:40px;margin-bottom:10px">✓</div>
     <div style="font-size:15px;font-weight:700;margin-bottom:4px">Desligamento realizado</div>
     <div style="font-size:12px;color:var(--text2)">${esc(r.colaborador)} · ${r.dataDesligamento}</div>
     <div style="font-size:12px;color:var(--text2)">${esc(r.setor||'')} ${r.unidade?'· '+esc(r.unidade):''}</div>
   </div>
   ${r.ativosDevolvidos.length?`<div class="info-box green"><strong>Ativos devolvidos:</strong><br>${r.ativosDevolvidos.map(h=>`• ${esc(h)}`).join('<br>')}</div>`:''}
-  ${r.perifericosDevolvidos.length?`<div class="info-box green"><strong>Periféricos devolvidos:</strong><br>${r.perifericosDevolvidos.map(p=>`• ${esc(p)}`).join('<br>')}</div>`:'<p style="font-size:12px;color:var(--text3);text-align:center">Nenhum periférico estava vinculado.</p>'}
+  ${r.perifericosDevolvidos.length?`<div class="info-box green"><strong>Periféricos devolvidos:</strong><br>${r.perifericosDevolvidos.map(p=>`• ${esc(p)}`).join('<br>')}</div>`:''}
+  ${temItens?'<div class="info-box amber" style="margin-top:8px"><strong>Próximo passo: Laudo Técnico</strong><br>Registre a avaliação dos equipamentos para que o RH possa dar ciência e o termo seja gerado.</div>':''}
   <div class="modal-footer" style="justify-content:center">
-    ${temItens?`<a href="/api/colaboradores/${r.colaboradorId}/termo-devolucao.pdf" class="btn btn-primary" download>Baixar Termo de Devolução</a>`:''}
+    ${temItens?'<button class="btn btn-primary" onclick="closeModal();abrirLaudo()">Registrar Laudo Técnico</button>':''}
     <button class="btn btn-default" onclick="closeModal()">Fechar</button>
   </div>`,false,true);
   renderColaboradores();
+}
+
+function abrirLaudo(){
+  if(!_laudoPendente){return;}
+  const {devId, colaborador, ativos, perifs} = _laudoPendente;
+  const itens = [...ativos, ...perifs];
+  const itensHtml = itens.map((item,i)=>`
+    <div style="background:var(--bg3);border-radius:var(--r);padding:10px 12px;margin-bottom:8px">
+      <div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:6px">${esc(item)}</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px">
+        <label style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer">
+          <input type="radio" name="estado_${i}" value="Bom estado" checked> Bom estado
+        </label>
+        <label style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer">
+          <input type="radio" name="estado_${i}" value="Dano"> Dano
+        </label>
+        <label style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer">
+          <input type="radio" name="estado_${i}" value="Mau uso"> Mau uso
+        </label>
+        <label style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer">
+          <input type="radio" name="estado_${i}" value="Perda"> Perda
+        </label>
+      </div>
+      <input type="text" id="obs_item_${i}" placeholder="Observação (opcional)" style="width:100%;padding:6px 8px;border:1px solid var(--border);border-radius:var(--r);font-size:12px;background:var(--bg2);color:var(--text)">
+    </div>`).join('');
+
+  openModal(`Laudo Técnico — ${colaborador}`,`
+  <div style="max-height:60vh;overflow-y:auto;padding-right:4px">
+    <div class="form-group" style="margin-bottom:12px">
+      <label style="font-size:12px;font-weight:600;color:var(--text2);display:block;margin-bottom:4px">E-mail do RH (receberá o laudo para ciência) <span style="color:var(--red)">*</span></label>
+      <input type="email" id="laudo-rh-email" placeholder="rh@empresa.com" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);font-size:13px;background:var(--bg2);color:var(--text)">
+    </div>
+    ${itens.length?`<div style="font-size:12px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px">Avaliação por item</div>${itensHtml}`:'<p style="font-size:13px;color:var(--text3);text-align:center;margin-bottom:12px">Nenhum item para avaliar.</p>'}
+    <div class="form-group" style="margin-bottom:12px">
+      <label style="font-size:12px;font-weight:600;color:var(--text2);display:block;margin-bottom:4px">Observação geral</label>
+      <textarea id="laudo-obs" rows="2" placeholder="Condições gerais, pendências..." style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);font-size:13px;background:var(--bg2);color:var(--text);resize:vertical"></textarea>
+    </div>
+    <div style="background:var(--amber-bg);border:1px solid var(--amber-border);border-radius:var(--r);padding:10px 12px;margin-bottom:12px">
+      <label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;cursor:pointer">
+        <input type="checkbox" id="laudo-tem-cobranca"> Recomendar cobrança ao colaborador
+      </label>
+      <div id="laudo-cobranca-box" style="display:none;margin-top:8px">
+        <label style="font-size:12px;color:var(--text2);display:block;margin-bottom:4px">Valor sugerido (R$)</label>
+        <input type="number" id="laudo-valor" min="0" step="0.01" placeholder="0,00" style="width:140px;padding:6px 8px;border:1px solid var(--border);border-radius:var(--r);font-size:13px;background:var(--bg2);color:var(--text)">
+      </div>
+    </div>
+  </div>
+  <div class="modal-footer">
+    <button class="btn btn-default" onclick="closeModal()">Cancelar</button>
+    <button class="btn btn-primary" onclick="enviarLaudo()">Enviar Laudo ao RH</button>
+  </div>`,false,true);
+
+  document.getElementById('laudo-tem-cobranca').addEventListener('change',function(){
+    document.getElementById('laudo-cobranca-box').style.display=this.checked?'block':'none';
+  });
+}
+
+async function enviarLaudo(){
+  if(!_laudoPendente) return;
+  const {devId, ativos, perifs} = _laudoPendente;
+  const itens = [...ativos, ...perifs];
+  const rhEmail = document.getElementById('laudo-rh-email').value.trim();
+  if(!rhEmail){alert('Informe o e-mail do RH.');return;}
+  const avaliacaoItens = itens.map((ativo,i)=>({
+    ativo,
+    estado: document.querySelector(`input[name="estado_${i}"]:checked`)?.value||'Bom estado',
+    observacao: document.getElementById(`obs_item_${i}`)?.value||''
+  }));
+  const temCobranca = document.getElementById('laudo-tem-cobranca').checked;
+  const valorCobranca = parseFloat(document.getElementById('laudo-valor')?.value||0)||0;
+  const obs = document.getElementById('laudo-obs').value;
+
+  const r = await api(`/devolucoes/${devId}/laudo`,'POST',{
+    rhEmail, avaliacaoItens, observacaoGeral:obs, temCobranca, valorCobranca
+  });
+  _laudoPendente = null;
+  closeModal();
+  toast(r.emailRHEnviado
+    ? 'Laudo enviado! RH receberá o e-mail para ciência.'
+    : 'Laudo registrado. E-mail ao RH falhou — verifique as configurações de SMTP.',
+    r.emailRHEnviado?'success':'warn');
 }
 
 function reativarColab(id, nome){
