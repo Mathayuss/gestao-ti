@@ -199,7 +199,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 
 .label-card{background:#fff;border:1.5px solid #222;border-radius:6px;padding:8px 10px;font-family:system-ui,sans-serif;box-shadow:1px 1px 4px rgba(0,0,0,.12);position:relative;overflow:hidden;cursor:pointer;transition:box-shadow .15s,border-color .15s}
 .label-card:hover,.label-card.sel{border-color:var(--blue);box-shadow:0 0 0 3px rgba(37,99,235,.18)}
 .label-card .lbl-qr{float:right;margin-left:8px}
-.label-card .lbl-hostname{font-size:13px;font-weight:800;letter-spacing:-.3px;line-height:1.2;color:#000;word-break:break-all}
+.label-card .lbl-hostname{font-size:13px;font-weight:800;letter-spacing:-.3px;line-height:1.2;color:#000;white-space:nowrap;overflow:hidden}
 .label-card .lbl-field{font-size:10px;color:#444;line-height:1.5;margin-top:2px}
 .label-card .lbl-empresa{font-size:9px;font-weight:700;color:#666;text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px}
 .label-card .lbl-tag{display:inline-block;background:#000;color:#fff;font-size:8px;font-weight:700;padding:1px 4px;border-radius:2px;margin-top:3px}
@@ -245,14 +245,18 @@ input:focus,select:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 
   .btn-sm{font-size:11px;padding:4px 8px}
 }
 
+.print-zone{display:none}
+.ap-range{-webkit-appearance:none;appearance:none;height:6px;border-radius:3px;outline:none;border:none;cursor:pointer;width:100%}
+.ap-range::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;background:#2563eb;border:2.5px solid #fff;box-shadow:0 1px 5px rgba(0,0,0,.28);cursor:pointer}
+.ap-range::-moz-range-thumb{width:14px;height:14px;border-radius:50%;background:#2563eb;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.25);cursor:pointer}
 @media print{
   body *{visibility:hidden!important}
   .print-zone,
   .print-zone *{visibility:visible!important}
   .print-zone{
-    position:fixed!important;top:0!important;left:0!important;
+    display:flex!important;position:fixed!important;top:0!important;left:0!important;
     width:100%!important;padding:6mm!important;
-    display:flex!important;flex-wrap:wrap!important;gap:4mm!important;
+    flex-wrap:wrap!important;gap:4mm!important;
     background:#fff!important;
   }
   .label-print-item{
@@ -482,8 +486,8 @@ function _applyAparencia(aparencia, empresa){
   if(aparencia.cor_primaria){
     document.documentElement.style.setProperty('--blue', aparencia.cor_primaria);
   }
-  if(aparencia.cor_sidebar){
-    document.documentElement.style.setProperty('--sb', aparencia.cor_sidebar);
+  if(aparencia.cor_hover){
+    document.documentElement.style.setProperty('--sb-hover', aparencia.cor_hover);
   }
 }
 
@@ -1846,11 +1850,14 @@ function buildLabelHtml(asset,mode){
   const campos = _lblCfg.campos;
   const logo   = _settings?.empresa?.logo_base64 || '';
 
-  // topo da etiqueta: logo + nome (ambos independentes, logo primeiro)
-  const topoHtml = [
-    (logo && _lblCfg.logoEmpresa) ? `<img src="${logo}" style="height:13px;max-width:${parseInt(sz.w)-22}px;object-fit:contain;object-position:left;margin-bottom:2px;display:block">` : '',
-    _lblCfg.empresa ? `<div class="lbl-empresa">${esc(_lblCfg.empresa)}</div>` : '',
-  ].join('');
+  // topo da etiqueta: logo ao lado do nome da empresa
+  const _hasLogo = logo && _lblCfg.logoEmpresa;
+  const _hasNome = !!_lblCfg.empresa;
+  const topoHtml = (_hasLogo || _hasNome) ? `<div style="display:flex;align-items:center;gap:4px;margin-bottom:2px;overflow:hidden;max-width:100%">${
+    _hasLogo ? `<img src="${logo}" style="height:12px;flex-shrink:0;object-fit:contain;object-position:left">` : ''
+  }${
+    _hasNome ? `<div class="lbl-empresa" style="overflow:hidden;white-space:nowrap;text-overflow:ellipsis">${esc(_lblCfg.empresa)}</div>` : ''
+  }</div>` : '';
 
   // campos de texto
   const lines=[];
@@ -1868,13 +1875,18 @@ function buildLabelHtml(asset,mode){
     ${(logo && _lblCfg.logoNoQr) ? `<img src="${logo}" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:${overlaySize}px;height:${overlaySize}px;object-fit:contain;background:#fff;padding:1px;border-radius:2px">` : ''}
   </div>`;
 
+  // auto-shrink hostname: calcula font-size para caber em uma linha
+  const hn = asset.hostname || asset.id;
+  const textAreaW = parseInt(sz.w) - 16 - qrSize - 6; // padding + qr + gap
+  const autoFs = Math.max(7, Math.min(sz.fs, Math.floor(textAreaW / (hn.length * 0.58))));
+
   const inner=`
     <div class="${cls}" style="width:${sz.w};min-height:${sz.h};padding:7px 8px;display:flex;flex-direction:column;justify-content:space-between;border:${borderMap[_lblCfg.borda]||borderMap.preta}">
       <div style="overflow:hidden">
         ${topoHtml}
         <div style="display:flex;gap:6px;align-items:flex-start">
           <div style="flex:1;overflow:hidden">
-            ${campos.hostname?`<div class="lbl-hostname" style="font-size:${sz.fs}px">${esc(asset.hostname||asset.id)}</div>`:''}
+            ${campos.hostname?`<div class="lbl-hostname" style="font-size:${autoFs}px">${esc(hn)}</div>`:''}
             ${lines.join('')}
           </div>
           ${qrHtml}
@@ -2846,42 +2858,79 @@ async function renderConfiguracoes(){
                <button class="btn btn-danger btn-sm" onclick="removeBgLogin()" type="button">Remover fundo</button>`
             : `<span style="font-size:12px;color:var(--text3)">Nenhuma imagem de fundo cadastrada</span>`}
         </div>
-        <input type="file" id="ap-bg" accept="image/png,image/jpeg,image/webp" onchange="previewAparenciaLogo(this,'ap-bg-preview')">
+        <input type="file" id="ap-bg" accept="image/png,image/jpeg,image/webp" onchange="previewAparenciaLogo(this,'ap-bg-preview');_readFile('ap-bg').then(d=>{_apLoginPreviewBg=d||'';updateLoginPreview()})">
         <div class="hint">PNG ou JPG · Recomendado 1920×1080 · Máx 1 MB</div>
         <div id="ap-bg-preview" style="margin-top:8px"></div>
       </div>
-      <div class="modal-footer" style="padding-top:10px;margin-top:0;border-top:none;justify-content:flex-start">
-        <button class="btn btn-primary" onclick="saveAparenciaLogin()">Salvar Fundo de Login</button>
-      </div>
-    </div>
-    <div class="card" style="margin-top:16px">
-      <div class="section-title">Esquema de Cores</div>
-      <div class="info-box blue" style="margin-bottom:14px;font-size:12px">
-        Deixe em branco para usar as cores padrão do sistema. As alterações são aplicadas imediatamente após salvar.
-      </div>
-      <div class="form-grid-2">
-        <div class="form-group"><label>Cor Primária (botões, links, destaques)</label>
-          <div style="display:flex;align-items:center;gap:8px">
-            <input type="color" id="ap-cor-input" value="${cfg_ap.cor_primaria||'#2563eb'}" oninput="$('ap-cor').value=this.value" style="width:40px;height:36px;padding:2px;border:1px solid var(--border);border-radius:var(--r);cursor:pointer">
-            <input id="ap-cor" value="${esc(cfg_ap.cor_primaria||'')}" placeholder="#2563eb" oninput="if(/^#[0-9a-fA-F]{6}$/.test(this.value))$('ap-cor-input').value=this.value" style="flex:1">
+      <div style="margin-top:16px;display:flex;gap:20px;align-items:flex-start;flex-wrap:wrap">
+        <div style="width:172px;flex-shrink:0">
+          <label style="display:block;margin-bottom:10px">Transparência do Box</label>
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+            <input type="range" id="ap-box-transp" class="ap-range" min="0" max="100"
+              value="${cfg_ap.login_box_transparencia||0}"
+              oninput="apRangeUpdate(+this.value)"
+              style="flex:1;background:linear-gradient(to right,#2563eb ${cfg_ap.login_box_transparencia||0}%,var(--bg4) ${cfg_ap.login_box_transparencia||0}%)">
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+            <input type="number" id="ap-box-transp-num" min="0" max="100"
+              value="${cfg_ap.login_box_transparencia||0}"
+              oninput="if(+this.value>=0&&+this.value<=100)apRangeUpdate(+this.value)"
+              style="flex:1;min-width:0">
+            <div style="display:flex;align-items:center;justify-content:center;min-width:52px;height:34px;background:var(--blue-bg);color:var(--blue-text);border:1px solid var(--blue-border);border-radius:var(--r);font-size:14px;font-weight:700;gap:1px;flex-shrink:0">
+              <span id="ap-box-transp-badge">${cfg_ap.login_box_transparencia||0}</span><span style="font-size:10px">%</span>
+            </div>
+          </div>
+          <div class="hint" style="font-size:11px">0% opaco · 100% transparente</div>
+        </div>
+        <div style="flex:1;min-width:200px;max-width:500px">
+          <div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">Pré-visualização</div>
+          <div id="ap-login-preview" style="width:100%;aspect-ratio:16/9;border-radius:12px;border:1px solid var(--border);overflow:hidden;display:flex;align-items:center;justify-content:center;background-color:#0f172a;background-size:cover;background-position:center;${cfg_ap.bg_login?`background-image:url(${cfg_ap.bg_login})`:''}">
+            <div id="ap-login-preview-box" style="background:rgba(255,255,255,${((100-(cfg_ap.login_box_transparencia||0))/100).toFixed(2)});border-radius:10px;padding:16px 20px;width:158px;box-shadow:0 8px 30px rgba(0,0,0,.35);border:1px solid rgba(255,255,255,.12);transition:background .08s">
+              <div style="display:flex;align-items:center;gap:7px;margin-bottom:12px">
+                <div style="width:22px;height:22px;background:#e2e8f0;border-radius:6px;flex-shrink:0"></div>
+                <div style="flex:1">
+                  <div style="height:6px;background:#334155;border-radius:3px;margin-bottom:4px"></div>
+                  <div style="width:55%;height:4px;background:#94a3b8;border-radius:2px"></div>
+                </div>
+              </div>
+              <div style="height:5px;background:#e2e8f0;border-radius:3px;margin-bottom:6px"></div>
+              <div style="height:5px;background:#e2e8f0;border-radius:3px;margin-bottom:6px"></div>
+              <div style="height:5px;background:#e2e8f0;border-radius:3px;margin-bottom:14px"></div>
+              <div style="height:28px;background:#2563eb;border-radius:6px;display:flex;align-items:center;justify-content:center">
+                <div style="width:40px;height:4px;background:rgba(255,255,255,.6);border-radius:2px"></div>
+              </div>
+            </div>
+          </div>
+          <div style="margin-top:8px;display:flex;gap:8px">
+            <button class="btn btn-primary btn-sm" onclick="saveAparenciaLogin()">Salvar Login</button>
           </div>
         </div>
-        <div class="form-group"><label>Cor dos Botões Primários</label>
-          <div style="display:flex;align-items:center;gap:8px">
-            <input type="color" id="ap-cor-botao-input" value="${cfg_ap.cor_botao||'#2563eb'}" oninput="$('ap-cor-botao').value=this.value" style="width:40px;height:36px;padding:2px;border:1px solid var(--border);border-radius:var(--r);cursor:pointer">
-            <input id="ap-cor-botao" value="${esc(cfg_ap.cor_botao||'')}" placeholder="#2563eb" oninput="if(/^#[0-9a-fA-F]{6}$/.test(this.value))$('ap-cor-botao-input').value=this.value" style="flex:1">
+        <div style="width:220px;flex-shrink:0">
+          <div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">Esquema de Cores</div>
+          <div class="hint" style="margin-bottom:12px">Deixe em branco para usar o padrão.</div>
+          <div class="form-group"><label>Cor Primária</label>
+            <div style="display:flex;align-items:center;gap:8px">
+              <input type="color" id="ap-cor-input" value="${cfg_ap.cor_primaria||'#2563eb'}" oninput="$('ap-cor').value=this.value" style="width:36px;height:32px;padding:2px;border:1px solid var(--border);border-radius:var(--r);cursor:pointer;flex-shrink:0">
+              <input id="ap-cor" value="${esc(cfg_ap.cor_primaria||'')}" placeholder="#2563eb" oninput="if(/^#[0-9a-fA-F]{6}$/.test(this.value))$('ap-cor-input').value=this.value" style="flex:1;min-width:0">
+            </div>
+          </div>
+          <div class="form-group"><label>Cor dos Botões</label>
+            <div style="display:flex;align-items:center;gap:8px">
+              <input type="color" id="ap-cor-botao-input" value="${cfg_ap.cor_botao||'#2563eb'}" oninput="$('ap-cor-botao').value=this.value" style="width:36px;height:32px;padding:2px;border:1px solid var(--border);border-radius:var(--r);cursor:pointer;flex-shrink:0">
+              <input id="ap-cor-botao" value="${esc(cfg_ap.cor_botao||'')}" placeholder="#2563eb" oninput="if(/^#[0-9a-fA-F]{6}$/.test(this.value))$('ap-cor-botao-input').value=this.value" style="flex:1;min-width:0">
+            </div>
+          </div>
+          <div class="form-group"><label>Hover do Menu</label>
+            <div style="display:flex;align-items:center;gap:8px">
+              <input type="color" id="ap-cor-hover-input" value="${cfg_ap.cor_hover||'#f1f5f9'}" oninput="$('ap-cor-hover').value=this.value" style="width:36px;height:32px;padding:2px;border:1px solid var(--border);border-radius:var(--r);cursor:pointer;flex-shrink:0">
+              <input id="ap-cor-hover" value="${esc(cfg_ap.cor_hover||'')}" placeholder="#f1f5f9" oninput="if(/^#[0-9a-fA-F]{6}$/.test(this.value))$('ap-cor-hover-input').value=this.value" style="flex:1;min-width:0">
+            </div>
+          </div>
+          <div style="display:flex;gap:8px;margin-top:4px;flex-wrap:wrap">
+            <button class="btn btn-primary btn-sm" onclick="saveAparenciaCores()">Salvar Cores</button>
+            <button class="btn btn-default btn-sm" onclick="resetAparenciaCores()">Restaurar</button>
           </div>
         </div>
-        <div class="form-group"><label>Cor de Fundo do Sidebar</label>
-          <div style="display:flex;align-items:center;gap:8px">
-            <input type="color" id="ap-cor-sb-input" value="${cfg_ap.cor_sidebar||'#ffffff'}" oninput="$('ap-cor-sb').value=this.value" style="width:40px;height:36px;padding:2px;border:1px solid var(--border);border-radius:var(--r);cursor:pointer">
-            <input id="ap-cor-sb" value="${esc(cfg_ap.cor_sidebar||'')}" placeholder="#ffffff" oninput="if(/^#[0-9a-fA-F]{6}$/.test(this.value))$('ap-cor-sb-input').value=this.value" style="flex:1">
-          </div>
-        </div>
-      </div>
-      <div class="modal-footer" style="padding-top:10px;margin-top:0;border-top:none;justify-content:flex-start">
-        <button class="btn btn-primary" onclick="saveAparenciaCores()">Salvar Cores</button>
-        <button class="btn btn-default btn-sm" onclick="resetAparenciaCores()">Restaurar Padrão</button>
       </div>
     </div>
   </div>`;
@@ -3169,32 +3218,53 @@ async function removeLogoSistema(){
 }
 async function saveAparenciaLogin(){
   const bg_login = (await _readFile('ap-bg')) || (_settings?.aparencia?.bg_login || '');
-  await api('/settings','PUT',{aparencia:{..._settings.aparencia, bg_login}});
-  if(_settings.aparencia) _settings.aparencia.bg_login = bg_login;
-  toast('Fundo de login salvo');
+  const login_box_transparencia = Math.max(0, Math.min(100, parseInt($('ap-box-transp')?.value || '0') || 0));
+  await api('/settings','PUT',{aparencia:{..._settings.aparencia, bg_login, login_box_transparencia}});
+  if(_settings.aparencia){ _settings.aparencia.bg_login = bg_login; _settings.aparencia.login_box_transparencia = login_box_transparencia; }
+  toast('Configurações de login salvas');
   if($('ap-bg')) $('ap-bg').value='';
   renderConfiguracoes();
 }
 async function removeBgLogin(){
   await api('/settings','PUT',{aparencia:{..._settings.aparencia, bg_login:''}});
   if(_settings.aparencia) _settings.aparencia.bg_login='';
+  _apLoginPreviewBg = '';
   toast('Fundo removido');
   renderConfiguracoes();
+}
+let _apLoginPreviewBg = '';
+function apRangeUpdate(val){
+  val = Math.max(0, Math.min(100, +val || 0));
+  const range = $('ap-box-transp');
+  if(range){ range.value = val; range.style.background = `linear-gradient(to right,#2563eb ${val}%,var(--bg4) ${val}%)`; }
+  const num = $('ap-box-transp-num'); if(num) num.value = val;
+  const badge = $('ap-box-transp-badge'); if(badge) badge.textContent = val;
+  updateLoginPreview();
+}
+function updateLoginPreview(){
+  const pv  = $('ap-login-preview');
+  const box = $('ap-login-preview-box');
+  if(!pv || !box) return;
+  const transp  = parseInt($('ap-box-transp')?.value ?? '0') || 0;
+  const opacity = ((100 - transp) / 100).toFixed(2);
+  const bg = _apLoginPreviewBg || _settings?.aparencia?.bg_login || '';
+  pv.style.backgroundImage = bg ? `url(${bg})` : 'none';
+  box.style.background = `rgba(255,255,255,${opacity})`;
 }
 async function saveAparenciaCores(){
   const cor_primaria = $('ap-cor')?.value?.trim() || '';
   const cor_botao    = $('ap-cor-botao')?.value?.trim() || '';
-  const cor_sidebar  = $('ap-cor-sb')?.value?.trim() || '';
-  await api('/settings','PUT',{aparencia:{..._settings.aparencia, cor_primaria, cor_botao, cor_sidebar}});
-  if(_settings.aparencia){ _settings.aparencia.cor_primaria=cor_primaria; _settings.aparencia.cor_botao=cor_botao; _settings.aparencia.cor_sidebar=cor_sidebar; }
+  const cor_hover    = $('ap-cor-hover')?.value?.trim() || '';
+  await api('/settings','PUT',{aparencia:{..._settings.aparencia, cor_primaria, cor_botao, cor_hover}});
+  if(_settings.aparencia){ _settings.aparencia.cor_primaria=cor_primaria; _settings.aparencia.cor_botao=cor_botao; _settings.aparencia.cor_hover=cor_hover; }
   _applyAparencia(_settings.aparencia||{}, _settings.empresa||{});
   toast('Cores salvas');
   renderConfiguracoes();
 }
 async function resetAparenciaCores(){
-  await api('/settings','PUT',{aparencia:{..._settings.aparencia, cor_primaria:'', cor_botao:'', cor_sidebar:''}});
+  await api('/settings','PUT',{aparencia:{..._settings.aparencia, cor_primaria:'', cor_botao:'', cor_hover:''}});
   document.documentElement.style.removeProperty('--blue');
-  document.documentElement.style.removeProperty('--sb');
+  document.documentElement.style.removeProperty('--sb-hover');
   toast('Cores restauradas ao padrão');
   renderConfiguracoes();
 }

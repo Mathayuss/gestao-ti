@@ -180,3 +180,44 @@
   - `GET /api/backups`;
   - `POST /api/backups/run`;
   - `DELETE /api/backups/files/<arquivo>`.
+
+## Etiquetas, Aparência e Tela de Login — 2026-05-14
+
+### Etiquetas
+
+- Logo da empresa agora é exibida ao lado do nome da empresa na mesma linha (layout flex row com `align-items:center` e `gap:4px`).
+- Nome do ativo (hostname) mantido em uma única linha: removido `word-break:break-all`, adicionado `white-space:nowrap`. Font-size reduzido automaticamente com base na largura disponível e no comprimento do nome, respeitando mínimo de 7px.
+- Corrigido o `print-zone` (div de impressão de etiquetas) que ficava visível no rodapé da tela após abrir o diálogo de impressão. Adicionado `display:none` fora do `@media print`.
+
+### Personalização Visual (Aparência)
+
+- Substituída a opção "Cor de Fundo do Sidebar" pela opção **"Cor de Hover dos Itens do Menu"**, que aplica a variável CSS `--sb-hover` em vez de `--sb`. Atualizado normalizer em `app.py` (`cor_sidebar` → `cor_hover`).
+
+### Tela de Login
+
+- Removido o botão de alternância de tema claro/escuro da tela de login. O tema continua sendo aplicado automaticamente via `localStorage` ou preferência do sistema operacional.
+- Removidos CSS e funções JS não utilizados após a remoção do botão (`.topbar`, `.theme-btn`, `applyTheme`, `toggleTheme`, ícones `sun`/`moon`).
+- Adicionado campo **Transparência do Box de Login** na aba `Configurações > Aparência > Tela de Login`:
+  - Slider moderno com gradiente azul preenchendo o progresso e thumb circular estilizado (classe `.ap-range`).
+  - Badge com valor percentual atualizado em tempo real ao lado do slider.
+  - Campo numérico sincronizado com o slider.
+  - Valor salvo como `login_box_transparencia` (inteiro 0–100) via `PUT /api/settings`.
+  - Normalizer em `app.py` valida o intervalo 0–100.
+  - Aplicado no `login.html` via Jinja2 como `rgba(255,255,255, opacity)` no `.card`, com variante dark `rgba(17,24,39, opacity)`.
+
+### Preview ao vivo da tela de login
+
+- Adicionado preview ao vivo da transparência do box de login na aba Aparência.
+- Preview exibe a imagem de fundo salva ou nova imagem selecionada, com o box mock sobre ela.
+- Opacidade do box atualizada em tempo real ao mover o slider ou digitar no campo numérico.
+- Ao selecionar nova imagem de fundo, o preview é atualizado imediatamente via `FileReader`.
+- Layout reorganizado em **três colunas** no card Tela de Login:
+  1. **Transparência** (172px fixo): slider compacto + badge + campo numérico.
+  2. **Pré-visualização** (flex, máx. 500px): preview 16/9 com imagem de fundo real.
+  3. **Esquema de Cores** (220px fixo): cor primária, cor dos botões, hover do menu — com botões Salvar e Restaurar. Card separado de cores removido.
+
+### Validações realizadas
+
+- `py_compile` de `app.py` sem erros.
+- Verificada ausência de `</script>` dentro de template literals em `index.html`.
+- Teste manual: slider, badge e preview sincronizados; transparência refletida corretamente no login após salvar.

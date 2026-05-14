@@ -1398,12 +1398,17 @@ def _normalize_aparencia_setting(value):
     for key in ("logo_sistema", "bg_login"):
         if key in value:
             result[key] = clean_text(value.get(key), None)
-    for key in ("cor_primaria", "cor_botao", "cor_sidebar"):
+    for key in ("cor_primaria", "cor_botao", "cor_hover"):
         if key in value:
             v = clean_text(value.get(key), 20)
             if v and not re.match(r'^#[0-9a-fA-F]{3,8}$', v):
                 return None, f"Cor inválida para '{key}': use formato #RRGGBB."
             result[key] = v
+    if 'login_box_transparencia' in value:
+        try:
+            result['login_box_transparencia'] = max(0, min(100, int(value['login_box_transparencia'])))
+        except (TypeError, ValueError):
+            result['login_box_transparencia'] = 0
     return result, None
 
 
