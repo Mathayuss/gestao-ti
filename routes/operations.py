@@ -8,35 +8,6 @@ from app import _export_route_globals
 
 globals().update(_export_route_globals())
 
-@app.route("/api/licenses", methods=["GET"])
-@api_auth
-def get_licenses(): return jsonify([l.to_dict() for l in db.session.execute(db.select(License)).scalars().all()])
-
-
-@app.route("/api/licenses", methods=["POST"])
-@requires("Administrador","Técnico TI")
-def create_license():
-    d = request.get_json()
-    l = License(id=new_id("L"), software=d.get("software",""), fornecedor=d.get("fornecedor",""),
-                total=int(d.get("total",0)), atribuidas=int(d.get("atribuidas",0)),
-                vencimento=d.get("vencimento"), custo=float(d.get("custo",0)),
-                tipo=d.get("tipo","Assinatura"))
-    db.session.add(l); db.session.commit(); return jsonify(l.to_dict()), 201
-
-
-@app.route("/api/licenses/<lid>", methods=["PUT"])
-@requires("Administrador","Técnico TI")
-def update_license(lid):
-    l = db.get_or_404(License, lid); d = request.get_json()
-    for k,v in [("software","software"),("fornecedor","fornecedor"),("tipo","tipo"),
-                 ("vencimento","vencimento")]:
-        if k in d: setattr(l, v, d[k])
-    if "total"      in d: l.total = int(d["total"])
-    if "atribuidas" in d: l.atribuidas = int(d["atribuidas"])
-    if "custo"      in d: l.custo = float(d["custo"])
-    db.session.commit(); return jsonify(l.to_dict())
-
-
 @app.route("/api/incidents", methods=["GET"])
 @api_auth
 def get_incidents():
@@ -135,6 +106,25 @@ def update_maintenance(mid):
     return jsonify(m.to_dict(include_parts=True))
 
 
+@app.route("/api/maintenance/<mid>/upload", methods=["POST"])
+@requires("Administrador","Técnico TI")
+def upload_maintenance_attachment(mid):
+    db.get_or_404(MaintenanceOrder, mid)
+    att, error = _create_attachment_record(
+        "maintenance",
+        mid,
+        request.files.get("file"),
+        request.form.get("category") or "Documento",
+        request.form.get("description") or "",
+    )
+    if error:
+        message, status = error
+        return jsonify({"error": message}), status
+    audit("ANEXO_UPLOAD", "manutencao", mid, f"Anexo {att.original_name} adicionado à OS {mid}")
+    db.session.commit()
+    return jsonify({"ok": True, "filename": att.original_name, "attachment": att.to_dict()}), 201
+
+
 @app.route("/api/maintenance/<mid>/parts", methods=["POST"])
 @requires("Administrador","Técnico TI")
 def add_maintenance_part(mid):
@@ -212,4 +202,3 @@ def close_maintenance(mid):
           f"OS encerrada: '{resultado}'. Ativo → '{status_ativo}'")
     db.session.commit()
     return jsonify(m.to_dict(include_parts=True))
-

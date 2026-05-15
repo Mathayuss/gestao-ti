@@ -3,7 +3,6 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<!-- Adição do token CSRF para a requisição POST -->
 <meta name="csrf-token" content="{{ csrf_token() }}">
 <title>{{ asset.hostname }} — TI Control</title>
 <style>
@@ -243,7 +242,6 @@ applyTheme(localStorage.getItem('ticontrol-theme') || (matchMedia('(prefers-colo
 function openAuditDialog() {
   const modal = document.getElementById('audit-modal');
   modal.style.display = 'flex';
-  // Pequeno delay para a transição CSS funcionar após o display: flex
   setTimeout(() => {
     modal.classList.add('open');
     document.getElementById('audit-local').focus();
@@ -253,7 +251,7 @@ function openAuditDialog() {
 function closeAuditDialog() {
   const modal = document.getElementById('audit-modal');
   modal.classList.remove('open');
-  setTimeout(() => modal.style.display = 'none', 200); // Aguarda a transição
+  setTimeout(() => modal.style.display = 'none', 200);
 }
 
 let statusTimeout;
@@ -271,7 +269,6 @@ function showStatus(text, type) {
   }
 }
 
-// Recupera o token CSRF da tag meta
 function getCSRFToken() {
   const meta = document.querySelector('meta[name="csrf-token"]');
   return meta ? meta.content : '';
@@ -297,7 +294,7 @@ async function registrarAuditoria() {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-CSRFToken': getCSRFToken() // Token adicionado aqui
+        'X-CSRFToken': getCSRFToken()
       },
       body: JSON.stringify({ 
         assetId: '{{ asset.id }}', 

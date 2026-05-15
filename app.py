@@ -17,6 +17,7 @@ warnings.filterwarnings('ignore', message='.*utcnow.*', category=DeprecationWarn
 from functools import wraps
 from flask import (Flask, jsonify, request, render_template,
                    send_file, redirect, url_for, session, Response, g)
+from werkzeug.utils import secure_filename
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import func, text
 from urllib.parse import urlsplit
@@ -103,9 +104,7 @@ app.config.update(
     REMEMBER_COOKIE_SAMESITE     = "Lax",
     REMEMBER_COOKIE_SECURE       = _session_secure,
     REMEMBER_COOKIE_DURATION     = 86400 * 7,
-    # O frontend atual usa fetch/form posts sem token CSRF. Mantem a extensao
-    # instalada, mas evita bloquear login e APIs ate a tela enviar tokens.
-    WTF_CSRF_CHECK_DEFAULT       = False,
+    WTF_CSRF_CHECK_DEFAULT       = True,
 )
 
 db   = SQLAlchemy(app)
@@ -269,7 +268,7 @@ class SystemUser(UserMixin, db.Model):
 class Colaborador(db.Model):
     __tablename__ = "colaboradores"
     id           = db.Column(db.String(16), primary_key=True)
-    nome         = db.Column(db.String(120), nullable=False)
+    nome         = db.Column(db.String(120), nullable=False, index=True)
     email        = db.Column(db.String(120))
     telefone     = db.Column(db.String(30))
     cargo        = db.Column(db.String(80))
@@ -306,8 +305,8 @@ class Asset(db.Model):
     patrimonio   = db.Column(db.String(40))
     nf           = db.Column(db.String(40))
     categoria    = db.Column(db.String(40))
-    status       = db.Column(db.String(30), default="Disponível")
-    colaborador  = db.Column(db.String(120), default="")
+    status       = db.Column(db.String(30), default="Disponível", index=True)
+    colaborador  = db.Column(db.String(120), default="", index=True)
     setor        = db.Column(db.String(80), default="")
     unidade      = db.Column(db.String(80), default="")
     garantia     = db.Column(db.String(10))
@@ -340,12 +339,12 @@ class Supply(db.Model):
 class SupplyMovement(db.Model):
     __tablename__ = "supply_movements"
     id           = db.Column(db.String(20), primary_key=True)
-    tipo         = db.Column(db.String(20))   # ENTRADA SAIDA DEVOLUCAO
-    ref_id       = db.Column(db.String(16))   # supply_id
+    tipo         = db.Column(db.String(20))
+    ref_id       = db.Column(db.String(16), index=True)
     supply_nome  = db.Column(db.String(120))
     descricao    = db.Column(db.Text)
     quantidade   = db.Column(db.Integer)
-    colaborador  = db.Column(db.String(120), default="")
+    colaborador  = db.Column(db.String(120), default="", index=True)
     ativo_id     = db.Column(db.String(16), default="")
     motivo       = db.Column(db.String(80), default="")
     data         = db.Column(db.DateTime, default=datetime.now)
@@ -360,7 +359,7 @@ class SupplyMovement(db.Model):
 class Allocation(db.Model):
     __tablename__ = "allocations"
     id           = db.Column(db.String(16), primary_key=True)
-    ativo_id     = db.Column(db.String(16), db.ForeignKey("assets.id"))
+    ativo_id     = db.Column(db.String(16), db.ForeignKey("assets.id"), index=True)
     ativo_nome   = db.Column(db.String(200))
     colaborador  = db.Column(db.String(120))
     setor        = db.Column(db.String(80))
@@ -424,17 +423,21 @@ class License(db.Model):
     vencimento  = db.Column(db.String(10))
     custo       = db.Column(db.Float, default=0.0)
     tipo        = db.Column(db.String(40))
+    attachments = db.Column(db.JSON, default=list)
 
     def to_dict(self):
+        saldo = (self.total or 0) - (self.atribuidas or 0)
+        situacao = "Excedido" if saldo < 0 else ("Sem saldo" if saldo == 0 else "Regular")
         return {"id":self.id,"software":self.software,"fornecedor":self.fornecedor,
                 "total":self.total,"atribuidas":self.atribuidas,"vencimento":self.vencimento,
-                "custo":self.custo,"tipo":self.tipo}
+                "custo":self.custo,"tipo":self.tipo,"attachments":self.attachments or [],
+                "saldo":saldo,"situacao":situacao}
 
 
 class Incident(db.Model):
     __tablename__ = "incidents"
     id       = db.Column(db.String(16), primary_key=True)
-    ref_id   = db.Column(db.String(16))
+    ref_id   = db.Column(db.String(16), index=True)
     tipo     = db.Column(db.String(40))
     descricao= db.Column(db.Text)
     status   = db.Column(db.String(20), default="Aberto")
@@ -461,6 +464,7 @@ class MaintenanceOrder(db.Model):
     data_conclusao    = db.Column(db.String(10))
     custo_total       = db.Column(db.Float, default=0.0)
     observacao        = db.Column(db.Text)
+    attachments       = db.Column(db.JSON, default=list)
     parts             = db.relationship("MaintenancePart", backref="order",
                                         cascade="all, delete-orphan", lazy=True)
 
@@ -470,7 +474,7 @@ class MaintenanceOrder(db.Model):
              "descricaoDefeito": self.descricao_defeito, "diagnostico": self.diagnostico,
              "tecnico": self.tecnico, "dataAbertura": self.data_abertura,
              "dataConclusao": self.data_conclusao, "custoTotal": self.custo_total,
-             "observacao": self.observacao}
+             "observacao": self.observacao, "attachments": self.attachments}
         if include_parts:
             d["pecas"] = [p.to_dict() for p in self.parts]
         return d
@@ -499,15 +503,117 @@ class AuditLog(db.Model):
     usuario   = db.Column(db.String(80))
     acao      = db.Column(db.String(60))
     modulo    = db.Column(db.String(40))
-    ref_id    = db.Column(db.String(20))
+    ref_id    = db.Column(db.String(20), index=True)
     detalhe   = db.Column(db.Text)
     ip        = db.Column(db.String(50))
-    data      = db.Column(db.DateTime, default=datetime.now)
+    data      = db.Column(db.DateTime, default=datetime.now, index=True)
 
     def to_dict(self):
         return {"id":self.id,"usuario":self.usuario,"acao":self.acao,"modulo":self.modulo,
                 "refId":self.ref_id,"detalhe":self.detalhe,"ip":self.ip,
                 "data":self.data.isoformat() if self.data else None}
+
+
+class AuditCampaign(db.Model):
+    """Campanha de conferência física de ativos por unidade/setor."""
+    __tablename__ = "audit_campaigns"
+    id             = db.Column(db.String(16), primary_key=True)
+    nome           = db.Column(db.String(120), nullable=False)
+    unidade        = db.Column(db.String(80), default="")
+    setor          = db.Column(db.String(80), default="")
+    status         = db.Column(db.String(20), default="Aberta")
+    data_inicio    = db.Column(db.String(10), default=lambda: str(date.today()))
+    data_fim       = db.Column(db.String(10))
+    criado_por     = db.Column(db.String(80), default="")
+    criado_em      = db.Column(db.DateTime, default=datetime.now)
+    observacao     = db.Column(db.Text, default="")
+    items          = db.relationship("AuditCampaignItem", backref="campaign",
+                                     cascade="all, delete-orphan", lazy=True)
+
+    def to_dict(self, include_items=False):
+        counts = {}
+        for i in self.items:
+            counts[i.status] = counts.get(i.status, 0) + 1
+        total = len(self.items)
+        conferidos  = counts.get("Conferido", 0)
+        divergentes = counts.get("Divergente", 0)
+        extras      = counts.get("Extra", 0)
+        d = {
+            "id": self.id, "nome": self.nome, "unidade": self.unidade,
+            "setor": self.setor, "status": self.status,
+            "dataInicio": self.data_inicio, "dataFim": self.data_fim,
+            "criadoPor": self.criado_por, "criadoEm": self.criado_em.isoformat() if self.criado_em else None,
+            "observacao": self.observacao,
+            "stats": {
+                "total": total, "conferidos": conferidos,
+                "pendentes": max(0, total - conferidos - divergentes - extras),
+                "divergentes": divergentes, "extras": extras,
+                "progresso": round((conferidos / total) * 100) if total else 0,
+            },
+        }
+        if include_items:
+            d["items"] = [i.to_dict() for i in self.items]
+        return d
+
+
+class AuditCampaignItem(db.Model):
+    __tablename__ = "audit_campaign_items"
+    id                    = db.Column(db.String(20), primary_key=True)
+    campaign_id           = db.Column(db.String(16), db.ForeignKey("audit_campaigns.id"), nullable=False)
+    asset_id              = db.Column(db.String(16), db.ForeignKey("assets.id"))
+    asset_nome            = db.Column(db.String(200))
+    patrimonio            = db.Column(db.String(40))
+    service_tag           = db.Column(db.String(40))
+    expected_unidade      = db.Column(db.String(80), default="")
+    expected_setor        = db.Column(db.String(80), default="")
+    expected_colaborador  = db.Column(db.String(120), default="")
+    observed_local        = db.Column(db.String(120), default="")
+    observed_responsavel  = db.Column(db.String(120), default="")
+    status                = db.Column(db.String(20), default="Pendente")
+    divergencia           = db.Column(db.Text, default="")
+    observacao            = db.Column(db.Text, default="")
+    auditado_por          = db.Column(db.String(80), default="")
+    auditado_em           = db.Column(db.DateTime)
+
+    def to_dict(self):
+        return {
+            "id": self.id, "campaignId": self.campaign_id, "assetId": self.asset_id,
+            "assetNome": self.asset_nome, "patrimonio": self.patrimonio,
+            "serviceTag": self.service_tag,
+            "expectedUnidade": self.expected_unidade,
+            "expectedSetor": self.expected_setor,
+            "expectedColaborador": self.expected_colaborador,
+            "observedLocal": self.observed_local,
+            "observedResponsavel": self.observed_responsavel,
+            "status": self.status, "divergencia": self.divergencia,
+            "observacao": self.observacao, "auditadoPor": self.auditado_por,
+            "auditadoEm": self.auditado_em.isoformat() if self.auditado_em else None,
+        }
+
+
+class Attachment(db.Model):
+    """Arquivo anexado a ativos, ordens de manutenção ou licenças."""
+    __tablename__ = "attachments"
+    id            = db.Column(db.String(20), primary_key=True)
+    entity_type   = db.Column(db.String(30), nullable=False, index=True)
+    entity_id     = db.Column(db.String(16), nullable=False, index=True)
+    original_name = db.Column(db.String(180), nullable=False)
+    stored_name   = db.Column(db.String(220), nullable=False)
+    content_type  = db.Column(db.String(120), default="application/octet-stream")
+    size          = db.Column(db.Integer, default=0)
+    category      = db.Column(db.String(40), default="Documento")
+    description   = db.Column(db.Text, default="")
+    uploaded_by   = db.Column(db.String(80), default="")
+    uploaded_at   = db.Column(db.DateTime, default=datetime.now)
+
+    def to_dict(self):
+        return {
+            "id": self.id, "entityType": self.entity_type, "entityId": self.entity_id,
+            "originalName": self.original_name, "contentType": self.content_type,
+            "size": self.size, "category": self.category, "description": self.description,
+            "uploadedBy": self.uploaded_by,
+            "uploadedAt": self.uploaded_at.isoformat() if self.uploaded_at else None,
+        }
 
 
 class Setting(db.Model):
@@ -543,7 +649,7 @@ class Devolucao(db.Model):
     status                = db.Column(db.String(20), default="Pendente")
     ativos_devolvidos     = db.Column(db.Text, default="[]")   # JSON list
     perifericos_devolvidos= db.Column(db.Text, default="[]")   # JSON list
-    laudo_status          = db.Column(db.String(30), default="Aguardando Laudo")
+    laudo_status          = db.Column(db.String(30), default="Aguardando Laudo", index=True)
     rh_token              = db.Column(db.String(64), unique=True)
     rh_token_expiry       = db.Column(db.DateTime)
     rh_email              = db.Column(db.String(120))
@@ -610,17 +716,17 @@ PERFIL_PERMISSOES = {
     "Administrador": {
         "label":"Acesso total ao sistema","cor":"red",
         "modulos":["dashboard","ativos","insumos","colaboradores","alocacoes",
-                   "qrcode","licencas","alertas","system_users","configuracoes"],
+                   "auditorias","qrcode","licencas","alertas","manutencao","system_users","configuracoes"],
         "pode_editar":True,"pode_excluir":True,"pode_exportar":True,
     },
     "Técnico TI": {
         "label":"Gestão operacional de TI","cor":"blue",
-        "modulos":["dashboard","ativos","insumos","alocacoes","qrcode","alertas","colaboradores"],
+        "modulos":["dashboard","ativos","insumos","alocacoes","auditorias","qrcode","alertas","colaboradores","manutencao"],
         "pode_editar":True,"pode_excluir":False,"pode_exportar":True,
     },
     "Gestor": {
         "label":"Visualização gerencial e relatórios","cor":"amber",
-        "modulos":["dashboard","ativos","colaboradores","licencas","alertas"],
+        "modulos":["dashboard","ativos","auditorias","colaboradores","licencas","alertas"],
         "pode_editar":False,"pode_excluir":False,"pode_exportar":True,
     },
     "Visualizador": {
@@ -819,40 +925,117 @@ def _check_login_rate_limit(ip: str) -> bool:
     now = _time.time()
     cutoff = now - _RATE_WINDOW
     try:
-        from sqlalchemy import text as _txt
-        # Limpa entradas antigas e conta falhas recentes
-        db.session.execute(_txt("DELETE FROM login_attempts WHERE timestamp < :cutoff"), {"cutoff": cutoff})
+        db.session.execute(
+            text("DELETE FROM login_attempts WHERE ip = :ip AND timestamp < :cutoff"),
+            {"ip": ip, "cutoff": cutoff}
+        )
         count = db.session.execute(
-            _txt("SELECT COUNT(*) FROM login_attempts WHERE ip = :ip AND success = 0 AND timestamp >= :cutoff"),
+            text("SELECT COUNT(*) FROM login_attempts WHERE ip = :ip AND success = 0 AND timestamp >= :cutoff"),
             {"ip": ip, "cutoff": cutoff}
         ).scalar() or 0
-        db.session.commit()
         if count >= _RATE_LIMIT:
+            db.session.rollback()
             return False
-        # Registra tentativa (success=False — será atualizado em caso de sucesso)
         db.session.add(LoginAttempt(ip=ip, timestamp=now, success=False))
         db.session.commit()
         return True
     except Exception:
         db.session.rollback()
-        # Se o DB falhar, usa fallback in-memory
         return _check_rate_limit(ip, "login_fallback")
 
 
 def _record_login_success(ip: str):
     """Marca a última tentativa do IP como bem-sucedida."""
     try:
-        from sqlalchemy import text as _txt
         db.session.execute(
-            _txt("UPDATE login_attempts SET success=1 WHERE ip=:ip ORDER BY id DESC LIMIT 1"),
+            text("UPDATE login_attempts SET success=1 WHERE ip=:ip ORDER BY id DESC LIMIT 1"),
             {"ip": ip}
         )
         db.session.commit()
     except Exception:
         db.session.rollback()
 
+
+PERMISSION_MODULE_PREFIXES = (
+    ("/api/assets", "ativos"),
+    ("/api/allocations", "alocacoes"),
+    ("/api/supplies", "insumos"),
+    ("/api/colaboradores", "colaboradores"),
+    ("/api/devolucoes", "colaboradores"),
+    ("/api/licenses", "licencas"),
+    ("/api/maintenance", "manutencao"),
+    ("/api/incidents", "manutencao"),
+    ("/api/audit-campaigns", "auditorias"),
+    ("/api/audit-log", "auditorias"),
+    ("/api/dashboard", "dashboard"),
+    ("/api/alerts", "alertas"),
+    ("/api/movements", "dashboard"),
+    ("/api/system-users", "system_users"),
+    ("/api/settings", "configuracoes"),
+    ("/api/backups", "configuracoes"),
+    ("/api/backup.json", "configuracoes"),
+    ("/api/export", "configuracoes"),
+)
+
+ATTACHMENT_MODULE_BY_ENTITY = {
+    "asset": "ativos",
+    "maintenance": "manutencao",
+    "license": "licencas",
+}
+
+
+def _permission_module_for_request(path: str):
+    if path.startswith("/api/attachments/"):
+        parts = path.split("/")
+        if len(parts) > 3 and parts[3] != "files":
+            return ATTACHMENT_MODULE_BY_ENTITY.get(parts[3])
+        return None
+    for prefix, module in PERMISSION_MODULE_PREFIXES:
+        if path.startswith(prefix):
+            return module
+    return None
+
+
+def _permission_action_for_request(path: str, method: str):
+    method = (method or "GET").upper()
+    if path.startswith("/api/export") or path == "/api/backup.json":
+        return "export"
+    if method == "GET" and path.startswith("/api/backups/files"):
+        return "export"
+    if method == "DELETE":
+        return "delete"
+    if method in {"POST", "PUT", "PATCH"}:
+        return "edit"
+    return "view"
+
+
+def _profile_permissions(perfil: str):
+    configured = _get_setting("perfil_permissoes", PERFIL_PERMISSOES)
+    if not isinstance(configured, dict):
+        configured = PERFIL_PERMISSOES
+    info = configured.get(perfil) or PERFIL_PERMISSOES.get(perfil) or {}
+    return info if isinstance(info, dict) else {}
+
+
+def _profile_allows(perfil: str, module: str, action: str):
+    if perfil == "Administrador":
+        return True
+    info = _profile_permissions(perfil)
+    if module and module not in (info.get("modulos") or []):
+        return False
+    if action == "view":
+        return True
+    if action == "edit":
+        return bool(info.get("pode_editar"))
+    if action == "delete":
+        return bool(info.get("pode_excluir"))
+    if action == "export":
+        return bool(info.get("pode_exportar"))
+    return False
+
+
 def requires(*perfis):
-    """Decorator: exige autenticação + perfil."""
+    """Decorator: exige autenticação e aplica perfil/permissões por módulo."""
     def decorator(f):
         @wraps(f)
         def decorated(*args, **kwargs):
@@ -860,8 +1043,14 @@ def requires(*perfis):
                 return jsonify({"error":"Não autenticado"}), 401
             if current_user.status != "Ativo":
                 return jsonify({"error":"Conta desativada"}), 403
-            if perfis and current_user.perfil not in perfis:
+            module = _permission_module_for_request(request.path)
+            action = _permission_action_for_request(request.path, request.method)
+            dynamic_allowed = bool(module and _profile_allows(current_user.perfil, module, action))
+            fixed_allowed = not perfis or current_user.perfil in perfis
+            if perfis and not fixed_allowed and not dynamic_allowed:
                 return jsonify({"error":f"Perfil '{current_user.perfil}' sem acesso a esta ação"}), 403
+            if module and not dynamic_allowed:
+                return jsonify({"error":f"Perfil '{current_user.perfil}' sem permissão para {action} em {module}."}), 403
             return f(*args, **kwargs)
         return decorated
     return decorator
@@ -883,6 +1072,10 @@ def perifericos_do_colaborador(nome_colaborador):
             for k, v in saldo.items() if v["qty"] > 0]
 
 def compute_alerts():
+    """Calcula alertas e faz cache no contexto do request (g) para evitar queries duplicadas."""
+    if hasattr(g, "_alerts_cache"):
+        return g._alerts_cache
+
     alerts = []
     cfg_dias_gar = 60
     cfg_dias_lic = 60
@@ -909,6 +1102,7 @@ def compute_alerts():
         if l.atribuidas > l.total:
             alerts.append({"tipo":"licenca","nivel":"danger","titulo":f"Licença excedida: {l.software}",
                            "detalhe":f"{l.atribuidas}/{l.total} atribuídas","ref":l.id})
+    g._alerts_cache = alerts
     return alerts
 
 @lm.user_loader
@@ -1031,20 +1225,31 @@ def _smtp_env_available() -> bool:
 
 
 def _get_email_config() -> dict:
-    """Lê configuração de e-mail do banco da aplicação ou das variáveis do servidor."""
-    source = clean_text(_get_setting("email.source", ""), 20)
+    """Lê configuração de e-mail do banco em uma única query."""
+    email_keys = {"email.source", "email.host", "email.port", "email.tls",
+                  "email.user", "email.password", "email.from_name",
+                  "email.from_email", "email.enabled"}
+    rows = db.session.execute(
+        db.select(Setting).where(Setting.key.in_(email_keys))
+    ).scalars().all()
+    db_vals = {r.key: r.value for r in rows}
+
+    def _s(k, default=""):
+        return db_vals.get(k, default)
+
+    source = clean_text(_s("email.source"), 20)
     if source not in ("app", "env"):
         source = "env" if _smtp_env_available() else "app"
 
     app_cfg = {
-        "host":       _get_setting("email.host", ""),
-        "port":       parse_int(_get_setting("email.port", 587), default=587, minimum=1),
-        "tls":        parse_bool(_get_setting("email.tls", True), default=True),
-        "user":       _get_setting("email.user", ""),
-        "password":   _get_setting("email.password", ""),
-        "from_name":  _get_setting("email.from_name", "TI Control"),
-        "from_email": _get_setting("email.from_email", ""),
-        "enabled":    parse_bool(_get_setting("email.enabled", False), default=False),
+        "host":       _s("email.host"),
+        "port":       parse_int(_s("email.port", 587), default=587, minimum=1),
+        "tls":        parse_bool(_s("email.tls", True), default=True),
+        "user":       _s("email.user"),
+        "password":   _s("email.password"),
+        "from_name":  _s("email.from_name", "TI Control"),
+        "from_email": _s("email.from_email"),
+        "enabled":    parse_bool(_s("email.enabled", False), default=False),
     }
 
     if source == "app":
@@ -1425,6 +1630,11 @@ SETTING_NORMALIZERS = {
 BACKUP_DIR = os.path.join(app.instance_path, "backups")
 BACKUP_FILE_RE = re.compile(r"^backup_ticontrol_\d{8}_\d{6}_(manual|auto)\.json$")
 _backup_last_check = 0
+ATTACHMENT_DIR = os.path.join(app.instance_path, "attachments")
+ATTACHMENT_MAX_BYTES = 8 * 1024 * 1024
+ATTACHMENT_ALLOWED_EXT = {
+    "pdf", "png", "jpg", "jpeg", "webp", "txt", "csv", "doc", "docx", "xls", "xlsx",
+}
 
 DEFAULT_BACKUP_CONFIG = {
     "enabled": False,
@@ -1509,6 +1719,7 @@ def _build_backup_payload(generated_by="sistema", include_audit=False):
         "incidents": [i.to_dict() for i in db.session.execute(db.select(Incident)).scalars().all()],
         "maintenance": [m.to_dict(include_parts=True) for m in db.session.execute(db.select(MaintenanceOrder)).scalars().all()],
         "devolucoes": [d.to_dict() for d in db.session.execute(db.select(Devolucao)).scalars().all()],
+        "attachments": [a.to_dict() for a in db.session.execute(db.select(Attachment)).scalars().all()],
         "settings": _safe_settings_payload(),
         "auditLogs": [a.to_dict() for a in db.session.execute(db.select(AuditLog).order_by(AuditLog.data.desc()).limit(1000)).scalars().all()] if include_audit else [],
     }
@@ -1612,6 +1823,72 @@ def _maybe_run_scheduled_backup():
         _set_setting("backup", cfg)
         db.session.commit()
         logger.exception("Falha na rotina automática de backup")
+
+
+def _attachment_entity_exists(entity_type, entity_id):
+    model_map = {
+        "asset": Asset,
+        "maintenance": MaintenanceOrder,
+        "license": License,
+    }
+    model = model_map.get(entity_type)
+    return bool(model and db.session.get(model, entity_id))
+
+
+def _attachment_path(stored_name):
+    safe = secure_filename(stored_name or "")
+    if not safe or safe != stored_name:
+        return None
+    path = os.path.abspath(os.path.join(ATTACHMENT_DIR, safe))
+    base = os.path.abspath(ATTACHMENT_DIR)
+    if not path.startswith(base + os.sep):
+        return None
+    return path
+
+
+def _attachment_ext(filename):
+    if "." not in filename:
+        return ""
+    return filename.rsplit(".", 1)[1].lower()
+
+
+def _create_attachment_record(entity_type, entity_id, file, category="Documento", description=""):
+    if not file or not file.filename:
+        return None, ("Arquivo obrigatório.", 400)
+    original = clean_text(file.filename, 180)
+    ext = _attachment_ext(original)
+    if ext not in ATTACHMENT_ALLOWED_EXT:
+        return None, ("Tipo de arquivo não permitido.", 400)
+    data = file.read()
+    if not data:
+        return None, ("Arquivo vazio.", 400)
+    if len(data) > ATTACHMENT_MAX_BYTES:
+        return None, ("Arquivo excede o limite de 8 MB.", 400)
+
+    os.makedirs(ATTACHMENT_DIR, exist_ok=True)
+    att_id = new_id("ATT")
+    safe_name = secure_filename(original) or f"anexo.{ext}"
+    stored_name = f"{att_id}_{safe_name}"
+    path = _attachment_path(stored_name)
+    if not path:
+        return None, ("Nome de arquivo inválido.", 400)
+    with open(path, "wb") as fh:
+        fh.write(data)
+
+    att = Attachment(
+        id=att_id,
+        entity_type=entity_type,
+        entity_id=entity_id,
+        original_name=original,
+        stored_name=stored_name,
+        content_type=file.mimetype or "application/octet-stream",
+        size=len(data),
+        category=clean_text(category or "Documento", 40),
+        description=clean_text(description or "", 500),
+        uploaded_by=current_user.username,
+    )
+    db.session.add(att)
+    return att, None
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -1823,6 +2100,9 @@ def _migrate_db():
         "maintenance_orders": [
             ("status_anterior", "VARCHAR(30)"),
         ],
+        "licenses": [
+            ("attachments", "JSON"),
+        ],
         "devolucoes": [
             ("laudo_status",    "VARCHAR(30)"),
             ("rh_token",        "VARCHAR(64)"),
@@ -1837,6 +2117,9 @@ def _migrate_db():
             ("editado_em",    "TEXT"),
             ("editado_por",   "VARCHAR(120)"),
             ("motivo_edicao", "TEXT"),
+        ],
+        "attachments": [
+            ("description", "TEXT"),
         ],
     }
     is_sqlite = "sqlite" in app.config["SQLALCHEMY_DATABASE_URI"]
@@ -1855,8 +2138,6 @@ def _migrate_db():
                         pass
         conn.commit()
 
-    # Garante que as novas tabelas (login_attempts, devolucoes) existam
-    db.create_all()
 
 
 def _export_route_globals():
@@ -1868,9 +2149,9 @@ def register_route_modules():
     """Importa modulos de rotas para registrar os endpoints Flask."""
     from routes import (
         auth, assets, supplies, colaboradores, allocations,
-        operations, users, settings, devolucoes, reports,
+        licenses, operations, users, settings, devolucoes, reports, audit_campaigns, attachments,
     )
-    return (auth, assets, supplies, colaboradores, allocations, operations, users, settings, devolucoes, reports)
+    return (auth, assets, supplies, colaboradores, allocations, licenses, operations, users, settings, devolucoes, reports, audit_campaigns, attachments)
 
 register_route_modules()
 

@@ -123,7 +123,6 @@
     .cobranca-valor { font-size: 22px; font-weight: 800; color: #dc2626; }
     .cobranca-box.sem .cobranca-valor { font-size: 15px; color: var(--ok-text); }
 
-    /* Melhorias no Formulário */
     .form-group { margin-bottom: 14px; }
     .form-group label { display: block; font-size: 12px; font-weight: 600; color: var(--text2); margin-bottom: 6px; cursor: pointer; }
     .form-group input, .form-group textarea {
@@ -134,7 +133,6 @@
     }
     .form-group input:focus, .form-group textarea:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(37,99,235,.15); }
 
-    /* Prefixo de Moeda (R$) */
     .input-wrapper { position: relative; display: flex; align-items: center; }
     .input-prefix { position: absolute; left: 12px; color: var(--text2); font-size: 14px; font-weight: 600; pointer-events: none; }
     .input-wrapper input { padding-left: 36px; }
@@ -293,7 +291,6 @@
       </p>
 
       <form id="form-ciencia" method="POST" action="/rh/laudo/{{ rh_token }}">
-        <!-- Proteção CSRF -->
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
         {% if laudo.tem_cobranca %}
@@ -316,7 +313,7 @@
                     placeholder="Informe se houver ajuste na cobrança, justificativa ou qualquer nota relevante."></textarea>
         </div>
 
-        <button id="btn-submit" type="submit" class="btn btn-primary">Confirmar Ciência do RH</button>
+        <button id="btn-submit" type="submit" class="btn btn-primary" data-loading-text="Processando...">Confirmar Ciência do RH</button>
       </form>
 
       <div style="font-size:11px;color:var(--text3);text-align:center;margin-top:14px">
@@ -351,14 +348,13 @@ function toggleTheme() {
 
 applyTheme(localStorage.getItem('ticontrol-theme') || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'));
 
-// Prevenção de duplo envio (Double Submit)
 const form = document.getElementById('form-ciencia');
 if (form) {
   form.addEventListener('submit', function() {
     const btn = document.getElementById('btn-submit');
     if (btn) {
       btn.disabled = true;
-      btn.innerHTML = 'Processando...';
+      btn.textContent = btn.dataset.loadingText || 'Processando...';
     }
   });
 }
