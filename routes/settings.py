@@ -31,6 +31,7 @@ def get_settings():
         "termo_recebimento": _get_setting("termo_recebimento", {}),
         "termo_devolucao":   _get_setting("termo_devolucao", {}),
         "aparencia":    _get_setting("aparencia", {}),
+        "patrimonio_prefixo": _get_setting("patrimonio.prefixo", "TI"),
     })
 
 

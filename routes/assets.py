@@ -40,10 +40,66 @@ def get_assets():
     return jsonify([a.to_dict() for a in db.session.execute(stmt).scalars().all()])
 
 
+@app.route("/api/assets/proximo-patrimonio", methods=["GET"])
+@api_auth
+def get_proximo_patrimonio():
+    return jsonify({"patrimonio": proximo_patrimonio()})
+
+
+@app.route("/api/assets/lote", methods=["POST"])
+@requires("Administrador","Técnico TI")
+def create_asset_lote():
+    d = request.get_json() or {}
+    try:
+        quantidade = int(d.get("quantidade", 1))
+    except (TypeError, ValueError):
+        return jsonify({"error": "Quantidade inválida para entrada em lote."}), 400
+    if quantidade < 1 or quantidade > 100:
+        return jsonify({"error": "Quantidade deve estar entre 1 e 100."}), 400
+    criados = []
+    for _ in range(quantidade):
+        pat = proximo_patrimonio()
+        payload = dict(d)
+        payload["patrimonio"] = pat
+        if not clean_text(payload.get("hostname")):
+            payload["hostname"] = f"{clean_text(payload.get('categoria'), 20) or 'ATIVO'}-{pat}"
+        errors = validate_asset_payload(payload)
+        if errors:
+            db.session.rollback()
+            return jsonify({"error": "Validação falhou", "details": errors}), 400
+        a = Asset(
+            id=new_id("A"),
+            hostname=clean_text(payload.get("hostname"), 80),
+            ip=clean_text(d.get("ip", "DHCP"), 40) or "DHCP",
+            mac=clean_text(d.get("mac"), 20),
+            service_tag=clean_text(d.get("serviceTag"), 40),
+            os=clean_text(d.get("os"), 80),
+            fabricante=clean_text(d.get("fabricante"), 60),
+            modelo=clean_text(d.get("modelo"), 80),
+            patrimonio=pat,
+            nf=clean_text(d.get("nf"), 40),
+            categoria=clean_text(d.get("categoria"), 40),
+            status="Disponível",
+            garantia=clean_text(d.get("garantia"), 10) or None,
+        )
+        db.session.add(a)
+        audit("CRIAR", "ativos", a.id, f"Ativo {a.fabricante} {a.modelo} cadastrado em lote — {pat}")
+        criados.append(a)
+    db.session.commit()
+    return jsonify([a.to_dict() for a in criados]), 201
+
+
 @app.route("/api/assets", methods=["POST"])
 @requires("Administrador","Técnico TI")
 def create_asset():
     d = request.get_json() or {}
+    # Auto-gera patrimônio se não informado
+    if not clean_text(d.get("patrimonio")):
+        d = dict(d)
+        d["patrimonio"] = proximo_patrimonio()
+    if not clean_text(d.get("hostname")):
+        d = dict(d)
+        d["hostname"] = f"{clean_text(d.get('categoria'), 20) or 'ATIVO'}-{d['patrimonio']}"
     errors = validate_asset_payload(d)
     if errors:
         return jsonify({"error":"Validação do ativo falhou", "details": errors}), 400
@@ -58,7 +114,7 @@ def create_asset():
               setor=clean_text(d.get("setor"), 80), unidade=clean_text(d.get("unidade"), 80),
               garantia=clean_text(d.get("garantia"), 10) or None)
     db.session.add(a)
-    audit("CRIAR", "ativos", a.id, f"Ativo {a.hostname} cadastrado")
+    audit("CRIAR", "ativos", a.id, f"Ativo {a.hostname} cadastrado — patrimônio {a.patrimonio}")
     db.session.commit()
     return jsonify(a.to_dict()), 201
 
@@ -238,7 +294,7 @@ def get_asset_history(aid):
 
 
 @app.route("/api/assets/<aid>/qrcode")
-@login_required
+@api_auth
 def asset_qrcode(aid):
     base = app.config["APP_BASE_URL"]
     url  = f"{base}/asset/{aid}"
@@ -262,11 +318,11 @@ def public_asset_audit(aid):
     responsavel = clean_text(d.get("responsavel") or a.colaborador or "Não informado", 120)
     public_audit("AUDITORIA_QR_PUBLICA", "ativos", a.id, f"Local confirmado: {local}; responsável informado: {responsavel}")
     db.session.commit()
-    return jsonify({"ok": True, "hostname": a.hostname, "status": a.status, "local": local})
+    return jsonify({"ok": True, "assetId": a.id, "status": a.status, "local": local})
 
 
 @app.route("/api/audit-asset", methods=["POST"])
-@login_required
+@requires("Administrador","Técnico TI")
 def audit_asset_route():
     d = request.get_json()
     a = db.session.get(Asset, d.get("assetId",""))

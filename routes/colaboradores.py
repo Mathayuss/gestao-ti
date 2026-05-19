@@ -167,7 +167,7 @@ def colaborador_offboarding(cid):
 
 
 @app.route("/api/colaboradores/<cid>/termo-devolucao.pdf")
-@login_required
+@api_auth
 def termo_devolucao_pdf(cid):
     if not PDF_OK:
         return jsonify({"error":"Geração de PDF indisponível. Instale: pip install reportlab"}), 503

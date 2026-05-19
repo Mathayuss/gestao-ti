@@ -78,7 +78,7 @@ def reset_senha(uid):
 
 
 @app.route("/api/system-users/perfis")
-@login_required
+@requires("Administrador")
 def get_perfis():
     """Retorna perfis — do DB settings se customizados, senão do padrão."""
     custom = _get_setting("perfil_permissoes", None)

@@ -104,6 +104,7 @@ app.config.update(
     REMEMBER_COOKIE_SAMESITE     = "Lax",
     REMEMBER_COOKIE_SECURE       = _session_secure,
     REMEMBER_COOKIE_DURATION     = 86400 * 7,
+    MAX_CONTENT_LENGTH           = 8 * 1024 * 1024,
     WTF_CSRF_CHECK_DEFAULT       = True,
 )
 
@@ -178,6 +179,12 @@ def sre_before_request():
     g.request_started_at = perf_counter()
     g.request_id = request.headers.get("X-Request-ID") or uuid.uuid4().hex[:16]
     g.metrics_active_request_tracked = False
+    if current_user.is_authenticated and getattr(current_user, "status", None) != "Ativo":
+        allowed_endpoints = {"do_logout", "login_page", "static", "health_live", "health_ready", "health_startup", "ping"}
+        if request.endpoint not in allowed_endpoints:
+            if wants_json_response():
+                return jsonify({"error": "Conta desativada"}), 403
+            return redirect(url_for("do_logout"))
     if request.endpoint not in {"health_live", "health_ready", "health_startup", "metrics", "ping"}:
         _maybe_run_scheduled_backup()
     if METRICS_OK:
@@ -863,6 +870,24 @@ def validate_asset_payload(payload, partial=False, exclude_id=None):
     return errors
 
 
+def proximo_patrimonio():
+    """Gera o próximo número de patrimônio sequencial com base no prefixo configurado."""
+    prefix = ((_get_setting("patrimonio.prefixo") or "TI")).strip().upper()
+    pattern = f"{prefix}-%"
+    existing = db.session.execute(
+        db.select(Asset.patrimonio).where(Asset.patrimonio.like(pattern))
+    ).scalars().all()
+    max_num = 0
+    for pat in (existing or []):
+        try:
+            num = int(str(pat).rsplit("-", 1)[-1])
+            if num > max_num:
+                max_num = num
+        except (ValueError, IndexError):
+            pass
+    return f"{prefix}-{(max_num + 1):06d}"
+
+
 def csv_response(filename, rows, headers):
     buf = io.StringIO()
     writer = csv.DictWriter(buf, fieldnames=headers, extrasaction="ignore", delimiter=";")
@@ -966,6 +991,7 @@ PERMISSION_MODULE_PREFIXES = (
     ("/api/maintenance", "manutencao"),
     ("/api/incidents", "manutencao"),
     ("/api/audit-campaigns", "auditorias"),
+    ("/api/audit-asset", "auditorias"),
     ("/api/audit-log", "auditorias"),
     ("/api/dashboard", "dashboard"),
     ("/api/alerts", "alertas"),
@@ -1132,26 +1158,6 @@ def internal_error(err):
         return jsonify({"error": "Erro interno no servidor"}), 500
     return "Erro interno no servidor", 500
 
-# ═══════════════════════════════════════════════════════════════════════════
-# AUTH ROUTES
-# ═══════════════════════════════════════════════════════════════════════════
-
-# ═══════════════════════════════════════════════════════════════════════════
-# FRONTEND
-# ═══════════════════════════════════════════════════════════════════════════
-
-# ═══════════════════════════════════════════════════════════════════════════
-# API — ASSETS
-# ═══════════════════════════════════════════════════════════════════════════
-
-# ═══════════════════════════════════════════════════════════════════════════
-# API — SUPPLIES
-# ═══════════════════════════════════════════════════════════════════════════
-
-# ═══════════════════════════════════════════════════════════════════════════
-# API — COLABORADORES
-# ═══════════════════════════════════════════════════════════════════════════
-
 def _render_termo_text(template_str: str, ctx: dict) -> str:
     """Renderiza texto de termo com substituição de variáveis {chave}."""
     try:
@@ -1183,32 +1189,10 @@ def _pdf_draw_logo(cv, logo_b64: str, x, y, max_w=None, max_h=None):
         pass
 
 
-# ═══════════════════════════════════════════════════════════════════════════
-# API — ALLOCATIONS (transacional)
-# ═══════════════════════════════════════════════════════════════════════════
-
-# ── Assinatura remota ────────────────────────────────────────────────────
-
-# ═══════════════════════════════════════════════════════════════════════════
-# API — LICENSES
-# ═══════════════════════════════════════════════════════════════════════════
-
-# ═══════════════════════════════════════════════════════════════════════════
-# API — INCIDENTS
-# ═══════════════════════════════════════════════════════════════════════════
-
-# ═══════════════════════════════════════════════════════════════════════════
-# API — MANUTENÇÃO
-# ═══════════════════════════════════════════════════════════════════════════
-
 MANUT_STATUS = ["Aberta","Em análise","Aguardando peça","Em reparo","Concluída","Sem reparo","Cancelada"]
 MANUT_TIPO   = ["Corretiva","Preventiva","Melhoria"]
 MANUT_ENCERRA = ["Concluída","Sem reparo","Cancelada"]
 
-
-# ═══════════════════════════════════════════════════════════════════════════
-# API — SYSTEM USERS
-# ═══════════════════════════════════════════════════════════════════════════
 
 # ═══════════════════════════════════════════════════════════════════════════
 # E-MAIL
@@ -1445,10 +1429,6 @@ def send_email_laudo_rh(to: str, colaborador: str, tecnico: str, link: str) -> d
     return send_email(to, subject, html, text)
 
 
-# ═══════════════════════════════════════════════════════════════════════════
-# API — SETTINGS
-# ═══════════════════════════════════════════════════════════════════════════
-
 def _get_setting(key, default=None):
     s = db.session.get(Setting, key)
     if s is None: return default
@@ -1617,6 +1597,16 @@ def _normalize_aparencia_setting(value):
     return result, None
 
 
+def _normalize_patrimonio_prefixo(value):
+    v = clean_text(value, 10)
+    if not v:
+        return None, "Prefixo de patrimônio não pode ser vazio."
+    v = re.sub(r"[^A-Za-z0-9]", "", v).upper()
+    if not v:
+        return None, "Prefixo deve conter letras ou números."
+    return v, None
+
+
 SETTING_NORMALIZERS = {
     "empresa": _normalize_empresa_setting,
     "alertas": _normalize_alertas_setting,
@@ -1624,6 +1614,7 @@ SETTING_NORMALIZERS = {
     "campos_ativo_obrigatorios": _normalize_campos_ativos_setting,
     "categorias_config": _normalize_categorias_config_setting,
     "aparencia": _normalize_aparencia_setting,
+    "patrimonio.prefixo": _normalize_patrimonio_prefixo,
 }
 
 
@@ -1634,6 +1625,19 @@ ATTACHMENT_DIR = os.path.join(app.instance_path, "attachments")
 ATTACHMENT_MAX_BYTES = 8 * 1024 * 1024
 ATTACHMENT_ALLOWED_EXT = {
     "pdf", "png", "jpg", "jpeg", "webp", "txt", "csv", "doc", "docx", "xls", "xlsx",
+}
+ATTACHMENT_MIME_BY_EXT = {
+    "pdf": {"application/pdf"},
+    "png": {"image/png"},
+    "jpg": {"image/jpeg"},
+    "jpeg": {"image/jpeg"},
+    "webp": {"image/webp"},
+    "txt": {"text/plain"},
+    "csv": {"text/csv", "application/csv", "text/plain", "application/vnd.ms-excel"},
+    "doc": {"application/msword", "application/octet-stream"},
+    "docx": {"application/vnd.openxmlformats-officedocument.wordprocessingml.document", "application/zip", "application/octet-stream"},
+    "xls": {"application/vnd.ms-excel", "application/octet-stream"},
+    "xlsx": {"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "application/zip", "application/octet-stream"},
 }
 
 DEFAULT_BACKUP_CONFIG = {
@@ -1852,6 +1856,22 @@ def _attachment_ext(filename):
     return filename.rsplit(".", 1)[1].lower()
 
 
+def _attachment_magic_matches(ext, data):
+    if ext == "pdf":
+        return data.startswith(b"%PDF-")
+    if ext == "png":
+        return data.startswith(b"\x89PNG\r\n\x1a\n")
+    if ext in {"jpg", "jpeg"}:
+        return data.startswith(b"\xff\xd8\xff")
+    if ext == "webp":
+        return data.startswith(b"RIFF") and data[8:12] == b"WEBP"
+    if ext in {"docx", "xlsx"}:
+        return data.startswith(b"PK\x03\x04")
+    if ext in {"txt", "csv"}:
+        return b"\x00" not in data[:2048]
+    return True
+
+
 def _create_attachment_record(entity_type, entity_id, file, category="Documento", description=""):
     if not file or not file.filename:
         return None, ("Arquivo obrigatório.", 400)
@@ -1859,11 +1879,21 @@ def _create_attachment_record(entity_type, entity_id, file, category="Documento"
     ext = _attachment_ext(original)
     if ext not in ATTACHMENT_ALLOWED_EXT:
         return None, ("Tipo de arquivo não permitido.", 400)
+    content_length = getattr(file, "content_length", None)
+    if content_length and content_length > ATTACHMENT_MAX_BYTES:
+        return None, ("Arquivo excede o limite de 8 MB.", 400)
     data = file.read()
     if not data:
         return None, ("Arquivo vazio.", 400)
     if len(data) > ATTACHMENT_MAX_BYTES:
         return None, ("Arquivo excede o limite de 8 MB.", 400)
+
+    mimetype = file.mimetype or "application/octet-stream"
+    allowed_mimes = ATTACHMENT_MIME_BY_EXT.get(ext, set())
+    if allowed_mimes and mimetype not in allowed_mimes:
+        return None, ("Tipo de arquivo incompatível com a extensão.", 400)
+    if not _attachment_magic_matches(ext, data):
+        return None, ("Conteúdo do arquivo não corresponde ao tipo informado.", 400)
 
     os.makedirs(ATTACHMENT_DIR, exist_ok=True)
     att_id = new_id("ATT")
@@ -1881,7 +1911,7 @@ def _create_attachment_record(entity_type, entity_id, file, category="Documento"
         entity_id=entity_id,
         original_name=original,
         stored_name=stored_name,
-        content_type=file.mimetype or "application/octet-stream",
+        content_type=mimetype,
         size=len(data),
         category=clean_text(category or "Documento", 40),
         description=clean_text(description or "", 500),
@@ -1890,22 +1920,6 @@ def _create_attachment_record(entity_type, entity_id, file, category="Documento"
     db.session.add(att)
     return att, None
 
-
-# ═══════════════════════════════════════════════════════════════════════════
-# API — AUDIT LOG
-# ═══════════════════════════════════════════════════════════════════════════
-
-# ═══════════════════════════════════════════════════════════════════════════
-# API — DASHBOARD & ALERTS
-# ═══════════════════════════════════════════════════════════════════════════
-
-# ═══════════════════════════════════════════════════════════════════════════
-# EXPORTAÇÃO E BACKUP
-# ═══════════════════════════════════════════════════════════════════════════
-
-# ═══════════════════════════════════════════════════════════════════════════
-# QR CODE & AUDITORIA
-# ═══════════════════════════════════════════════════════════════════════════
 
 # ═══════════════════════════════════════════════════════════════════════════
 # SEED DATA

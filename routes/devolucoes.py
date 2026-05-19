@@ -4,12 +4,13 @@ Este modulo usa uma ponte temporaria para acessar modelos, helpers e extensoes
 definidos em app.py. Em uma proxima etapa, esses itens podem migrar para
 pacotes dedicados como models, services e extensions.
 """
+from datetime import timedelta
 from app import _export_route_globals
 
 globals().update(_export_route_globals())
 
 @app.route("/api/devolucoes/<did>/termo.pdf")
-@login_required
+@api_auth
 def devolucao_pdf(did):
     """PDF do Termo de Devolução a partir do registro Devolucao (com assinatura digital)."""
     if not PDF_OK:
@@ -120,7 +121,6 @@ def devolucao_pdf(did):
 @requires("Administrador", "Técnico TI")
 def registrar_laudo(did):
     """Técnico registra avaliação dos equipamentos. Dispara e-mail de ciência para o RH."""
-    from datetime import timedelta
     dev = db.get_or_404(Devolucao, did)
     if dev.laudo_status not in (None, "Aguardando Laudo"):
         return jsonify({"error": f"Laudo já registrado (status: {dev.laudo_status})."}), 400
@@ -245,7 +245,6 @@ def pagina_rh_laudo(rh_token):
 @app.route("/rh/laudo/<rh_token>", methods=["POST"])
 def submeter_ciencia_rh(rh_token):
     """RH dá ciência do laudo. Após aprovação, gera link de assinatura para o colaborador."""
-    from datetime import timedelta
     dev = db.session.execute(db.select(Devolucao).filter_by(rh_token=rh_token)).scalar_one_or_none()
     laudo = None
     if dev:
@@ -316,7 +315,6 @@ def get_devolucao(did):
 @app.route("/api/devolucoes/<did>/sign-link", methods=["POST"])
 @requires("Administrador", "Técnico TI")
 def gerar_link_devolucao(did):
-    from datetime import timedelta
     dev = db.get_or_404(Devolucao, did)
     if dev.status == "Assinado":
         return jsonify({"error": "Devolução já assinada."}), 400
@@ -382,7 +380,7 @@ def submeter_devolucao(token):
 
 
 @app.route("/api/devolucoes/<did>/assinatura.png")
-@login_required
+@api_auth
 def get_assinatura_devolucao(did):
     dev = db.get_or_404(Devolucao, did)
     if not dev.assinatura_img or not dev.assinatura_img.startswith("data:image/png;base64,"):

@@ -298,6 +298,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
       <button class="nav-item" data-module="manutencao"><span class="icon"></span><span class="lbl">Manutenção</span><span id="manut-badge" class="badge badge-amber" style="display:none">0</span></button>
 
       <div class="sb-section">Inventário</div>
+      <button class="nav-item" data-module="entrada"><span class="icon"></span><span class="lbl">Entrada de Itens</span></button>
       <button class="nav-item" data-module="ativos"><span class="icon"></span><span class="lbl">Ativos de TI</span></button>
       <button class="nav-item" data-module="alocacoes"><span class="icon"></span><span class="lbl">Alocações & Termos</span></button>
       <button class="nav-item" data-module="insumos"><span class="icon"></span><span class="lbl">Insumos & Periféricos</span></button>
@@ -376,8 +377,8 @@ const fmtBytes = v => {
   return (n / 1048576).toFixed(1) + ' MB';
 };
 const daysUntil = d => { if(!d) return 9999; return Math.ceil((new Date(d+'T00:00:00')-new Date())/86400000); };
-const esc = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-const escAttr = s => esc(s).replace(/"/g,'&quot;');
+const esc = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+const escAttr = s => esc(s);
 
 const ICONS = {
   sun:'<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>',
@@ -411,7 +412,8 @@ const ICONS = {
   square:'<rect x="5" y="5" width="14" height="14" rx="2"/>',
   flag:'<path d="M4 22V4"/><path d="M4 4h12l-1 4 1 4H4"/>',
   trash:'<path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/>',
-  menu:'<line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/>'
+  menu:'<line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/>',
+  entrada:'<path d="M5 12h14"/><path d="m12 5 7 7-7 7"/><rect x="2" y="3" width="5" height="18" rx="1"/>'
 };
 
 function svgIcon(name){
@@ -669,6 +671,7 @@ $('modal-overlay').addEventListener('click',e=>{ if(e.target===$('modal-overlay'
 
 // ─── Nav ──────────────────────────────────────────────────────────────────
 const PAGE_TITLES = {dashboard:'Dashboard',alertas:'Central de Alertas',insumos:'Insumos & Periféricos',
+  entrada:'Entrada de Itens',
   ativos:'Ativos de TI',alocacoes:'Alocações & Termos Digitais',qrcode:'QR Code & Etiquetas',
   auditorias:'Campanhas de Auditoria',
   manutencao:'Manutenção de Ativos',
@@ -726,6 +729,7 @@ async function render(mod){
   $('content').innerHTML='<div class="loading">Carregando...</div>';
   try{
     if(mod==='dashboard')     await renderDashboard();
+    else if(mod==='entrada')  await renderEntrada();
     else if(mod==='insumos')  await renderInsumos();
     else if(mod==='ativos')   await renderAtivos();
     else if(mod==='alocacoes')await renderAlocacoes();
@@ -1048,6 +1052,220 @@ async function saveNewSupply(){
 async function saveEditSupply(id){
   await api(`/supplies/${id}`,'PUT',{nome:$('f-nome').value,categoria:$('f-cat').value,unidade:$('f-unidade').value,estoque:$('f-estoque').value,minimo:$('f-minimo').value,preco:$('f-preco').value});
   toast('Item atualizado'); closeModal(); renderInsumos();
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// ENTRADA DE ITENS (Ativos + Insumos/Periféricos)
+// ══════════════════════════════════════════════════════════════════════════
+let _entradaTab = 'ativo'; // 'ativo' | 'insumo'
+let _entradaModo = 'individual'; // 'individual' | 'lote'
+let _entradaNextPat = '';
+
+async function renderEntrada(){
+  const [supplies, r] = await Promise.all([
+    api('/supplies'),
+    api('/assets/proximo-patrimonio'),
+  ]);
+  _entradaNextPat = r.patrimonio || '';
+  const insumos = supplies;
+  $('content').innerHTML = _buildEntradaView(insumos);
+  _entradaBindEvents(insumos);
+}
+
+function _buildEntradaView(insumos){
+  const tabStyle = (tab) =>
+    `cursor:pointer;padding:9px 20px;font-size:13px;font-weight:700;border:none;background:transparent;` +
+    `border-bottom:2px solid ${_entradaTab===tab?'var(--blue)':'transparent'};` +
+    `color:${_entradaTab===tab?'var(--blue)':'var(--text2)'};transition:all .15s`;
+
+  const tabAtivo = _entradaTab === 'ativo';
+
+  const abaAtivo = tabAtivo ? `
+    <div class="card" style="margin-top:0">
+      <div style="display:flex;gap:12px;margin-bottom:18px">
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;padding:8px 14px;border-radius:var(--r);border:1px solid ${_entradaModo==='individual'?'var(--blue)':'var(--border)'};background:${_entradaModo==='individual'?'var(--blue-bg)':'var(--bg3)'}">
+          <input type="radio" name="ent-modo" value="individual" ${_entradaModo==='individual'?'checked':''} style="width:auto" id="ent-modo-ind"> Individual
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;padding:8px 14px;border-radius:var(--r);border:1px solid ${_entradaModo==='lote'?'var(--blue)':'var(--border)'};background:${_entradaModo==='lote'?'var(--blue-bg)':'var(--bg3)'}">
+          <input type="radio" name="ent-modo" value="lote" ${_entradaModo==='lote'?'checked':''} style="width:auto" id="ent-modo-lot"> Em Lote
+        </label>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+        <div>
+          <div class="form-group"><label>Categoria *</label>
+            <select id="ent-cat">
+              ${['Notebook','Desktop','Monitor','Impressora','Celular','Tablet','Switch','Servidor','Roteador','Nobreak','Outro'].map(c=>`<option>${c}</option>`).join('')}
+            </select>
+          </div>
+          <div class="form-group"><label>Fabricante *</label><input id="ent-fab" placeholder="Ex: Dell, HP, Lenovo"></div>
+          <div class="form-group"><label>Modelo *</label><input id="ent-mod" placeholder="Ex: Latitude 5420"></div>
+          <div class="form-group"><label>Nota Fiscal</label><input id="ent-nf" placeholder="NF-2024-001"></div>
+          <div class="form-group"><label>Garantia (data)</label><input id="ent-gar" type="date"></div>
+        </div>
+        <div>
+          <div id="ent-individual-fields" style="${_entradaModo==='individual'?'':'display:none'}">
+            <div class="form-group"><label>Hostname / Nome</label><input id="ent-hn" placeholder="PC-001"></div>
+            <div class="form-group"><label>Service Tag / Nº de Série</label><input id="ent-st" placeholder="ABC123XY"></div>
+            <div class="form-group"><label>IP</label><input id="ent-ip" placeholder="DHCP" value="DHCP"></div>
+          </div>
+          <div id="ent-lote-fields" style="${_entradaModo==='lote'?'':'display:none'}">
+            <div class="form-group"><label>Quantidade *</label>
+              <input id="ent-qty" type="number" min="1" max="100" value="1" oninput="atualizarPreviewPat()">
+            </div>
+          </div>
+
+          <div style="padding:14px 16px;background:var(--blue-bg);border-radius:var(--r);border:1px solid var(--blue-border);margin-bottom:10px">
+            <div style="font-size:10px;font-weight:800;color:var(--blue-text);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">Próximo Patrimônio Gerado</div>
+            <div id="ent-pat-preview" class="mono" style="font-size:18px;font-weight:800;color:var(--blue)"></div>
+            <div id="ent-pat-range" style="font-size:11px;color:var(--blue-text);margin-top:3px;display:none"></div>
+          </div>
+          <div style="padding:10px 14px;background:var(--green-bg);border-radius:var(--r);border:1px solid var(--green-border);font-size:12px;color:var(--green-text)">
+            O patrimônio é gerado <strong>automaticamente</strong> em sequência ao confirmar a entrada.
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer" style="margin-top:18px;padding-top:16px;border-top:1px solid var(--border);justify-content:flex-end">
+        <button class="btn btn-primary" onclick="salvarEntradaAtivo()">
+          ${inlineIcon('entrada')} Registrar Entrada
+        </button>
+      </div>
+    </div>
+  ` : '';
+
+  const abaInsumo = !tabAtivo ? `
+    <div class="card" style="margin-top:0">
+      <div class="form-group"><label>Item / Insumo *</label>
+        <select id="ent-ins-id">
+          <option value="">— Selecione o item —</option>
+          ${insumos.map(s=>`<option value="${s.id}">${esc(s.nome)} (${esc(s.categoria)}) — estoque atual: ${s.estoque}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-grid-2">
+        <div class="form-group"><label>Quantidade *</label><input id="ent-ins-qty" type="number" min="1" value="1"></div>
+        <div class="form-group"><label>Motivo</label>
+          <select id="ent-ins-motivo"><option>Compra</option><option>Devolução</option><option>Ajuste</option><option>Outro</option></select>
+        </div>
+      </div>
+      <div class="info-box blue" style="font-size:12px">Para <strong>cadastrar um novo insumo</strong>, acesse o menu <strong>Insumos &amp; Periféricos</strong>.</div>
+      <div class="modal-footer" style="margin-top:18px;padding-top:16px;border-top:1px solid var(--border);justify-content:flex-end">
+        <button class="btn btn-success" onclick="salvarEntradaInsumo()">
+          ${inlineIcon('entrada')} Registrar Entrada de Estoque
+        </button>
+      </div>
+    </div>
+  ` : '';
+
+  return `
+  <div style="max-width:860px;margin:0 auto">
+    <div class="flex-between mb-16">
+      <div>
+        <div style="font-size:17px;font-weight:800;color:var(--text);margin-bottom:2px">Entrada de Itens</div>
+        <div style="font-size:12px;color:var(--text3)">Registre entrada de ativos patrimoniais ou reposição de estoque de insumos e periféricos</div>
+      </div>
+    </div>
+
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rl);overflow:hidden;box-shadow:var(--shadow-sm)">
+      <div style="display:flex;border-bottom:1px solid var(--border);padding:0 8px">
+        <button id="ent-tab-ativo" style="${tabStyle('ativo')}" onclick="mudarTabEntrada('ativo')">
+          ${inlineIcon('ativos')} Ativo de TI
+        </button>
+        <button id="ent-tab-insumo" style="${tabStyle('insumo')}" onclick="mudarTabEntrada('insumo')">
+          ${inlineIcon('insumos')} Insumo / Periférico
+        </button>
+      </div>
+      <div style="padding:20px 22px">
+        ${abaAtivo}${abaInsumo}
+      </div>
+    </div>
+  </div>`;
+}
+
+function _entradaBindEvents(insumos){
+  atualizarPreviewPat();
+  document.querySelectorAll('input[name="ent-modo"]').forEach(r=>{
+    r.addEventListener('change', e=>{
+      _entradaModo = e.target.value;
+      const ind = document.getElementById('ent-individual-fields');
+      const lot = document.getElementById('ent-lote-fields');
+      if(ind) ind.style.display = _entradaModo==='individual' ? '' : 'none';
+      if(lot) lot.style.display = _entradaModo==='lote' ? '' : 'none';
+      atualizarPreviewPat();
+    });
+  });
+}
+
+async function mudarTabEntrada(tab){
+  _entradaTab = tab;
+  await renderEntrada();
+}
+
+function atualizarPreviewPat(){
+  const prev = document.getElementById('ent-pat-preview');
+  const range = document.getElementById('ent-pat-range');
+  if(!prev) return;
+  prev.textContent = _entradaNextPat || '...';
+  if(_entradaModo === 'lote' && range){
+    const qty = Math.max(1, parseInt(document.getElementById('ent-qty')?.value)||1);
+    if(qty > 1 && _entradaNextPat){
+      const parts = _entradaNextPat.split('-');
+      const prefix = parts.slice(0, -1).join('-');
+      const firstNum = parseInt(parts[parts.length-1]);
+      const lastPat = `${prefix}-${String(firstNum + qty - 1).padStart(6,'0')}`;
+      range.style.display='';
+      range.textContent = `até ${lastPat} (${qty} itens)`;
+    } else {
+      range.style.display='none';
+    }
+  } else if(range){
+    range.style.display='none';
+  }
+}
+
+async function salvarEntradaAtivo(){
+  const fab = document.getElementById('ent-fab')?.value?.trim();
+  const mod = document.getElementById('ent-mod')?.value?.trim();
+  const cat = document.getElementById('ent-cat')?.value;
+  if(!fab||!mod||!cat){ toast('Preencha fabricante, modelo e categoria','error'); return; }
+
+  try{
+    if(_entradaModo === 'individual'){
+      const r = await api('/assets','POST',{
+        hostname: document.getElementById('ent-hn')?.value?.trim()||'',
+        fabricante: fab, modelo: mod, categoria: cat,
+        serviceTag: document.getElementById('ent-st')?.value?.trim()||'',
+        ip: document.getElementById('ent-ip')?.value?.trim()||'DHCP',
+        nf: document.getElementById('ent-nf')?.value?.trim()||'',
+        garantia: document.getElementById('ent-gar')?.value||'',
+        status: 'Disponível',
+      });
+      toast(`Ativo cadastrado — Patrimônio: ${r.patrimonio}`);
+    } else {
+      const qty = Math.max(1, parseInt(document.getElementById('ent-qty')?.value)||1);
+      const lista = await api('/assets/lote','POST',{
+        fabricante: fab, modelo: mod, categoria: cat,
+        nf: document.getElementById('ent-nf')?.value?.trim()||'',
+        garantia: document.getElementById('ent-gar')?.value||'',
+        quantidade: qty,
+      });
+      toast(`${lista.length} ativo(s) cadastrado(s) — ${lista[0].patrimonio} até ${lista[lista.length-1].patrimonio}`);
+    }
+    await renderEntrada();
+  }catch(e){ toast(e.message,'error'); }
+}
+
+async function salvarEntradaInsumo(){
+  const id = document.getElementById('ent-ins-id')?.value;
+  const qty = parseInt(document.getElementById('ent-ins-qty')?.value)||0;
+  const motivo = document.getElementById('ent-ins-motivo')?.value||'Compra';
+  if(!id){ toast('Selecione um item','error'); return; }
+  if(qty < 1){ toast('Quantidade inválida','error'); return; }
+  try{
+    await api(`/supplies/${id}/entrada`,'POST',{quantidade:qty,motivo});
+    toast('Entrada de estoque registrada');
+    await renderEntrada();
+  }catch(e){ toast(e.message,'error'); }
 }
 
 // ══════════════════════════════════════════════════════════════════════════
@@ -1608,15 +1826,46 @@ async function saveNewAlloc(){
   if(!$('al-ativo').value){toast('Selecione um ativo','error');return;}
   if(!$('al-colab').value){toast('Informe o colaborador','error');return;}
   try{
+    const ativoId = $('al-ativo').value;
+    const ativoNome = $('al-ativo').options[$('al-ativo').selectedIndex]?.text || '';
     const r = await api('/allocations','POST',{
-      ativo:$('al-ativo').value, colaborador:$('al-colab').value,
+      ativo:ativoId, colaborador:$('al-colab').value,
       setor:$('al-setor').value, unidade:$('al-uni').value,
       email:$('al-email').value, perifericos:_allocPerifs,
     });
     const nPerifs = (r.perifericosAlocados||[]).length;
-    toast(`Alocação criada${nPerifs?' + '+nPerifs+' periférico(s)':''}`);
-    closeModal(); renderAlocacoes();
+    closeModal();
+    renderAlocacoes();
+    // Verificação de etiqueta patrimonial
+    perguntarEtiqueta(ativoId, ativoNome, nPerifs);
   }catch(e){toast(e.message,'error');}
+}
+
+function perguntarEtiqueta(ativoId, ativoNome, nPerifs){
+  const msg = nPerifs ? ` + ${nPerifs} periférico(s)` : '';
+  openModal('Alocação Criada', `
+  <div style="text-align:center;padding:10px 0 18px">
+    <div style="font-size:36px;margin-bottom:10px"></div>
+    <div style="font-size:15px;font-weight:700;margin-bottom:6px">Alocação registrada com sucesso${msg}!</div>
+    <div style="font-size:13px;color:var(--text2);margin-bottom:24px">${esc(ativoNome)}</div>
+    <div style="background:var(--amber-bg);border:1px solid var(--amber-border);border-radius:var(--r);padding:14px 18px;margin-bottom:20px;text-align:left">
+      <div style="font-size:13px;font-weight:700;color:var(--amber-text);margin-bottom:6px">${inlineIcon('warning')} O ativo possui etiqueta patrimonial?</div>
+      <div style="font-size:12px;color:var(--amber-text);line-height:1.6">A etiqueta garante rastreabilidade e permite auditorias por QR Code. Recomendamos colar antes da entrega ao colaborador.</div>
+    </div>
+    <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
+      <button class="btn btn-default" onclick="closeModal()">Sim, já possui etiqueta</button>
+      <button class="btn btn-primary" onclick="closeModal();irParaEtiqueta('${ativoId}')">
+        ${inlineIcon('qrcode')} Não — Gerar Etiqueta Agora
+      </button>
+    </div>
+  </div>
+  `, false, true);
+}
+
+function irParaEtiqueta(ativoId){
+  _qrSel = ativoId;
+  navigateTo('qrcode');
+  setTimeout(()=>{ qrTab('etq'); }, 400);
 }
 
 async function viewTermo(a){
@@ -2693,7 +2942,7 @@ async function confirmaReativacao(id){
 // ══════════════════════════════════════════════════════════════════════════
 let PERFIS_SYS=['Administrador','Técnico TI','Gestor','Visualizador'];
 const PERFIL_COR={Administrador:'red','Técnico TI':'blue',Gestor:'amber',Visualizador:'gray'};
-const MODULO_LABEL={dashboard:'Dashboard',ativos:'Ativos de TI',insumos:'Insumos & Periféricos',colaboradores:'Colaboradores',alocacoes:'Alocações',auditorias:'Auditorias',qrcode:'QR Code',licencas:'Licenças',alertas:'Alertas',manutencao:'Manutenção',system_users:'Usuários do Sistema',configuracoes:'Configurações'};
+const MODULO_LABEL={dashboard:'Dashboard',entrada:'Entrada de Itens',ativos:'Ativos de TI',insumos:'Insumos & Periféricos',colaboradores:'Colaboradores',alocacoes:'Alocações',auditorias:'Auditorias',qrcode:'QR Code',licencas:'Licenças',alertas:'Alertas',manutencao:'Manutenção',system_users:'Usuários do Sistema',configuracoes:'Configurações'};
 
 async function renderSystemUsers(){
   const [data, perfisData] = await Promise.all([api('/system-users'), api('/system-users/perfis')]);
@@ -2729,7 +2978,7 @@ function openNewSysUser(){
   <div class="form-grid-2">
     <div class="form-group span-2"><label>Nome Completo</label><input id="su-nome"></div>
     <div class="form-group"><label>Username</label><input id="su-user" placeholder="ex: joao.silva"></div>
-    <div class="form-group"><label>Senha Inicial</label><input id="su-senha" type="password" placeholder="mín. 6 caracteres"></div>
+    <div class="form-group"><label>Senha Inicial</label><input id="su-senha" type="password" placeholder="mín. 8 caracteres"></div>
     <div class="form-group"><label>E-mail</label><input id="su-email" type="email"></div>
     <div class="form-group"><label>Perfil de Acesso</label>
       <select id="su-perfil">${PERFIS_SYS.map(p=>`<option>${p}</option>`).join('')}</select>
@@ -2742,7 +2991,7 @@ function openNewSysUser(){
   </div>`);
 }
 async function saveNewSysUser(){
-  if($('su-senha').value.length<6){toast('Senha deve ter ao menos 6 caracteres','error');return;}
+  if($('su-senha').value.length<8){toast('Senha deve ter ao menos 8 caracteres','error');return;}
   try{
     await api('/system-users','POST',{nome:$('su-nome').value,username:$('su-user').value,email:$('su-email').value,perfil:$('su-perfil').value,senha:$('su-senha').value});
     toast('Usuário criado');closeModal();renderSystemUsers();
@@ -2779,7 +3028,7 @@ async function toggleSysUser(id,nome){
 
 function openResetSenha(id,username){
   openModal(`Redefinir Senha — ${username}`,`
-  <div class="form-group"><label>Nova Senha</label><input id="rs-nova" type="password" placeholder="mín. 6 caracteres"></div>
+  <div class="form-group"><label>Nova Senha</label><input id="rs-nova" type="password" placeholder="mín. 8 caracteres"></div>
   <div class="form-group"><label>Confirmar</label><input id="rs-conf" type="password" placeholder="repita a senha"></div>
   <div class="modal-footer">
     <button class="btn btn-default" onclick="closeModal()">Cancelar</button>
@@ -2787,7 +3036,7 @@ function openResetSenha(id,username){
   </div>`,false,true);
 }
 async function doResetSenha(id){
-  if($('rs-nova').value.length<6){toast('Mín. 6 caracteres','error');return;}
+  if($('rs-nova').value.length<8){toast('Mín. 8 caracteres','error');return;}
   if($('rs-nova').value!==$('rs-conf').value){toast('Senhas não coincidem','error');return;}
   await api(`/system-users/${id}/reset-senha`,'POST',{senha:$('rs-nova').value});
   toast('Senha redefinida com sucesso');closeModal();
@@ -2951,6 +3200,7 @@ async function renderConfiguracoes(){
   const cfg_td     = cfg.termo_devolucao      || {};
   const cfg_backup = backupState.config || cfg.backup || {};
   const cfg_ap     = cfg.aparencia            || {};
+  const cfg_pat_prefixo = cfg.patrimonio_prefixo || 'TI';
   const backupFiles = Array.isArray(backupState.files) ? backupState.files : [];
   const backupFreqLabel = {daily:'Diário', weekly:'Semanal', monthly:'Mensal'};
   const tplAss = cfg_tpl.assinatura || {};
@@ -3059,6 +3309,19 @@ async function renderConfiguracoes(){
       <div class="modal-footer" style="padding-top:10px;margin-top:0;border-top:none;justify-content:flex-start">
         <button class="btn btn-primary" onclick="saveEmpresa()">Salvar Empresa</button>
       </div>
+      <hr class="divider">
+      <div class="section-title" style="margin-top:4px">Numeração de Patrimônio</div>
+      <div style="display:flex;align-items:flex-end;gap:12px">
+        <div class="form-group" style="margin-bottom:0;min-width:120px">
+          <label>Prefixo</label>
+          <input id="cfg-pat-prefixo" value="${esc(cfg_pat_prefixo)}" placeholder="TI" maxlength="10" style="text-transform:uppercase;width:100px">
+        </div>
+        <div style="padding:10px 14px;background:var(--blue-bg);border-radius:var(--r);border:1px solid var(--blue-border);font-size:13px;font-weight:700;color:var(--blue);font-family:var(--mono)">
+          ${esc(cfg_pat_prefixo)}-000001
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="savePrefixoPatrimonio()">Salvar Prefixo</button>
+      </div>
+      <div style="font-size:11px;color:var(--text3);margin-top:8px">O número é gerado automaticamente a cada entrada de ativo. Ex: <strong>${esc(cfg_pat_prefixo)}-000001</strong>, <strong>${esc(cfg_pat_prefixo)}-000002</strong>, ...</div>
     </div>
     <div class="card">
       <div class="flex-between" style="margin-bottom:12px">
@@ -3485,6 +3748,16 @@ async function saveCatConfig(){
   _settings.categorias_config = cats;
   toast('Configuração de categorias salva');
 }
+async function savePrefixoPatrimonio(){
+  const v = ($('cfg-pat-prefixo')?.value||'').trim().toUpperCase().replace(/[^A-Z0-9]/g,'');
+  if(!v){ toast('Prefixo inválido','error'); return; }
+  try{
+    await api('/settings','PUT',{'patrimonio.prefixo':v});
+    toast(`Prefixo salvo: ${v}`);
+    renderConfiguracoes();
+  }catch(e){ toast(e.message,'error'); }
+}
+
 async function saveEmpresa(){
   let logo_base64 = _settings?.empresa?.logo_base64 || '';
   const logoInput = $('cfg-emp-logo');

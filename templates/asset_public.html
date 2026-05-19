@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="csrf-token" content="{{ csrf_token() }}">
-<title>{{ asset.hostname }} — TI Control</title>
+<title>Ativo {{ asset.id }} - TI Control</title>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   :root {
@@ -134,8 +134,8 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg>
       </div>
       <div style="flex:1;min-width:0">
-        <div class="hostname">{{ asset.hostname }}</div>
-        <div class="subtitle">{{ asset.fabricante }} {{ asset.modelo }} · {{ asset.categoria }}</div>
+        <div class="hostname">{{ asset.id }}</div>
+        <div class="subtitle">{{ asset.categoria or 'Ativo de TI' }}</div>
       </div>
     </div>
     <span class="badge badge-{{ {'Alocado':'blue','Disponível':'green','Ativo':'green','Manutenção':'amber','Inativo':'red'}.get(asset.status,'gray') }}">
@@ -148,31 +148,31 @@
   <div class="grid">
     <div class="field">
       <div class="field-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M20 21a8 8 0 0 0-16 0"/><circle cx="12" cy="7" r="4"/></svg>Responsável</div>
-      <div class="field-value">{{ asset.colaborador or 'Não alocado' }}</div>
+      <div class="field-value">{{ 'Alocado' if asset.colaborador else 'Não alocado' }}</div>
     </div>
     <div class="field">
       <div class="field-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M3 21h18"/><path d="M5 21V7l8-4v18"/><path d="M19 21V11l-6-4"/></svg>Setor</div>
-      <div class="field-value">{{ asset.setor or '—' }}</div>
+      <div class="field-value">{{ 'Registrado' if asset.setor else '—' }}</div>
     </div>
     <div class="field">
       <div class="field-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>Unidade</div>
-      <div class="field-value">{{ asset.unidade or '—' }}</div>
+      <div class="field-value">{{ 'Registrada' if asset.unidade else '—' }}</div>
     </div>
     <div class="field">
       <div class="field-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 8h10M7 12h4"/></svg>Sistema</div>
-      <div class="field-value">{{ asset.os or '—' }}</div>
+      <div class="field-value">{{ 'Registrado' if asset.os else '—' }}</div>
     </div>
     <div class="field">
-      <div class="field-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M4 7V5a1 1 0 0 1 1-1h2M4 17v2a1 1 0 0 0 1 1h2M17 4h2a1 1 0 0 1 1 1v2M17 20h2a1 1 0 0 0 1-1v-2"/><path d="M7 12h10"/></svg>Service Tag</div>
-      <div class="field-value mono">{{ asset.service_tag or '—' }}</div>
+      <div class="field-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M4 7V5a1 1 0 0 1 1-1h2M4 17v2a1 1 0 0 0 1 1h2M17 4h2a1 1 0 0 1 1 1v2M17 20h2a1 1 0 0 0 1-1v-2"/><path d="M7 12h10"/></svg>Identificação</div>
+      <div class="field-value mono">{{ asset.id }}</div>
     </div>
     <div class="field">
       <div class="field-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M20 7H4"/><path d="M20 17H4"/><path d="M7 4v16"/><path d="M17 4v16"/></svg>Patrimônio</div>
-      <div class="field-value mono">{{ asset.patrimonio or '—' }}</div>
+      <div class="field-value mono">{{ 'Registrado' if asset.patrimonio else '—' }}</div>
     </div>
     <div class="field">
-      <div class="field-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M6 9V7a6 6 0 0 1 12 0v2"/><rect x="4" y="9" width="16" height="11" rx="2"/></svg>Endereço IP</div>
-      <div class="field-value mono">{{ asset.ip or '—' }}</div>
+      <div class="field-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M6 9V7a6 6 0 0 1 12 0v2"/><rect x="4" y="9" width="16" height="11" rx="2"/></svg>Rede</div>
+      <div class="field-value mono">{{ 'Registrada' if asset.ip else '—' }}</div>
     </div>
     <div class="field">
       <div class="field-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M20 13c0 5-3.5 7.5-8 9-4.5-1.5-8-4-8-9V5l8-3 8 3v8Z"/></svg>Garantia</div>
@@ -189,7 +189,7 @@
   </div>
 
   <div class="footer">
-    <div class="logo"><span>TI Control</span> — Registro público para conferência e auditoria rápida</div>
+    <div class="logo"><span>TI Control</span> — Consulta pública com dados internos protegidos</div>
     <button id="btn-audit" class="audit-btn" type="button" onclick="openAuditDialog()">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
       Confirmar localização
@@ -212,7 +212,7 @@
       </button>
     </div>
     <label for="audit-local">Local atual</label>
-    <input id="audit-local" value="{{ asset.unidade or '' }}" autocomplete="off">
+    <input id="audit-local" value="" autocomplete="off" placeholder="Ex: sala, setor ou unidade observada">
     <div class="dialog-actions">
       <button class="theme-btn" type="button" onclick="closeAuditDialog()">Cancelar</button>
       <button id="audit-submit" class="audit-btn" type="button" onclick="registrarAuditoria()">Salvar confirmação</button>

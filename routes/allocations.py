@@ -4,6 +4,8 @@ Este modulo usa uma ponte temporaria para acessar modelos, helpers e extensoes
 definidos em app.py. Em uma proxima etapa, esses itens podem migrar para
 pacotes dedicados como models, services e extensions.
 """
+import base64
+from datetime import timedelta
 from app import _export_route_globals
 
 globals().update(_export_route_globals())
@@ -118,7 +120,7 @@ def alloc_perifericos(aid):
 
 
 @app.route("/api/allocations/<aid>/termo.pdf")
-@login_required
+@api_auth
 def gerar_termo(aid):
     al = db.get_or_404(Allocation, aid)
     if not PDF_OK:
@@ -219,24 +221,22 @@ def gerar_termo(aid):
 
 
 @app.route("/api/allocations/<aid>/assinatura.png")
-@login_required
+@api_auth
 def get_assinatura_img(aid):
     al = db.get_or_404(Allocation, aid)
     if not al.assinatura_img or not al.assinatura_img.startswith("data:image/png;base64,"):
         return jsonify({"error":"Sem assinatura capturada."}), 404
-    import base64
     raw = base64.b64decode(al.assinatura_img.split(",", 1)[1])
     return Response(raw, mimetype="image/png",
                     headers={"Cache-Control":"private, max-age=3600"})
 
 
 @app.route("/api/allocations/<aid>/assinatura-ti.png")
-@login_required
+@api_auth
 def get_assinatura_ti_img(aid):
     al = db.get_or_404(Allocation, aid)
     if not al.assinatura_ti_img or not al.assinatura_ti_img.startswith("data:image/png;base64,"):
         return jsonify({"error":"Sem assinatura TI capturada."}), 404
-    import base64
     raw = base64.b64decode(al.assinatura_ti_img.split(",", 1)[1])
     return Response(raw, mimetype="image/png",
                     headers={"Cache-Control":"private, max-age=3600"})
@@ -267,7 +267,6 @@ def gerar_link_assinatura(aid):
         return jsonify({"error":"Alocação encerrada — não é possível gerar link."}), 400
     if al.termo_status == "Assinado":
         return jsonify({"error":"Termo já assinado."}), 400
-    from datetime import timedelta
     token = uuid.uuid4().hex + uuid.uuid4().hex   # 64 chars
     al.sign_token = token
     al.sign_token_expiry = datetime.now() + timedelta(days=7)
@@ -283,13 +282,12 @@ def gerar_link_assinatura(aid):
 
 
 @app.route("/api/allocations/<aid>/qrcode-termo")
-@login_required
+@api_auth
 def allocation_qrcode_termo(aid):
     """Gera QR Code PNG do link de assinatura. Cria token automaticamente se ausente/expirado."""
     al = db.get_or_404(Allocation, aid)
     if al.status != "Ativo" or al.termo_status == "Assinado":
         abort(404)
-    from datetime import timedelta
     now = datetime.now()
     if not al.sign_token or (al.sign_token_expiry and al.sign_token_expiry < now):
         al.sign_token = uuid.uuid4().hex + uuid.uuid4().hex
