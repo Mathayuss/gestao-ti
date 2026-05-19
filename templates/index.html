@@ -464,7 +464,7 @@ const PERFIL_COLOR = {Administrador:'red','Técnico TI':'blue',Gestor:'amber',Vi
 const STATUS_COLAB_COLOR = {Ativo:'green',Inativo:'red',Férias:'blue',Afastado:'amber'};
 
 let _colab_cache = [];
-let _settings  = { setores:[], unidades:[], categorias_config:{} };
+let _settings  = { setores:[], unidades:[], categorias_config:{}, categorias:[] };
 const APP_VERSION = {{ build_version|tojson }};
 let _pendingDeleteBackup = null;
 let _srchTimer = null;
@@ -1013,14 +1013,20 @@ async function doSaida(id){
   }catch(e){toast(e.message,'error');}
 }
 
+function _supplyCatOpts(sel=''){
+  const cats = (_settings.categorias_insumos && _settings.categorias_insumos.length)
+    ? _settings.categorias_insumos
+    : ['Periférico','Cabo','Insumo','Componente','Toner','Papel','Bateria','Adaptador'];
+  return cats.map(c=>`<option ${c===sel?'selected':''}>${esc(c)}</option>`).join('');
+}
 function openNewSupply(){
   openModal('Novo Insumo / Periférico',`
   <div class="form-group"><label>Nome do Item</label><input id="f-nome" placeholder="Ex: Mouse USB Logitech M90"></div>
   <div class="form-grid-2">
     <div class="form-group"><label>Categoria</label>
-      <select id="f-cat"><option>Periférico</option><option>Cabo</option><option>Insumo</option><option>Componente</option></select>
+      <select id="f-cat">${_supplyCatOpts()}</select>
     </div>
-    <div class="form-group"><label>Unidade</label><input id="f-unidade" value="Sede SP"></div>
+    <div class="form-group"><label>Unidade</label><input id="f-unidade" placeholder="Ex: Sede SP"></div>
     <div class="form-group"><label>Estoque Atual</label><input id="f-estoque" type="number" value="0"></div>
     <div class="form-group"><label>Estoque Mínimo</label><input id="f-minimo" type="number" value="2"></div>
     <div class="form-group span-2"><label>Preço (R$)</label><input id="f-preco" type="number" step="0.01" value="0"></div>
@@ -1034,7 +1040,9 @@ function openEditSupply(s){
   openModal('Editar Item',`
   <div class="form-group"><label>Nome</label><input id="f-nome" value="${esc(s.nome)}"></div>
   <div class="form-grid-2">
-    <div class="form-group"><label>Categoria</label><input id="f-cat" value="${esc(s.categoria)}"></div>
+    <div class="form-group"><label>Categoria</label>
+      <select id="f-cat">${_supplyCatOpts(s.categoria)}</select>
+    </div>
     <div class="form-group"><label>Unidade</label><input id="f-unidade" value="${esc(s.unidade)}"></div>
     <div class="form-group"><label>Estoque</label><input id="f-estoque" type="number" value="${s.estoque}"></div>
     <div class="form-group"><label>Mínimo</label><input id="f-minimo" type="number" value="${s.minimo}"></div>
@@ -1095,7 +1103,7 @@ function _buildEntradaView(insumos){
         <div>
           <div class="form-group"><label>Categoria *</label>
             <select id="ent-cat">
-              ${['Notebook','Desktop','Monitor','Impressora','Celular','Tablet','Switch','Servidor','Roteador','Nobreak','Outro'].map(c=>`<option>${c}</option>`).join('')}
+              ${getAssetCats().map(c=>`<option>${c}</option>`).join('')}
             </select>
           </div>
           <div class="form-group"><label>Fabricante *</label><input id="ent-fab" placeholder="Ex: Dell, HP, Lenovo"></div>
@@ -1363,7 +1371,8 @@ async function saveIncident(refId){
   toast('Incidente registrado'); closeModal();
 }
 
-const ASSET_CATS=['Notebook','Desktop','Monitor','Smartphone','Dock Station','Switch','Firewall','Access Point','Servidor','Storage','Rack','Nobreak','DVR','NVR','Câmera IP','Tablet','Impressora'];
+const ASSET_CATS_DEFAULT=['Notebook','Desktop','Monitor','Smartphone','Dock Station','Switch','Firewall','Access Point','Servidor','Storage','Rack','Nobreak','DVR','NVR','Câmera IP','Tablet','Impressora'];
+function getAssetCats(){ return (_settings.categorias&&_settings.categorias.length)?_settings.categorias:ASSET_CATS_DEFAULT; }
 
 function onCatChange(cat){
   const isUni = catIsUnidade(cat);
@@ -1388,7 +1397,7 @@ function assetFormHtml(a={}){
     <div class="form-group"><label>Garantia</label><input id="fa-gar" type="date" value="${a.garantia||''}"></div>
     <div class="form-group"><label>Categoria</label>
       <select id="fa-cat" onchange="onCatChange(this.value)">
-        ${ASSET_CATS.map(c=>`<option ${c===(a.categoria||'')?'selected':''}>${c}</option>`).join('')}
+        ${getAssetCats().map(c=>`<option ${c===(a.categoria||'')?'selected':''}>${c}</option>`).join('')}
       </select>
     </div>
     <div class="form-group"><label>Status</label>
@@ -1718,10 +1727,11 @@ async function verQrTermo(aid){
 }
 
 let _allocPerifs = []; // periféricos selecionados na modal de alocação
+let _allAllocSupplies = []; // todos os insumos com estoque (para filtro dinâmico)
 
 async function openNewAlloc(avail){
   const supplies = await api('/supplies');
-  const perifericos = supplies.filter(s => s.categoria === 'Periférico' && s.estoque > 0);
+  _allAllocSupplies = (supplies || []).filter(s => s.estoque > 0);
   const colabOpts = _colab_cache.filter(c=>c.status==='Ativo'||c.status==='Férias');
   _allocPerifs = [];
 
@@ -1732,9 +1742,9 @@ async function openNewAlloc(avail){
     <div>
       <div class="section-title" style="font-size:13px">Ativo a Alocar</div>
       <div class="form-group"><label>Ativo Disponível</label>
-        <select id="al-ativo">
-          <option value="">Selecione um ativo...</option>
-          ${avail.map(a=>`<option value="${a.id}">${esc(a.hostname)} — ${esc(a.fabricante)} ${esc(a.modelo)}</option>`).join('')}
+        <select id="al-ativo" onchange="onAllocAtivoChange(this)">
+          <option value="" data-cat="">Selecione um ativo...</option>
+          ${avail.map(a=>`<option value="${a.id}" data-cat="${esc(a.categoria||'')}">${esc(a.hostname)} — ${esc(a.fabricante)} ${esc(a.modelo)} (${esc(a.categoria||'')})</option>`).join('')}
         </select>
       </div>
 
@@ -1755,26 +1765,12 @@ async function openNewAlloc(avail){
       <div class="form-group"><label>E-mail</label><input id="al-email" type="email"></div>
     </div>
 
-    <!-- Coluna direita: periféricos -->
+    <!-- Coluna direita: insumos compatíveis -->
     <div>
-      <div class="section-title" style="font-size:13px">Periféricos no Termo <span id="al-perf-count" class="badge badge-blue" style="display:none">0</span></div>
+      <div class="section-title" style="font-size:13px">Insumos no Termo <span id="al-perf-count" class="badge badge-blue" style="display:none">0</span></div>
       <div class="info-box blue" style="margin-bottom:10px;font-size:12px">Opcional. Os itens selecionados serão entregues e incluídos no termo.</div>
       <div style="display:flex;flex-direction:column;gap:4px;max-height:320px;overflow-y:auto" id="perf-list">
-        ${perifericos.map(s=>`
-        <div class="perm-item" id="perf-row-${s.id}" style="cursor:pointer;justify-content:space-between" onclick="togglePerif('${s.id}','${esc(s.nome)}',${s.estoque})">
-          <div class="flex-gap">
-            <span id="perf-chk-${s.id}" style="font-size:14px">-</span>
-            <div><div style="font-size:12px;font-weight:600">${esc(s.nome)}</div>
-              <div style="font-size:11px;color:var(--text3)">${esc(s.categoria)} · ${s.estoque} em estoque</div>
-            </div>
-          </div>
-          <div class="flex-gap" id="perf-qty-wrap-${s.id}" style="display:none" onclick="event.stopPropagation()">
-            <button class="btn btn-default btn-icon btn-sm" onclick="changeQty('${s.id}',-1)">−</button>
-            <span id="perf-qty-${s.id}" style="font-weight:700;min-width:20px;text-align:center">1</span>
-            <button class="btn btn-default btn-icon btn-sm" onclick="changeQty('${s.id}',1,${s.estoque})">+</button>
-          </div>
-        </div>`).join('')}
-        ${perifericos.length===0?'<p style="font-size:12px;color:var(--text3);text-align:center;padding:20px">Nenhum periférico disponível em estoque.</p>':''}
+        <p style="font-size:12px;color:var(--text3);text-align:center;padding:20px">Selecione um ativo para ver os insumos compatíveis.</p>
       </div>
     </div>
   </div>
@@ -1870,11 +1866,19 @@ function irParaEtiqueta(ativoId){
 
 async function viewTermo(a){
   const perifericos=await api(`/allocations/${a.id}/perifericos`);
+  const podeTrocar=a.status==='Ativo';
   const perfList=perifericos.length
     ? perifericos.map(p=>`<div style="display:flex;gap:10px;align-items:center;padding:6px 10px;background:var(--bg3);border-radius:var(--r);margin-bottom:4px;font-size:13px">
         <span style="font-size:16px"></span>
         <span style="flex:1">${esc(p.nome)}</span>
         <span class="badge badge-blue">${p.quantidade}x</span>
+        ${podeTrocar?`<button class="btn btn-default btn-sm"
+          data-allocation-id="${escAttr(a.id)}"
+          data-item-id="${escAttr(p.id)}"
+          data-supply-id="${escAttr(p.supplyId)}"
+          data-nome="${escAttr(p.nome)}"
+          data-quantidade="${escAttr(p.quantidade)}"
+          onclick="openTrocaPeriferico(this)">Trocar</button>`:''}
       </div>`).join('')
     : '<p style="font-size:12px;color:var(--text3)">Nenhum periférico vinculado a este colaborador.</p>';
 
@@ -1933,6 +1937,68 @@ async function viewTermo(a){
   </div>`,true);
 }
 async function signTermo(id){await api(`/allocations/${id}/sign`,'POST',{});toast('Termo assinado');closeModal();renderAlocacoes();}
+
+async function openTrocaPeriferico(btn){
+  const allocationId=btn.dataset.allocationId;
+  const itemId=btn.dataset.itemId;
+  const supplyId=btn.dataset.supplyId;
+  const nome=btn.dataset.nome||'PerifÃ©rico';
+  const quantidade=Math.max(1,parseInt(btn.dataset.quantidade||'1',10)||1);
+  const supplies=await api('/supplies');
+  const perifericos=supplies.filter(s=>s.categoria==='PerifÃ©rico');
+  const opts=perifericos.length ? perifericos.map(s=>`
+    <option value="${escAttr(s.id)}" ${s.id===supplyId?'selected':''}>
+      ${esc(s.nome)} - estoque: ${s.estoque}
+    </option>`).join('') : '<option value="">Nenhum perifÃ©rico cadastrado</option>';
+
+  openModal('Trocar perifÃ©rico com defeito',`
+    <div class="info-box amber">
+      <strong>Item atual:</strong> ${esc(nome)}<br>
+      O item defeituoso serÃ¡ registrado no histÃ³rico e o substituto sairÃ¡ do estoque.
+    </div>
+    <div class="form-grid-2">
+      <div class="form-group">
+        <label>Quantidade</label>
+        <input id="tp-qty" type="number" min="1" max="${quantidade}" value="1">
+      </div>
+      <div class="form-group">
+        <label>Motivo</label>
+        <select id="tp-motivo">
+          <option>Defeito</option>
+          <option>Dano fÃ­sico</option>
+          <option>Mau funcionamento</option>
+          <option>Perda de funcionalidade</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group">
+      <label>PerifÃ©rico substituto</label>
+      <select id="tp-supply">${opts}</select>
+    </div>
+    <div class="form-group">
+      <label>ObservaÃ§Ã£o</label>
+      <textarea id="tp-obs" style="min-height:80px;resize:vertical" placeholder="Ex: mouse sem clique, teclado com tecla quebrada..."></textarea>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-default" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-primary" ${perifericos.length?'':'disabled'} onclick="confirmarTrocaPeriferico('${escAttr(allocationId)}','${escAttr(itemId)}')">Registrar Troca</button>
+    </div>
+  `,false,true);
+}
+
+async function confirmarTrocaPeriferico(allocationId,itemId){
+  if(!$('tp-supply').value){toast('Selecione um perifÃ©rico substituto.','error');return;}
+  const quantidade=parseInt($('tp-qty').value,10)||1;
+  await api(`/allocations/${allocationId}/perifericos/${itemId}/troca`,'POST',{
+    novoSupplyId:$('tp-supply').value,
+    quantidade,
+    motivo:$('tp-motivo').value,
+    observacao:$('tp-obs').value
+  });
+  toast('Troca registrada com sucesso');
+  closeModal();
+  renderAlocacoes();
+}
 
 async function gerarLinkAssinatura(aid){
   const r = await api(`/allocations/${aid}/sign-link`,'POST',{});
@@ -2028,6 +2094,13 @@ async function saveSignTi(aid){
 // ══════════════════════════════════════════════════════════════════════════
 let _auditCampaignSelected = null;
 let _auditFilter = '';
+
+function normalizeAuditAssetInput(value){
+  let v=String(value||'').trim();
+  const marker='/asset/';
+  if(v.includes(marker)) v=v.split(marker).pop().split('?')[0].split('#')[0].replace(/\/+$/,'');
+  return v;
+}
 
 function auditStatusBadge(status){
   return badge(status, status==='Conferido'?'green':status==='Divergente'?'red':status==='Extra'?'amber':status==='Encerrada'?'gray':'blue');
@@ -2145,7 +2218,7 @@ async function openAuditCampaign(id){
       <div class="stat-card"><div class="stat-label">Divergências</div><div class="stat-value" style="color:var(--red)">${(st.divergentes||0)+(st.extras||0)}</div></div>
     </div>
     <div class="flex-between mb-16" style="gap:10px;flex-wrap:wrap">
-      <input id="audit-asset-id" placeholder="ID do ativo ou leitura do QR..." style="max-width:260px">
+      <input id="audit-asset-id" placeholder="ID, URL do QR, patrimonio, Service Tag ou hostname..." style="max-width:360px">
       <div class="flex-gap">
         <button class="btn btn-primary btn-sm" onclick="checkAuditByAsset('${c.id}')">Conferir por ID</button>
         <button class="btn btn-default btn-sm" onclick="exportAuditCampaignCsv('${c.id}')">Exportar CSV</button>
@@ -2154,9 +2227,9 @@ async function openAuditCampaign(id){
     <div class="table-wrap"><table>
       <thead><tr><th>Ativo</th><th>Esperado</th><th>Observado</th><th>Status</th><th>Ação</th></tr></thead>
       <tbody>${items.map(i=>`<tr>
-        <td><div class="mono" style="font-weight:700">${esc(i.assetId||'—')}</div><div style="font-size:11px;color:var(--text3)">${esc(i.assetNome||'')}</div></td>
+        <td><div class="mono" style="font-weight:700">${esc(i.assetId||'—')}</div><div style="font-size:11px;color:var(--text3)">${esc(i.assetNome||'')}</div><div style="font-size:11px;color:var(--text3)">Pat: ${esc(i.patrimonio||'—')} · ST: ${esc(i.serviceTag||'—')}</div></td>
         <td style="font-size:12px;color:var(--text2)">${esc(i.expectedUnidade||'—')}<br>${esc(i.expectedSetor||'—')}<br>${esc(i.expectedColaborador||'—')}</td>
-        <td style="font-size:12px;color:var(--text2)">${esc(i.observedLocal||'—')}<br>${esc(i.observedResponsavel||'—')}</td>
+        <td style="font-size:12px;color:var(--text2)">${esc(i.observedUnidade||'—')}<br>${esc(i.observedSetor||'—')}<br>${esc(i.observedResponsavel||'—')}${i.observedLocal?`<br><span style="color:var(--text3)">Local: ${esc(i.observedLocal)}</span>`:''}</td>
         <td>${auditStatusBadge(i.status)}${i.divergencia?`<div style="font-size:11px;color:var(--red-text);margin-top:4px">${esc(i.divergencia)}</div>`:''}</td>
         <td>${c.status==='Aberta'?`<button class="btn btn-default btn-sm" onclick="openAuditCheck('${c.id}','${i.id}')">Conferir</button>`:'—'}</td>
       </tr>`).join('')}</tbody>
@@ -2171,7 +2244,9 @@ function openAuditCheck(cid,itemId){
     openModal('Conferir Ativo',`
       <div class="info-box blue" style="margin-bottom:12px"><strong>${esc(item.assetNome||item.assetId)}</strong><br>Esperado: ${esc(item.expectedUnidade||'—')} · ${esc(item.expectedColaborador||'—')}</div>
       <div class="form-grid-2">
-        <div class="form-group"><label>Local observado</label><input id="aci-local" value="${escAttr(item.observedLocal||item.expectedUnidade||'')}"></div>
+        <div class="form-group"><label>Unidade observada</label><input id="aci-unidade" value="${escAttr(item.observedUnidade||item.expectedUnidade||'')}"></div>
+        <div class="form-group"><label>Setor observado</label><input id="aci-setor" value="${escAttr(item.observedSetor||item.expectedSetor||'')}"></div>
+        <div class="form-group"><label>Local fisico / sala</label><input id="aci-local" value="${escAttr(item.observedLocal||'')}" placeholder="Ex: Sala 03, bancada TI, recepcao..."></div>
         <div class="form-group"><label>Responsável observado</label><input id="aci-resp" value="${escAttr(item.observedResponsavel||item.expectedColaborador||'')}"></div>
       </div>
       <div class="form-group"><label>Status manual</label><select id="aci-status"><option value="">Automático</option><option>Conferido</option><option>Divergente</option><option>Extra</option></select></div>
@@ -2183,7 +2258,9 @@ function openAuditCheck(cid,itemId){
 
 async function saveAuditCheck(cid,itemId){
   await api(`/audit-campaigns/${cid}/items/${itemId}/check`,'POST',{
-    local:$('aci-local').value,
+    unidade:$('aci-unidade').value,
+    setor:$('aci-setor').value,
+    localFisico:$('aci-local').value,
     responsavel:$('aci-resp').value,
     status:$('aci-status').value,
     observacao:$('aci-obs').value,
@@ -2195,7 +2272,7 @@ async function saveAuditCheck(cid,itemId){
 }
 
 async function checkAuditByAsset(cid){
-  const aid = $('audit-asset-id').value.trim();
+  const aid = normalizeAuditAssetInput($('audit-asset-id').value);
   if(!aid){toast('Informe ou leia o ID do ativo.','error');return;}
   await api(`/audit-campaigns/${cid}/assets/${encodeURIComponent(aid)}/check`,'POST',{});
   toast('Ativo conferido pela campanha');
@@ -2204,7 +2281,14 @@ async function checkAuditByAsset(cid){
 }
 
 async function toggleAuditCampaign(cid,status){
-  await api('/audit-campaigns/'+cid,'PUT',{status});
+  let payload={status};
+  if(status==='Encerrada'){
+    const c = await api('/audit-campaigns/'+cid);
+    const pend = c?.stats?.pendentes || 0;
+    if(pend && !confirm(`Esta campanha ainda possui ${pend} item(ns) pendente(s). Encerrar mesmo assim?`)) return;
+    if(pend) payload.confirmarPendencias = true;
+  }
+  await api('/audit-campaigns/'+cid,'PUT',payload);
   toast(status==='Encerrada'?'Campanha encerrada':'Campanha reaberta');
   await renderAuditorias();
   await openAuditCampaign(cid);
@@ -2212,8 +2296,8 @@ async function toggleAuditCampaign(cid,status){
 
 async function exportAuditCampaignCsv(cid){
   const c = await api('/audit-campaigns/'+cid);
-  const rows = [['Campanha','Ativo','Hostname','Patrimonio','Service Tag','Unidade Esperada','Setor Esperado','Responsavel Esperado','Local Observado','Responsavel Observado','Status','Divergencia','Auditado Por','Auditado Em']];
-  (c.items||[]).forEach(i=>rows.push([c.nome,i.assetId,i.assetNome,i.patrimonio,i.serviceTag,i.expectedUnidade,i.expectedSetor,i.expectedColaborador,i.observedLocal,i.observedResponsavel,i.status,i.divergencia,i.auditadoPor,i.auditadoEm]));
+  const rows = [['Campanha','Ativo','Hostname','Patrimonio','Service Tag','Unidade Esperada','Setor Esperado','Responsavel Esperado','Unidade Observada','Setor Observado','Local Fisico','Responsavel Observado','Status','Divergencia','Auditado Por','Auditado Em']];
+  (c.items||[]).forEach(i=>rows.push([c.nome,i.assetId,i.assetNome,i.patrimonio,i.serviceTag,i.expectedUnidade,i.expectedSetor,i.expectedColaborador,i.observedUnidade,i.observedSetor,i.observedLocal,i.observedResponsavel,i.status,i.divergencia,i.auditadoPor,i.auditadoEm]));
   const csv = rows.map(r=>r.map(v=>`"${String(v||'').replace(/"/g,'""')}"`).join(';')).join('\n');
   const blob = new Blob([csv], {type:'text/csv;charset=utf-8'});
   const url = URL.createObjectURL(blob);
@@ -3192,6 +3276,9 @@ async function renderConfiguracoes(){
     backupState = {config: cfg.backup || {}, files: []};
   }
   PERFIS_SYS = Object.keys(perfis);
+  _settings.categorias = cfg.categorias || [];
+  _settings.categorias_insumos = cfg.categorias_insumos || [];
+  _settings.categorias_compat = cfg.categorias_compat || {};
   const {empresa, setores, unidades, alertas, regras_usuario, campos_ativo_obrigatorios} = cfg;
   const cfg_cats   = cfg.categorias_config    || {};
   const cfg_email  = cfg.email                || {};
@@ -3397,23 +3484,47 @@ async function renderConfiguracoes(){
     </div>
     <div class="card" style="grid-column:span 2">
       <div class="flex-between" style="margin-bottom:14px">
-        <div class="section-title" style="margin-bottom:0">Tipo de Alocação por Categoria</div>
-        <div style="font-size:12px;color:var(--text2)">Define se o ativo vai para <strong>Colaborador</strong> (uso pessoal) ou <strong>Unidade</strong> (infraestrutura)</div>
+        <div>
+          <div class="section-title" style="margin-bottom:4px">Categorias de Ativos</div>
+          <div style="font-size:12px;color:var(--text2)">Gerencie as categorias disponíveis e defina o tipo de alocação de cada uma</div>
+        </div>
+        <div class="flex-gap">
+          <input id="nova-cat" placeholder="Nova categoria..." style="width:180px" onkeydown="if(event.key==='Enter')addCategoria()">
+          <button class="btn btn-primary btn-sm" onclick="addCategoria()">Adicionar</button>
+        </div>
       </div>
-      <div id="cats-config-list" class="form-grid-2">
-        ${ASSET_CATS.map(cat=>{
-          const cfg_cat = cfg_cats[cat] || {tipo_alocacao:'colaborador'};
-          return `<div style="display:flex;align-items:center;justify-content:space-between;padding:9px 12px;border:1px solid var(--border);border-radius:var(--r);background:var(--bg3)">
-            <span style="font-size:13px;font-weight:600">${esc(cat)}</span>
-            <select data-cat="${esc(cat)}" style="width:auto;font-size:12px;border:1px solid var(--border2);padding:3px 6px;border-radius:5px" onchange="saveCatConfig()">
-              <option value="colaborador" ${cfg_cat.tipo_alocacao==='colaborador'?'selected':''}>Colaborador</option>
-              <option value="unidade"    ${cfg_cat.tipo_alocacao==='unidade'   ?'selected':''}>Unidade</option>
-            </select>
-          </div>`;
-        }).join('')}
+      <div id="cats-config-list">
+        ${_buildCatsConfigHtml(getAssetCats(), cfg_cats)}
       </div>
       <div class="info-box blue" style="margin-top:12px;font-size:12px">
-        Nota: Categorias definidas como <strong>Unidade</strong> não exibem campo Colaborador no formulário de ativo — apenas Responsável Técnico (opcional) e Unidade.
+        Categorias do tipo <strong>Unidade</strong> não exibem campo Colaborador no formulário de ativo — apenas Responsável Técnico (opcional) e Unidade.
+      </div>
+    </div>
+    <div class="card" style="grid-column:span 2">
+      <div class="flex-between" style="margin-bottom:14px">
+        <div>
+          <div class="section-title" style="margin-bottom:4px">Categorias de Insumos / Periféricos</div>
+          <div style="font-size:12px;color:var(--text2)">Categorias disponíveis nos formulários de insumos e periféricos</div>
+        </div>
+        <div class="flex-gap">
+          <input id="nova-cat-ins" placeholder="Nova categoria..." style="width:180px" onkeydown="if(event.key==='Enter')addCategoriaInsumo()">
+          <button class="btn btn-primary btn-sm" onclick="addCategoriaInsumo()">Adicionar</button>
+        </div>
+      </div>
+      <div id="cats-insumos-list">
+        ${_buildCatsInsumoHtml(_settings.categorias_insumos && _settings.categorias_insumos.length ? _settings.categorias_insumos : cfg.categorias_insumos || [])}
+      </div>
+    </div>
+    <div class="card" style="grid-column:span 2">
+      <div class="flex-between" style="margin-bottom:6px">
+        <div>
+          <div class="section-title" style="margin-bottom:4px">Compatibilidade — Ativo × Insumo</div>
+          <div style="font-size:12px;color:var(--text2)">Defina quais categorias de insumo podem ser adicionadas ao alocar cada categoria de ativo. Deixe sem marcação para liberar todos.</div>
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="saveCompatConfig()">Salvar Compatibilidade</button>
+      </div>
+      <div id="compat-matrix" style="overflow-x:auto">
+        ${_buildCompatMatrix(getAssetCats(), getSupplyCats(), cfg.categorias_compat || {})}
       </div>
     </div>
   </div>`;
@@ -3740,14 +3851,215 @@ function cfgTab(tab){
   });
 }
 
+function _buildCatsConfigHtml(cats, cfg_cats){
+  if(!cats||!cats.length) return '<p style="font-size:13px;color:var(--text3)">Nenhuma categoria cadastrada.</p>';
+  return `<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">${cats.map(cat=>{
+    const cfg_cat = cfg_cats[cat] || {tipo_alocacao:'colaborador'};
+    return `<div style="display:flex;align-items:center;gap:6px;padding:6px 10px;border:1px solid var(--border);border-radius:var(--r);background:var(--bg3);min-width:0">
+      <span style="flex:1;font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(cat)}">${esc(cat)}</span>
+      <select data-cat="${esc(cat)}" style="width:100px;font-size:12px;border:1px solid var(--border2);padding:2px 4px;border-radius:5px;flex-shrink:0" onchange="saveCatConfig()">
+        <option value="colaborador" ${cfg_cat.tipo_alocacao==='colaborador'?'selected':''}>Colaborador</option>
+        <option value="unidade" ${cfg_cat.tipo_alocacao==='unidade'?'selected':''}>Unidade</option>
+      </select>
+      <button class="btn btn-default btn-sm btn-icon" style="flex-shrink:0" title="Renomear" onclick="renameCategoria('${esc(cat)}')">✎</button>
+      <button class="btn btn-danger btn-sm btn-icon" style="flex-shrink:0" title="Remover" onclick="delCategoria('${esc(cat)}')">x</button>
+    </div>`;
+  }).join('')}</div>`;
+}
+
 async function saveCatConfig(){
   const sels = document.querySelectorAll('[data-cat]');
   const cats = {};
   sels.forEach(s=>{ cats[s.dataset.cat]={tipo_alocacao:s.value}; });
   await api('/settings','PUT',{categorias_config:cats});
   _settings.categorias_config = cats;
-  toast('Configuração de categorias salva');
+  toast('Tipo de alocação salvo');
 }
+
+async function addCategoria(){
+  const inp = $('nova-cat');
+  const nome = inp?.value?.trim();
+  if(!nome){ toast('Digite o nome da categoria','error'); return; }
+  const cats = await api('/settings/categorias','POST',{nome});
+  if(!cats) return;
+  _settings.categorias = cats;
+  inp.value = '';
+  const cfg_cats = _settings.categorias_config || {};
+  $('cats-config-list').innerHTML = _buildCatsConfigHtml(getAssetCats(), cfg_cats);
+  toast(`Categoria '${nome}' adicionada`);
+}
+
+async function delCategoria(nome){
+  if(!confirm(`Remover categoria '${nome}'?\nAtivos já cadastrados com essa categoria não serão afetados.`)) return;
+  const cats = await api(`/settings/categorias/${encodeURIComponent(nome)}`,'DELETE');
+  if(!cats) return;
+  _settings.categorias = cats;
+  const cfg_cats = _settings.categorias_config || {};
+  $('cats-config-list').innerHTML = _buildCatsConfigHtml(getAssetCats(), cfg_cats);
+  toast(`Categoria '${nome}' removida`);
+}
+
+async function renameCategoria(nome){
+  const novo = prompt(`Novo nome para '${nome}':`, nome);
+  if(!novo||novo.trim()===nome) return;
+  const cats = await api(`/settings/categorias/${encodeURIComponent(nome)}`,'PUT',{nome:novo.trim()});
+  if(!cats) return;
+  _settings.categorias = cats;
+  const cfg_cats = _settings.categorias_config || {};
+  $('cats-config-list').innerHTML = _buildCatsConfigHtml(getAssetCats(), cfg_cats);
+  toast(`Categoria renomeada para '${novo.trim()}'`);
+}
+
+// ── Categorias de Insumos / Periféricos ──────────────────────────────────────
+function getSupplyCats(){ return (_settings.categorias_insumos&&_settings.categorias_insumos.length)?_settings.categorias_insumos:['Periférico','Cabo','Insumo','Componente','Toner','Papel','Bateria','Adaptador']; }
+
+function _buildCatsInsumoHtml(cats){
+  if(!cats||!cats.length) return '<p style="font-size:13px;color:var(--text3)">Nenhuma categoria cadastrada.</p>';
+  return `<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px">${cats.map(cat=>`
+    <div style="display:flex;align-items:center;gap:6px;padding:6px 10px;border:1px solid var(--border);border-radius:var(--r);background:var(--bg3);min-width:0">
+      <span style="flex:1;font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(cat)}">${esc(cat)}</span>
+      <button class="btn btn-default btn-sm btn-icon" style="flex-shrink:0" title="Renomear" onclick="renameCategoriaInsumo('${esc(cat)}')">✎</button>
+      <button class="btn btn-danger btn-sm btn-icon" style="flex-shrink:0" title="Remover" onclick="delCategoriaInsumo('${esc(cat)}')">x</button>
+    </div>`).join('')}</div>`;
+}
+
+async function addCategoriaInsumo(){
+  const inp = $('nova-cat-ins');
+  const nome = inp?.value?.trim();
+  if(!nome){ toast('Digite o nome da categoria','error'); return; }
+  const cats = await api('/settings/categorias-insumos','POST',{nome});
+  if(!cats) return;
+  _settings.categorias_insumos = cats;
+  inp.value = '';
+  $('cats-insumos-list').innerHTML = _buildCatsInsumoHtml(getSupplyCats());
+  toast(`Categoria '${nome}' adicionada`);
+}
+
+async function delCategoriaInsumo(nome){
+  if(!confirm(`Remover categoria '${nome}'?\nItens já cadastrados com essa categoria não serão afetados.`)) return;
+  const cats = await api(`/settings/categorias-insumos/${encodeURIComponent(nome)}`,'DELETE');
+  if(!cats) return;
+  _settings.categorias_insumos = cats;
+  $('cats-insumos-list').innerHTML = _buildCatsInsumoHtml(getSupplyCats());
+  toast(`Categoria '${nome}' removida`);
+}
+
+async function renameCategoriaInsumo(nome){
+  const novo = prompt(`Novo nome para '${nome}':`, nome);
+  if(!novo||novo.trim()===nome) return;
+  const cats = await api(`/settings/categorias-insumos/${encodeURIComponent(nome)}`,'PUT',{nome:novo.trim()});
+  if(!cats) return;
+  _settings.categorias_insumos = cats;
+  $('cats-insumos-list').innerHTML = _buildCatsInsumoHtml(getSupplyCats());
+  toast(`Categoria renomeada para '${novo.trim()}'`);
+}
+
+// ── Matriz de Compatibilidade Ativo × Insumo ─────────────────────────────────
+function _buildCompatMatrix(ativosCats, insumosCats, compat){
+  if(!ativosCats.length||!insumosCats.length)
+    return '<p style="font-size:13px;color:var(--text3)">Cadastre categorias de ativos e insumos primeiro.</p>';
+
+  const thStyle = 'padding:6px 10px;font-size:11px;font-weight:700;text-align:center;color:var(--text2);white-space:nowrap;border-bottom:1px solid var(--border);border-right:1px solid var(--border)';
+  const tdStyle = 'padding:6px;text-align:center;border-bottom:1px solid var(--border);border-right:1px solid var(--border)';
+  const tdLabel = 'padding:6px 10px;font-size:12px;font-weight:600;white-space:nowrap;border-bottom:1px solid var(--border);border-right:1px solid var(--border)';
+
+  const header = `<tr><th style="${thStyle};text-align:left">Ativo \\ Insumo</th>${insumosCats.map(ic=>`<th style="${thStyle}">${esc(ic)}</th>`).join('')}</tr>`;
+  const rows = ativosCats.map(ac=>{
+    const allowed = compat[ac] || [];
+    const unconfigured = !Object.hasOwn(compat, ac);
+    const cells = insumosCats.map(ic=>{
+      const checked = !unconfigured && allowed.includes(ic);
+      return `<td style="${tdStyle}"><input type="checkbox" data-ativo="${esc(ac)}" data-insumo="${esc(ic)}" ${checked?'checked':''} style="width:auto;cursor:pointer;accent-color:var(--blue)"></td>`;
+    }).join('');
+    return `<tr><td style="${tdLabel}">${esc(ac)}</td>${cells}</tr>`;
+  }).join('');
+
+  return `<table style="border-collapse:collapse;width:100%;border:1px solid var(--border);border-radius:var(--r);overflow:hidden">
+    <thead style="background:var(--bg3)">${header}</thead>
+    <tbody>${rows}</tbody>
+  </table>
+  <div style="font-size:11px;color:var(--text3);margin-top:8px">
+    Linha sem nenhum item marcado = todos os insumos em estoque serão exibidos (sem restrição).
+  </div>`;
+}
+
+async function saveCompatConfig(){
+  const checks = document.querySelectorAll('#compat-matrix input[type=checkbox]');
+  const compat = {};
+  checks.forEach(cb=>{
+    const ac = cb.dataset.ativo;
+    const ic = cb.dataset.insumo;
+    if(!compat[ac]) compat[ac] = [];
+    if(cb.checked) compat[ac].push(ic);
+  });
+  await api('/settings','PUT',{categorias_compat: compat});
+  _settings.categorias_compat = compat;
+  toast('Compatibilidade salva');
+}
+
+// ── Filtro dinâmico na modal de alocação ─────────────────────────────────────
+function _renderPerifList(items){
+  const list = $('perf-list');
+  if(!list) return;
+  if(!items||!items.length){
+    list.innerHTML='<p style="font-size:12px;color:var(--text3);text-align:center;padding:20px">Nenhum insumo compatível disponível em estoque.</p>';
+    return;
+  }
+  list.innerHTML = items.map(s=>`
+    <div class="perm-item" id="perf-row-${s.id}" style="cursor:pointer;justify-content:space-between" onclick="togglePerif('${s.id}','${esc(s.nome)}',${s.estoque})">
+      <div class="flex-gap">
+        <span id="perf-chk-${s.id}" style="font-size:14px">-</span>
+        <div><div style="font-size:12px;font-weight:600">${esc(s.nome)}</div>
+          <div style="font-size:11px;color:var(--text3)">${esc(s.categoria)} · ${s.estoque} em estoque</div>
+        </div>
+      </div>
+      <div class="flex-gap" id="perf-qty-wrap-${s.id}" style="display:none" onclick="event.stopPropagation()">
+        <button class="btn btn-default btn-icon btn-sm" onclick="changeQty('${s.id}',-1)">−</button>
+        <span id="perf-qty-${s.id}" style="font-weight:700;min-width:20px;text-align:center">1</span>
+        <button class="btn btn-default btn-icon btn-sm" onclick="changeQty('${s.id}',1,${s.estoque})">+</button>
+      </div>
+    </div>`).join('');
+  // restaura seleção prévia
+  _allocPerifs.forEach(p=>{
+    const chk = $('perf-chk-'+p.supplyId);
+    const wrap = $('perf-qty-wrap-'+p.supplyId);
+    const row  = $('perf-row-'+p.supplyId);
+    const qty  = $('perf-qty-'+p.supplyId);
+    if(chk) chk.textContent='✓';
+    if(wrap) wrap.style.display='flex';
+    if(row)  row.classList.add('on');
+    if(qty)  qty.textContent = p.quantidade;
+  });
+}
+
+function onAllocAtivoChange(sel){
+  _allocPerifs = [];
+  const cat = sel.options[sel.selectedIndex]?.dataset?.cat || '';
+  if(!cat){
+    $('perf-list').innerHTML='<p style="font-size:12px;color:var(--text3);text-align:center;padding:20px">Selecione um ativo para ver os insumos compatíveis.</p>';
+    _updatePerifCount();
+    return;
+  }
+  const compat = _settings.categorias_compat || {};
+  let filtered;
+  if(Object.hasOwn(compat, cat) && compat[cat].length > 0){
+    filtered = _allAllocSupplies.filter(s => compat[cat].includes(s.categoria));
+  } else {
+    // sem restrição configurada → exibe todos com estoque
+    filtered = _allAllocSupplies;
+  }
+  _renderPerifList(filtered);
+  _updatePerifCount();
+}
+
+function _updatePerifCount(){
+  const badge = $('al-perf-count');
+  if(!badge) return;
+  const n = _allocPerifs.reduce((t,p)=>t+p.quantidade, 0);
+  badge.textContent = n;
+  badge.style.display = n > 0 ? 'inline-flex' : 'none';
+}
+
 async function savePrefixoPatrimonio(){
   const v = ($('cfg-pat-prefixo')?.value||'').trim().toUpperCase().replace(/[^A-Z0-9]/g,'');
   if(!v){ toast('Prefixo inválido','error'); return; }
@@ -4604,6 +4916,9 @@ async function updateAlertBadge(){
     if (cfg) {
       _settings = cfg;
       if (!_settings.categorias_config) _settings.categorias_config = {};
+      if (!_settings.categorias) _settings.categorias = [];
+      if (!_settings.categorias_insumos) _settings.categorias_insumos = [];
+      if (!_settings.categorias_compat) _settings.categorias_compat = {};
       _applyAparencia(cfg.aparencia || {}, cfg.empresa || {});
     }
     if (col) _colab_cache = col;

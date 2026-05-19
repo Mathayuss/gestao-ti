@@ -268,3 +268,70 @@
   - upload temporário de anexo em licença;
   - liberação temporária de edição de licenças para perfil Gestor via `perfil_permissoes`;
   - restauração das permissões originais e remoção dos dados temporários criados no teste.
+
+## Ciclo de Vida de Ativos, Categorias e Manual do Sistema - 2026-05-19
+
+### Entrada, patrimonio e categorias
+
+- Adicionado suporte a fluxo mais completo de entrada de itens de TI, com separacao entre cadastro individual e entrada em lote.
+- Entrada de ativos passou a usar categorias configuraveis em vez de depender apenas da lista fixa do frontend.
+- Adicionado normalizador de configuracao para `categorias`, garantindo lista valida, sem nomes vazios e sem duplicidades.
+- Criadas rotas administrativas para adicionar, remover e renomear categorias de ativos via configuracoes.
+- Mantida a configuracao de tipo de alocacao por categoria, permitindo definir se o ativo deve ser alocado para colaborador ou unidade.
+- Adicionado uso do prefixo de patrimonio configuravel no fluxo de cadastro, preservando a regra de que o patrimonio nasce na entrada do item.
+
+### Alocacoes e perifericos
+
+- Reforcada a validacao de perifericos na criacao de alocacao:
+  - payload precisa ser lista valida;
+  - itens invalidos sao rejeitados;
+  - `supplyId` passa por limpeza;
+  - quantidades sao normalizadas com minimo 1;
+  - perifericos duplicados no payload sao consolidados antes da validacao de estoque;
+  - a validacao passa a impedir baixa parcial quando o total solicitado excede o estoque disponivel.
+- Movimentos de saida de perifericos em alocacao agora registram `ativo_id`, conectando o consumo de perifericos ao historico do ativo.
+- `AllocationItem.to_dict()` agora retorna o `id` do item vinculado, permitindo operacoes precisas sobre perifericos especificos da alocacao.
+
+### Troca de periferico com defeito
+
+- Criado endpoint `POST /api/allocations/<aid>/perifericos/<item_id>/troca`.
+- A troca exige alocacao ativa e periferico previamente vinculado.
+- A quantidade de troca nao pode exceder a quantidade vinculada ao termo/alocacao.
+- O periferico substituto precisa existir e ter estoque suficiente.
+- O item defeituoso e registrado no historico como movimento `DEFEITO`, sem retornar ao estoque disponivel.
+- O substituto recebe movimento de `SAIDA`, baixando o estoque e mantendo rastreabilidade.
+- Quando o substituto e de outro tipo/modelo, o vinculo da alocacao e atualizado para refletir o novo periferico.
+- Quando ja existe o mesmo substituto vinculado a alocacao, a quantidade e consolidada.
+- O historico do ativo passa a reconhecer eventos `DEFEITO` e `TROCA_PERIFERICO`.
+
+### Interface e usabilidade
+
+- Adicionado botao `Trocar` na visualizacao do termo para perifericos vinculados a alocacoes ativas.
+- Criado modal de troca com item atual, quantidade, motivo, periferico substituto, observacao e acao de confirmacao.
+- A tela informa que o item defeituoso sera registrado no historico e que o substituto saira do estoque.
+- O botao de confirmar troca e desabilitado quando nao ha periferico cadastrado para substituicao.
+- A lista de categorias em `Entrada de Itens` e `Ativos de TI` passa a respeitar as categorias cadastradas nas configuracoes.
+- A tela de configuracoes ganhou gerenciamento visual de categorias, com adicionar, renomear, remover e definir tipo de alocacao.
+
+### Documentacao
+
+- Criado o arquivo `MANUAL_DO_SISTEMA.md` com manual operacional do TI Control.
+- O manual cobre acesso, perfis, modulos, entrada de ativos, patrimonio, estoque, alocacao, termos digitais, troca de periferico, devolucao, manutencao, QR Code, auditoria, licencas, colaboradores, anexos, configuracoes, backup, seguranca e boas praticas.
+- Incluidos fluxos resumidos para entrada/alocacao, troca de periferico com defeito e devolucao.
+
+### Validacoes realizadas
+
+- `py -m py_compile app.py routes/allocations.py routes/assets.py`
+- `git diff --check`
+- `git diff --check -- MANUAL_DO_SISTEMA.md`
+- Revisao estatica do diff de `app.py`, `routes/allocations.py`, `routes/assets.py`, `routes/settings.py` e `templates/index.html`.
+
+### Pendencia conhecida de validacao
+
+- O teste funcional via Flask test client nao foi concluido nesta sessao porque o ambiente bloqueou a execucao direta do Python pelo launcher com erro `Acesso negado`.
+- A validacao sintatica passou, mas recomenda-se executar um teste runtime completo antes de publicar:
+  - criar alocacao com periferico;
+  - registrar troca por defeito;
+  - confirmar baixa do substituto no estoque;
+  - confirmar evento `DEFEITO` no historico do ativo;
+  - confirmar que alocacao encerrada rejeita troca.

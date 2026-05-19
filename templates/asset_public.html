@@ -190,34 +190,9 @@
 
   <div class="footer">
     <div class="logo"><span>TI Control</span> — Consulta pública com dados internos protegidos</div>
-    <button id="btn-audit" class="audit-btn" type="button" onclick="openAuditDialog()">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
-      Confirmar localização
-    </button>
   </div>
-  <div id="status-msg" class="status-msg" role="alert"></div>
   </div>
 </div>
-</div>
-
-<div id="audit-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="audit-title">
-  <div class="dialog">
-    <div class="dialog-head">
-      <div>
-        <div id="audit-title" class="dialog-title">Confirmar localização</div>
-        <div class="logo">Atualize o local físico observado no momento.</div>
-      </div>
-      <button class="icon-btn" type="button" onclick="closeAuditDialog()" aria-label="Fechar">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
-      </button>
-    </div>
-    <label for="audit-local">Local atual</label>
-    <input id="audit-local" value="" autocomplete="off" placeholder="Ex: sala, setor ou unidade observada">
-    <div class="dialog-actions">
-      <button class="theme-btn" type="button" onclick="closeAuditDialog()">Cancelar</button>
-      <button id="audit-submit" class="audit-btn" type="button" onclick="registrarAuditoria()">Salvar confirmação</button>
-    </div>
-  </div>
 </div>
 
 <script>
@@ -239,92 +214,6 @@ function toggleTheme() {
 
 applyTheme(localStorage.getItem('ticontrol-theme') || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'));
 
-function openAuditDialog() {
-  const modal = document.getElementById('audit-modal');
-  modal.style.display = 'flex';
-  setTimeout(() => {
-    modal.classList.add('open');
-    document.getElementById('audit-local').focus();
-  }, 10);
-}
-
-function closeAuditDialog() {
-  const modal = document.getElementById('audit-modal');
-  modal.classList.remove('open');
-  setTimeout(() => modal.style.display = 'none', 200);
-}
-
-let statusTimeout;
-function showStatus(text, type) {
-  const el = document.getElementById('status-msg');
-  el.textContent = text;
-  el.className = 'status-msg ' + type;
-
-  clearTimeout(statusTimeout);
-  if (type === 'ok') {
-    statusTimeout = setTimeout(() => {
-      el.style.opacity = '0';
-      setTimeout(() => { el.className = 'status-msg'; el.style.opacity = '1'; }, 300);
-    }, 4000);
-  }
-}
-
-function getCSRFToken() {
-  const meta = document.querySelector('meta[name="csrf-token"]');
-  return meta ? meta.content : '';
-}
-
-async function registrarAuditoria() {
-  const local = document.getElementById('audit-local').value.trim();
-  if (!local) {
-    showStatus('Informe o local atual antes de salvar.', 'err');
-    return;
-  }
-
-  const btn = document.getElementById('audit-submit');
-  const mainBtn = document.getElementById('btn-audit');
-  const originalText = btn.innerHTML;
-  
-  try {
-    btn.innerHTML = 'Salvando...';
-    btn.disabled = true;
-    mainBtn.disabled = true;
-
-    const resp = await fetch('/api/public/assets/{{ asset.id }}/audit', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-CSRFToken': getCSRFToken()
-      },
-      body: JSON.stringify({ 
-        assetId: '{{ asset.id }}', 
-        local: local, 
-        responsavel: '{{ asset.colaborador or "" }}' 
-      })
-    });
-
-    if (resp.ok) {
-      closeAuditDialog();
-      showStatus('Localização confirmada e auditoria registrada.', 'ok');
-      mainBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>Confirmado';
-    } else {
-      const errorData = await resp.json().catch(() => ({}));
-      showStatus(errorData.error || 'Falha na comunicação com o servidor.', 'err');
-      btn.innerHTML = originalText;
-      mainBtn.disabled = false;
-      btn.disabled = false;
-    }
-  } catch (err) {
-    showStatus('Erro de rede. Verifique sua conexão e tente novamente.', 'err');
-    btn.innerHTML = originalText;
-    mainBtn.disabled = false;
-    btn.disabled = false;
-  }
-}
-
-document.getElementById('audit-modal').addEventListener('click', event => {
-  if (event.target.id === 'audit-modal') closeAuditDialog();
-});
 </script>
 </body>
 </html>

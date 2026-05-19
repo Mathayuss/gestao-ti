@@ -202,6 +202,7 @@ def get_asset_history(aid):
         "MANUTENCAO_ABERTA":"wrench","MANUTENCAO_ENCERRADA":"flag",
         "MANUTENCAO_PECA":"package","MANUTENCAO_ATUALIZADA":"clipboard",
         "INCIDENTE":"warning","SAIDA":"package","DEVOLUCAO":"package",
+        "DEFEITO":"warning","TROCA_PERIFERICO":"package",
     }
     _COR = {
         "CRIAR":"green","EDITAR":"blue","BAIXA":"red","EXCLUIR":"red",
@@ -210,6 +211,7 @@ def get_asset_history(aid):
         "MANUTENCAO_ABERTA":"amber","MANUTENCAO_ENCERRADA":"green",
         "MANUTENCAO_PECA":"gray","MANUTENCAO_ATUALIZADA":"gray",
         "INCIDENTE":"red","SAIDA":"gray","DEVOLUCAO":"gray",
+        "DEFEITO":"red","TROCA_PERIFERICO":"amber",
     }
 
     def _ev(tipo, acao, descricao, usuario, data_iso, extra=None):
@@ -307,6 +309,7 @@ def asset_qrcode(aid):
 
 @app.route("/api/public/assets/<aid>/audit", methods=["POST"])
 def public_asset_audit(aid):
+    return jsonify({"error": "Confirmacao publica removida. Use uma campanha autenticada de auditoria."}), 410
     ip = request.remote_addr or "unknown"
     if not _check_rate_limit(ip, bucket="qr_public_audit"):
         return jsonify({"error": "Muitas requisições. Aguarde um momento."}), 429

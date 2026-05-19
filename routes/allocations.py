@@ -46,12 +46,26 @@ def create_allocation():
         erros.append("Colaborador sem e-mail. Configure a exceção ou cadastre um e-mail antes da alocação.")
 
     # ── Valida periféricos — verifica estoque antes de qualquer mudança ──
-    perifericos_in = d.get("perifericos",[]) or []
+    perifericos_raw = d.get("perifericos", []) or []
+    if not isinstance(perifericos_raw, list):
+        perifericos_raw = []
+        erros.append("Lista de periféricos inválida.")
+    perifericos_map = {}
+    for p in perifericos_raw:
+        if not isinstance(p, dict):
+            erros.append("Item de periférico inválido.")
+            continue
+        supply_id = clean_text(p.get("supplyId", ""), 16)
+        qty = parse_int(p.get("quantidade", 1), default=1, minimum=1)
+        if not supply_id:
+            erros.append("Periférico sem identificação.")
+            continue
+        perifericos_map[supply_id] = perifericos_map.get(supply_id, 0) + qty
+    perifericos_in = [{"supplyId": sid, "quantidade": qty} for sid, qty in perifericos_map.items()]
     total_perifericos = 0
     for p in perifericos_in:
         s = db.session.get(Supply, p.get("supplyId",""))
-        qty = parse_int(p.get("quantidade",1), default=1, minimum=1)
-        p["quantidade"] = qty
+        qty = p["quantidade"]
         total_perifericos += qty
         if not s: erros.append(f"Periférico '{p.get('supplyId')}' não encontrado.")
         elif s.estoque < qty: erros.append(f"'{s.nome}': estoque insuficiente ({s.estoque} disponível, {qty} solicitado).")
@@ -88,7 +102,7 @@ def create_allocation():
             db.session.add(SupplyMovement(
                 id=new_id("MOV"), tipo="SAIDA", ref_id=s.id, supply_nome=s.nome,
                 descricao=f"Alocação {aid} — {colab.nome}: {s.nome} x{qty}", quantidade=-qty,
-                colaborador=colab.nome, motivo="Alocação",
+                colaborador=colab.nome, ativo_id=asset.id, motivo="Alocação",
             ))
 
         audit("ALOCACAO","alocacoes",aid,f"{asset.hostname} → {colab.nome} ({len(perifericos_in)} periféricos)")
@@ -117,6 +131,80 @@ def sign_termo(aid):
 def alloc_perifericos(aid):
     al = db.get_or_404(Allocation, aid)
     return jsonify([i.to_dict() for i in al.items])
+
+
+@app.route("/api/allocations/<aid>/perifericos/<item_id>/troca", methods=["POST"])
+@requires("Administrador","TÃ©cnico TI")
+def trocar_periferico_defeituoso(aid, item_id):
+    al = db.get_or_404(Allocation, aid)
+    if al.status != "Ativo":
+        return jsonify({"error":"NÃ£o Ã© possÃ­vel trocar perifÃ©rico de alocaÃ§Ã£o encerrada."}), 400
+
+    item = db.session.execute(
+        db.select(AllocationItem).filter_by(id=item_id, allocation_id=aid)
+    ).scalar_one_or_none()
+    if not item:
+        return jsonify({"error":"PerifÃ©rico vinculado Ã  alocaÃ§Ã£o nÃ£o encontrado."}), 404
+
+    d = request.get_json() or {}
+    qty = parse_int(d.get("quantidade", 1), default=1, minimum=1)
+    if qty > (item.quantidade or 0):
+        return jsonify({"error":f"Quantidade acima do vÃ­nculo atual ({item.quantidade} disponÃ­vel para troca)."}), 400
+
+    novo_supply_id = clean_text(d.get("novoSupplyId") or item.supply_id, 16)
+    novo_supply = db.session.get(Supply, novo_supply_id)
+    if not novo_supply:
+        return jsonify({"error":"PerifÃ©rico substituto nÃ£o encontrado no estoque."}), 404
+    if (novo_supply.estoque or 0) < qty:
+        return jsonify({"error":f"Estoque insuficiente para substituiÃ§Ã£o ({novo_supply.estoque} disponÃ­vel, {qty} solicitado)."}), 400
+
+    motivo = clean_text(d.get("motivo") or "Defeito", 80)
+    observacao = clean_text(d.get("observacao") or "", 240)
+    detalhe_obs = f" â€” {observacao}" if observacao else ""
+    asset = db.session.get(Asset, al.ativo_id) if al.ativo_id else None
+
+    try:
+        antigo_nome = item.supply_nome
+        antigo_supply_id = item.supply_id
+        novo_supply.estoque -= qty
+
+        db.session.add(SupplyMovement(
+            id=new_id("MOV"), tipo="DEFEITO", ref_id=antigo_supply_id, supply_nome=antigo_nome,
+            descricao=f"Troca por defeito na alocaÃ§Ã£o {aid}: {antigo_nome} x{qty} ({motivo}){detalhe_obs}",
+            quantidade=qty, colaborador=al.colaborador, ativo_id=al.ativo_id, motivo=motivo,
+        ))
+        db.session.add(SupplyMovement(
+            id=new_id("MOV"), tipo="SAIDA", ref_id=novo_supply.id, supply_nome=novo_supply.nome,
+            descricao=f"SubstituiÃ§Ã£o de perifÃ©rico na alocaÃ§Ã£o {aid}: {novo_supply.nome} x{qty}",
+            quantidade=-qty, colaborador=al.colaborador, ativo_id=al.ativo_id, motivo="Troca por defeito",
+        ))
+
+        if novo_supply.id == antigo_supply_id:
+            item.supply_nome = novo_supply.nome
+        else:
+            item.quantidade -= qty
+            destino = db.session.execute(
+                db.select(AllocationItem).filter_by(allocation_id=aid, supply_id=novo_supply.id)
+            ).scalar_one_or_none()
+            if destino:
+                destino.quantidade = (destino.quantidade or 0) + qty
+                destino.supply_nome = novo_supply.nome
+            else:
+                db.session.add(AllocationItem(
+                    id=new_id("AI"), allocation_id=aid,
+                    supply_id=novo_supply.id, supply_nome=novo_supply.nome, quantidade=qty,
+                ))
+            if item.quantidade <= 0:
+                db.session.delete(item)
+
+        ativo_ref = asset.hostname if asset else (al.ativo_nome or al.ativo_id)
+        audit("TROCA_PERIFERICO","alocacoes",aid,
+              f"{ativo_ref}: {antigo_nome} x{qty} substituÃ­do por {novo_supply.nome} ({motivo})")
+        db.session.commit()
+        return jsonify(al.to_dict(include_items=True))
+    except Exception:
+        db.session.rollback()
+        raise
 
 
 @app.route("/api/allocations/<aid>/termo.pdf")

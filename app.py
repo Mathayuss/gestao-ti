@@ -417,7 +417,7 @@ class AllocationItem(db.Model):
     quantidade   = db.Column(db.Integer)
 
     def to_dict(self):
-        return {"supplyId":self.supply_id,"nome":self.supply_nome,"quantidade":self.quantidade}
+        return {"id":self.id,"supplyId":self.supply_id,"nome":self.supply_nome,"quantidade":self.quantidade}
 
 
 class License(db.Model):
@@ -545,6 +545,8 @@ class AuditCampaign(db.Model):
         conferidos  = counts.get("Conferido", 0)
         divergentes = counts.get("Divergente", 0)
         extras      = counts.get("Extra", 0)
+        pendentes    = counts.get("Pendente", 0)
+        auditados    = max(0, total - pendentes)
         d = {
             "id": self.id, "nome": self.nome, "unidade": self.unidade,
             "setor": self.setor, "status": self.status,
@@ -553,9 +555,9 @@ class AuditCampaign(db.Model):
             "observacao": self.observacao,
             "stats": {
                 "total": total, "conferidos": conferidos,
-                "pendentes": max(0, total - conferidos - divergentes - extras),
+                "pendentes": pendentes, "auditados": auditados,
                 "divergentes": divergentes, "extras": extras,
-                "progresso": round((conferidos / total) * 100) if total else 0,
+                "progresso": round((auditados / total) * 100) if total else 0,
             },
         }
         if include_items:
@@ -574,6 +576,8 @@ class AuditCampaignItem(db.Model):
     expected_unidade      = db.Column(db.String(80), default="")
     expected_setor        = db.Column(db.String(80), default="")
     expected_colaborador  = db.Column(db.String(120), default="")
+    observed_unidade      = db.Column(db.String(80), default="")
+    observed_setor        = db.Column(db.String(80), default="")
     observed_local        = db.Column(db.String(120), default="")
     observed_responsavel  = db.Column(db.String(120), default="")
     status                = db.Column(db.String(20), default="Pendente")
@@ -590,6 +594,8 @@ class AuditCampaignItem(db.Model):
             "expectedUnidade": self.expected_unidade,
             "expectedSetor": self.expected_setor,
             "expectedColaborador": self.expected_colaborador,
+            "observedUnidade": self.observed_unidade,
+            "observedSetor": self.observed_setor,
             "observedLocal": self.observed_local,
             "observedResponsavel": self.observed_responsavel,
             "status": self.status, "divergencia": self.divergencia,
@@ -1607,12 +1613,55 @@ def _normalize_patrimonio_prefixo(value):
     return v, None
 
 
+CATEGORIAS_DEFAULT = [
+    "Notebook", "Desktop", "Monitor", "Smartphone", "Dock Station",
+    "Switch", "Firewall", "Access Point", "Servidor", "Storage",
+    "Rack", "Nobreak", "DVR", "NVR", "Câmera IP", "Tablet", "Impressora",
+]
+
+CATEGORIAS_INSUMOS_DEFAULT = [
+    "Periférico", "Cabo", "Insumo", "Componente",
+    "Toner", "Papel", "Bateria", "Adaptador",
+]
+
+
+def _normalize_categorias_list_setting(value):
+    if not isinstance(value, list):
+        return None, "Categorias deve ser uma lista."
+    cats = []
+    for v in value:
+        c = clean_text(v, 60)
+        if c and c not in cats:
+            cats.append(c)
+    if not cats:
+        return None, "A lista de categorias não pode ser vazia."
+    return cats, None
+
+
+def _normalize_categorias_compat_setting(value):
+    """Valida mapa {categoria_ativo: [categoria_insumo, ...]}."""
+    if not isinstance(value, dict):
+        return None, "Compatibilidade deve ser um objeto."
+    result = {}
+    for raw_cat, supply_cats in value.items():
+        cat = clean_text(raw_cat, 60)
+        if not cat:
+            continue
+        if not isinstance(supply_cats, list):
+            return None, f"Lista de insumos inválida para categoria '{cat}'."
+        result[cat] = [c for c in (clean_text(v, 60) for v in supply_cats) if c]
+    return result, None
+
+
 SETTING_NORMALIZERS = {
     "empresa": _normalize_empresa_setting,
     "alertas": _normalize_alertas_setting,
     "regras_usuario": _normalize_regras_usuario_setting,
     "campos_ativo_obrigatorios": _normalize_campos_ativos_setting,
     "categorias_config": _normalize_categorias_config_setting,
+    "categorias": _normalize_categorias_list_setting,
+    "categorias_insumos": _normalize_categorias_list_setting,
+    "categorias_compat": _normalize_categorias_compat_setting,
     "aparencia": _normalize_aparencia_setting,
     "patrimonio.prefixo": _normalize_patrimonio_prefixo,
 }
@@ -2134,6 +2183,10 @@ def _migrate_db():
         ],
         "attachments": [
             ("description", "TEXT"),
+        ],
+        "audit_campaign_items": [
+            ("observed_unidade", "VARCHAR(80)"),
+            ("observed_setor", "VARCHAR(80)"),
         ],
     }
     is_sqlite = "sqlite" in app.config["SQLALCHEMY_DATABASE_URI"]

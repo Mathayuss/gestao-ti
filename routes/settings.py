@@ -25,6 +25,9 @@ def get_settings():
         "regras_usuario":_get_setting("regras_usuario", {}),
         "campos_ativo_obrigatorios": _get_setting("campos_ativo_obrigatorios", []),
         "categorias_config": _get_setting("categorias_config", {}),
+        "categorias":         _get_setting("categorias", CATEGORIAS_DEFAULT),
+        "categorias_insumos": _get_setting("categorias_insumos", CATEGORIAS_INSUMOS_DEFAULT),
+        "categorias_compat":  _get_setting("categorias_compat", {}),
         "email":        cfg_email_safe,
         "email_templates": _get_email_templates(),
         "backup":       _get_backup_config(),
@@ -220,4 +223,116 @@ def update_termos_settings():
     audit("EDITAR", "configuracoes", "", "Personalização de termos atualizada")
     db.session.commit()
     return jsonify({"ok": True})
+
+
+@app.route("/api/settings/categorias", methods=["POST"])
+@requires("Administrador")
+def add_categoria():
+    nome = clean_text((json_payload() or {}).get("nome"), 60)
+    if not nome:
+        return jsonify({"error": "Nome obrigatório"}), 400
+    cats = _get_setting("categorias", CATEGORIAS_DEFAULT) or list(CATEGORIAS_DEFAULT)
+    if not isinstance(cats, list):
+        cats = list(CATEGORIAS_DEFAULT)
+    if any(c.casefold() == nome.casefold() for c in cats):
+        return jsonify({"error": "Categoria já existe"}), 409
+    cats.append(nome)
+    _set_setting("categorias", cats)
+    audit("CRIAR", "configuracoes", "", f"Categoria '{nome}' adicionada")
+    db.session.commit()
+    return jsonify(cats), 201
+
+
+@app.route("/api/settings/categorias/<nome>", methods=["DELETE"])
+@requires("Administrador")
+def del_categoria(nome):
+    nome = clean_text(nome, 60)
+    cats = _get_setting("categorias", CATEGORIAS_DEFAULT) or list(CATEGORIAS_DEFAULT)
+    if not isinstance(cats, list):
+        cats = list(CATEGORIAS_DEFAULT)
+    cats = [c for c in cats if c != nome]
+    if not cats:
+        return jsonify({"error": "Não é possível remover a última categoria."}), 400
+    _set_setting("categorias", cats)
+    audit("EXCLUIR", "configuracoes", "", f"Categoria '{nome}' removida")
+    db.session.commit()
+    return jsonify(cats)
+
+
+@app.route("/api/settings/categorias/<nome>", methods=["PUT"])
+@requires("Administrador")
+def rename_categoria(nome):
+    nome = clean_text(nome, 60)
+    novo = clean_text((json_payload() or {}).get("nome"), 60)
+    if not novo:
+        return jsonify({"error": "Novo nome obrigatório"}), 400
+    cats = _get_setting("categorias", CATEGORIAS_DEFAULT) or list(CATEGORIAS_DEFAULT)
+    if not isinstance(cats, list):
+        cats = list(CATEGORIAS_DEFAULT)
+    if nome not in cats:
+        return jsonify({"error": "Categoria não encontrada"}), 404
+    if any(c.casefold() == novo.casefold() and c != nome for c in cats):
+        return jsonify({"error": "Já existe uma categoria com esse nome"}), 409
+    cats = [novo if c == nome else c for c in cats]
+    _set_setting("categorias", cats)
+    audit("EDITAR", "configuracoes", "", f"Categoria '{nome}' renomeada para '{novo}'")
+    db.session.commit()
+    return jsonify(cats)
+
+
+# ── Categorias de Insumos/Periféricos ────────────────────────────────────────
+
+@app.route("/api/settings/categorias-insumos", methods=["POST"])
+@requires("Administrador")
+def add_categoria_insumo():
+    nome = clean_text((json_payload() or {}).get("nome"), 60)
+    if not nome:
+        return jsonify({"error": "Nome obrigatório"}), 400
+    cats = _get_setting("categorias_insumos", CATEGORIAS_INSUMOS_DEFAULT) or list(CATEGORIAS_INSUMOS_DEFAULT)
+    if not isinstance(cats, list):
+        cats = list(CATEGORIAS_INSUMOS_DEFAULT)
+    if any(c.casefold() == nome.casefold() for c in cats):
+        return jsonify({"error": "Categoria já existe"}), 409
+    cats.append(nome)
+    _set_setting("categorias_insumos", cats)
+    audit("CRIAR", "configuracoes", "", f"Categoria de insumo '{nome}' adicionada")
+    db.session.commit()
+    return jsonify(cats), 201
+
+
+@app.route("/api/settings/categorias-insumos/<nome>", methods=["DELETE"])
+@requires("Administrador")
+def del_categoria_insumo(nome):
+    nome = clean_text(nome, 60)
+    cats = _get_setting("categorias_insumos", CATEGORIAS_INSUMOS_DEFAULT) or list(CATEGORIAS_INSUMOS_DEFAULT)
+    if not isinstance(cats, list):
+        cats = list(CATEGORIAS_INSUMOS_DEFAULT)
+    cats = [c for c in cats if c != nome]
+    if not cats:
+        return jsonify({"error": "Não é possível remover a última categoria."}), 400
+    _set_setting("categorias_insumos", cats)
+    audit("EXCLUIR", "configuracoes", "", f"Categoria de insumo '{nome}' removida")
+    db.session.commit()
+    return jsonify(cats)
+
+
+@app.route("/api/settings/categorias-insumos/<nome>", methods=["PUT"])
+@requires("Administrador")
+def rename_categoria_insumo(nome):
+    nome = clean_text(nome, 60)
+    novo = clean_text((json_payload() or {}).get("nome"), 60)
+    if not novo:
+        return jsonify({"error": "Novo nome obrigatório"}), 400
+    cats = _get_setting("categorias_insumos", CATEGORIAS_INSUMOS_DEFAULT) or list(CATEGORIAS_INSUMOS_DEFAULT)
+    if not isinstance(cats, list):
+        cats = list(CATEGORIAS_INSUMOS_DEFAULT)
+    if nome not in cats:
+        return jsonify({"error": "Categoria não encontrada"}), 404
+    if any(c.casefold() == novo.casefold() and c != nome for c in cats):
+        return jsonify({"error": "Já existe uma categoria com esse nome"}), 409
+    cats = [novo if c == nome else c for c in cats]
+    _set_setting("categorias_insumos", cats)
+    audit("EDITAR", "configuracoes", "", f"Categoria de insumo '{nome}' renomeada para '{novo}'")
+    db.session.commit()
+    return jsonify(cats)
 

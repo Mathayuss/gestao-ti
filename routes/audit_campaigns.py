@@ -26,6 +26,29 @@ def _campaign_item_for_asset(campaign_id, asset_id):
     ).scalar_one_or_none()
 
 
+def _extract_asset_identifier(raw):
+    value = clean_text(raw, 200).rstrip("/")
+    if "/asset/" in value:
+        value = value.rsplit("/asset/", 1)[-1].split("?", 1)[0].split("#", 1)[0].strip("/")
+    return value
+
+
+def _find_asset_for_audit(raw_identifier):
+    ident = _extract_asset_identifier(raw_identifier)
+    if not ident:
+        return None
+    asset = db.session.get(Asset, ident)
+    if asset:
+        return asset
+    return db.session.execute(
+        db.select(Asset).where(db.or_(
+            Asset.patrimonio == ident,
+            Asset.service_tag == ident,
+            Asset.hostname == ident,
+        ))
+    ).scalar_one_or_none()
+
+
 def _check_campaign_item(item, payload, user_label):
     was_extra = item.status == "Extra"
     local = clean_text(payload.get("local") or payload.get("observedLocal") or item.expected_unidade, 120)
@@ -44,6 +67,47 @@ def _check_campaign_item(item, payload, user_label):
     if forced_status and forced_status not in AUDIT_ITEM_STATUS:
         return None, "Status inválido."
 
+    item.observed_local = local
+    item.observed_responsavel = responsavel
+    item.observacao = observacao
+    if was_extra:
+        divergencias.insert(0, "Ativo fora do escopo original da campanha.")
+    item.divergencia = "; ".join(divergencias)
+    item.status = forced_status or ("Extra" if was_extra else ("Divergente" if divergencias else "Conferido"))
+    item.auditado_por = user_label
+    item.auditado_em = datetime.now()
+    return item, None
+
+
+def _check_campaign_item_v2(item, payload, user_label):
+    was_extra = item.status == "Extra"
+    unidade = clean_text(
+        payload.get("unidade") or payload.get("observedUnidade") or payload.get("local") or item.expected_unidade,
+        80,
+    )
+    setor = clean_text(payload.get("setor") or payload.get("observedSetor") or item.expected_setor, 80)
+    local = clean_text(payload.get("localFisico") or payload.get("observedLocal") or "", 120)
+    responsavel = clean_text(
+        payload.get("responsavel") or payload.get("observedResponsavel") or item.expected_colaborador,
+        120,
+    )
+    observacao = clean_text(payload.get("observacao") or "", 500)
+    divergencias = []
+    if unidade and item.expected_unidade and unidade.casefold() != item.expected_unidade.casefold():
+        divergencias.append(f"Unidade esperada: {item.expected_unidade}; informada: {unidade}")
+    if setor and item.expected_setor and setor.casefold() != item.expected_setor.casefold():
+        divergencias.append(f"Setor esperado: {item.expected_setor}; informado: {setor}")
+    if responsavel and item.expected_colaborador and responsavel.casefold() != item.expected_colaborador.casefold():
+        divergencias.append(f"Responsavel esperado: {item.expected_colaborador}; informado: {responsavel}")
+
+    forced_status = clean_text(payload.get("status") or "", 20)
+    if forced_status and forced_status not in AUDIT_ITEM_STATUS:
+        return None, "Status invalido."
+    if forced_status == "Conferido" and divergencias:
+        return None, "Nao e possivel marcar como Conferido quando ha divergencia. Corrija os dados observados ou use Divergente."
+
+    item.observed_unidade = unidade
+    item.observed_setor = setor
     item.observed_local = local
     item.observed_responsavel = responsavel
     item.observacao = observacao
@@ -120,6 +184,9 @@ def update_audit_campaign(cid):
         status = clean_text(d.get("status"), 20)
         if status not in AUDIT_CAMPAIGN_STATUS:
             return jsonify({"error": "Status inválido."}), 400
+        pendentes = sum(1 for i in c.items if i.status == "Pendente")
+        if status == "Encerrada" and pendentes and not d.get("confirmarPendencias"):
+            return jsonify({"error": f"A campanha ainda possui {pendentes} item(ns) pendente(s). Confirme o encerramento com pendencias."}), 400
         c.status = status
         c.data_fim = str(date.today()) if status == "Encerrada" else None
     for key, attr, max_len in [("nome", "nome", 120), ("observacao", "observacao", 1000)]:
@@ -139,7 +206,7 @@ def check_audit_campaign_item(cid, item_id):
     item = db.get_or_404(AuditCampaignItem, item_id)
     if item.campaign_id != cid:
         return jsonify({"error": "Item não pertence a esta campanha."}), 400
-    item, error = _check_campaign_item(item, json_payload(), current_user.username)
+    item, error = _check_campaign_item_v2(item, json_payload(), current_user.username)
     if error:
         return jsonify({"error": error}), 400
     audit("CONFERIR_ATIVO_CAMPANHA", "auditorias", item.asset_id or item.id,
@@ -154,8 +221,10 @@ def check_audit_campaign_asset(cid, aid):
     c = db.get_or_404(AuditCampaign, cid)
     if c.status != "Aberta":
         return jsonify({"error": "Campanha encerrada."}), 400
-    a = db.get_or_404(Asset, aid)
-    item = _campaign_item_for_asset(cid, aid)
+    a = _find_asset_for_audit(aid)
+    if not a:
+        return jsonify({"error": "Ativo nao encontrado por ID, URL, patrimonio, Service Tag ou hostname."}), 404
+    item = _campaign_item_for_asset(cid, a.id)
     if not item:
         item = AuditCampaignItem(
             id=new_id("ACI"),
@@ -170,7 +239,7 @@ def check_audit_campaign_asset(cid, aid):
             status="Extra",
         )
         db.session.add(item)
-    item, error = _check_campaign_item(item, json_payload(), current_user.username)
+    item, error = _check_campaign_item_v2(item, json_payload(), current_user.username)
     if error:
         return jsonify({"error": error}), 400
     audit("CONFERIR_ATIVO_CAMPANHA", "auditorias", a.id,
