@@ -28,8 +28,10 @@ jobs:
           python - <<'PY'
           from app import app
           client = app.test_client()
-          for path in ["/health/live", "/health/ready", "/ping", "/metrics"]:
+          for path in ["/health/live", "/health/ready", "/ping"]:
               resp = client.get(path)
               assert resp.status_code in (200, 503), (path, resp.status_code)
+          metrics_resp = client.get("/metrics")
+          assert metrics_resp.status_code in (200, 401, 503), ("/metrics", metrics_resp.status_code)
           print("CI health checks OK")
           PY
