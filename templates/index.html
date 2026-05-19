@@ -3,75 +3,81 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="csrf-token" content="{{ csrf_token() }}">
 <title id="app-title">TI Control</title>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
   color-scheme:light;
   /* Surface */
-  --bg:#f4f4f3;--bg2:#ffffff;--bg3:#f0efed;--bg4:#e8e6e1;
+  --bg:#f6f7fb;--bg2:#ffffff;--bg3:#f1f4f8;--bg4:#e2e8f0;
   /* Borders */
-  --border:#e4e2de;--border2:#cccac5;
+  --border:#e2e8f0;--border2:#cbd5e1;
   /* Text */
-  --text:#1c1b18;--text2:#6b6a66;--text3:#a09d99;
+  --text:#111827;--text2:#475569;--text3:#7c8798;
   /* Blue */
-  --blue:#2563eb;--blue-bg:#eff6ff;--blue-text:#1d4ed8;--blue-border:#bfdbfe;
+  --blue:#2563eb;--blue-hover:#1d4ed8;--blue-bg:#eff6ff;--blue-text:#1d4ed8;--blue-border:#bfdbfe;
   /* Green */
-  --green:#16a34a;--green-bg:#f0fdf4;--green-text:#15803d;--green-border:#bbf7d0;
+  --green:#059669;--green-bg:#ecfdf5;--green-text:#047857;--green-border:#a7f3d0;
   /* Amber */
-  --amber:#d97706;--amber-bg:#fffbeb;--amber-text:#b45309;--amber-border:#fde68a;
+  --amber:#d97706;--amber-bg:#fffbeb;--amber-text:#92400e;--amber-border:#fde68a;
   /* Red */
   --red:#dc2626;--red-bg:#fef2f2;--red-text:#b91c1c;--red-border:#fecaca;
   /* Purple */
-  --purple-bg:#f5f3ff;--purple-text:#6d28d9;
+  --purple-bg:#f5f3ff;--purple-text:#6d28d9;--purple-border:#ddd6fe;
   /* Sidebar */
   --sb:#ffffff;--sb2:#f8fafc;--sb-border:#e2e8f0;
   --sb-text:#64748b;--sb-text-act:#111827;--sb-muted:#94a3b8;--sb-heading:#64748b;
   --sb-hover:#f1f5f9;--sb-act:#eff6ff;--sb-act-border:#2563eb;
   /* Misc */
   --mono:'Courier New',Courier,monospace;
-  --r:8px;--rl:12px;
-  --shadow-sm:0 1px 3px rgba(0,0,0,.07),0 1px 2px rgba(0,0,0,.04);
-  --shadow:0 4px 16px rgba(0,0,0,.08),0 1px 4px rgba(0,0,0,.05);
-  --shadow-lg:0 12px 32px rgba(0,0,0,.12),0 4px 8px rgba(0,0,0,.07);
+  --r:8px;--rl:10px;--focus:rgba(37,99,235,.16);
+  --button-primary:var(--blue);--button-primary-hover:var(--blue-hover);
+  --shadow-sm:0 1px 2px rgba(15,23,42,.05),0 1px 1px rgba(15,23,42,.03);
+  --shadow:0 12px 28px rgba(15,23,42,.08),0 2px 6px rgba(15,23,42,.05);
+  --shadow-lg:0 24px 56px rgba(15,23,42,.14),0 8px 18px rgba(15,23,42,.08);
 }
 html[data-theme="dark"]{
   color-scheme:dark;
-  --bg:#0b1120;--bg2:#111827;--bg3:#1e293b;--bg4:#334155;
-  --border:#334155;--border2:#475569;
-  --text:#f8fafc;--text2:#cbd5e1;--text3:#94a3b8;
-  --blue:#60a5fa;--blue-bg:rgba(96,165,250,.15);--blue-text:#bfdbfe;--blue-border:rgba(96,165,250,.32);
+  --bg:#101114;--bg2:#17191f;--bg3:#20232b;--bg4:#2d313b;
+  --border:rgba(255,255,255,.09);--border2:rgba(255,255,255,.16);
+  --text:#f5f7fa;--text2:#c4c9d2;--text3:#8f98a7;
+  --blue:#60a5fa;--blue-hover:#3b82f6;--blue-bg:rgba(96,165,250,.15);--blue-text:#bfdbfe;--blue-border:rgba(96,165,250,.32);
   --green:#4ade80;--green-bg:rgba(74,222,128,.14);--green-text:#bbf7d0;--green-border:rgba(74,222,128,.30);
   --amber:#fbbf24;--amber-bg:rgba(251,191,36,.14);--amber-text:#fde68a;--amber-border:rgba(251,191,36,.30);
   --red:#f87171;--red-bg:rgba(248,113,113,.14);--red-text:#fecaca;--red-border:rgba(248,113,113,.30);
-  --purple-bg:rgba(167,139,250,.15);--purple-text:#ddd6fe;
-  --sb:#020617;--sb2:#0f172a;--sb-border:rgba(255,255,255,.08);
-  --sb-text:#94a3b8;--sb-text-act:#f8fafc;--sb-muted:#64748b;--sb-heading:#64748b;
+  --purple-bg:rgba(167,139,250,.15);--purple-text:#ddd6fe;--purple-border:rgba(167,139,250,.30);
+  --sb:#121318;--sb2:#17191f;--sb-border:rgba(255,255,255,.08);
+  --sb-text:#a0a7b4;--sb-text-act:#f7f8fb;--sb-muted:#747d8c;--sb-heading:#858e9d;
   --sb-hover:rgba(255,255,255,.07);--sb-act:rgba(96,165,250,.18);--sb-act-border:#60a5fa;
-  --shadow-sm:0 1px 2px rgba(0,0,0,.35);
-  --shadow:0 12px 30px rgba(0,0,0,.32),0 2px 6px rgba(0,0,0,.25);
-  --shadow-lg:0 22px 56px rgba(0,0,0,.42),0 6px 16px rgba(0,0,0,.28);
+  --focus:rgba(96,165,250,.22);
+  --button-primary:var(--blue);--button-primary-hover:var(--blue-hover);
+  --shadow-sm:0 1px 2px rgba(0,0,0,.38);
+  --shadow:0 16px 34px rgba(0,0,0,.32),0 2px 8px rgba(0,0,0,.22);
+  --shadow-lg:0 28px 64px rgba(0,0,0,.48),0 8px 20px rgba(0,0,0,.30);
 }
-body{font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--text);font-size:14px;line-height:1.5}
+body{font-family:Inter,ui-sans-serif,system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--text);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
 #app{display:flex;height:100vh;overflow:hidden}
 
 /* ── Sidebar ── */
-#sidebar{width:232px;flex-shrink:0;background:var(--sb);border-right:1px solid var(--sb-border);display:flex;flex-direction:column;overflow-y:auto}
-.sb-logo{padding:16px 14px 14px;border-bottom:1px solid var(--sb-border);display:flex;align-items:center;gap:10px}
-.sb-logo-icon{width:34px;height:34px;background:var(--blue-bg);color:var(--blue);border:1px solid var(--blue-border);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:16px;box-shadow:none}
-.sb-logo-name{font-size:14px;font-weight:700;color:var(--sb-text-act)}
-.sb-logo-sub{font-size:10px;color:var(--sb-text);margin-top:1px}
-.sb-nav{padding:8px 8px;flex:1}
-.sb-section{font-size:10px;font-weight:700;color:var(--sb-heading);text-transform:uppercase;letter-spacing:.08em;padding:16px 10px 5px}
+#sidebar{width:244px;flex-shrink:0;background:var(--sb);border-right:1px solid var(--sb-border);display:flex;flex-direction:column;overflow-y:auto}
+.sb-logo{padding:18px 16px 16px;border-bottom:1px solid var(--sb-border);display:flex;align-items:center;gap:11px}
+.sb-logo-icon{width:36px;height:36px;background:var(--blue-bg);color:var(--blue);border:1px solid var(--blue-border);border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:16px;box-shadow:var(--shadow-sm)}
+.sb-logo-name{font-size:14px;font-weight:800;color:var(--sb-text-act);letter-spacing:-.01em}
+.sb-logo-sub{font-size:10.5px;color:var(--sb-text);margin-top:1px}
+.sb-nav{padding:10px 10px;flex:1}
+.sb-section{font-size:10px;font-weight:800;color:var(--sb-heading);text-transform:uppercase;letter-spacing:.08em;padding:17px 10px 6px}
 .sb-section:first-child{padding-top:8px}
-.nav-item{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:var(--r);cursor:pointer;color:var(--sb-text);font-size:13px;border:none;width:100%;background:transparent;text-align:left;transition:background .15s,color .15s;position:relative}
+.nav-item{display:flex;align-items:center;gap:8px;min-height:38px;padding:5px 9px;border-radius:var(--r);cursor:pointer;color:var(--sb-text);font-size:13px;border:none;width:100%;background:transparent;text-align:left;transition:background .15s,color .15s,transform .15s;position:relative}
 .nav-item:hover{background:var(--sb-hover);color:var(--sb-text-act)}
 .nav-item.active{background:var(--sb-act);color:var(--sb-text-act);font-weight:600}
-.nav-item.active::before{content:'';position:absolute;left:0;top:6px;bottom:6px;width:3px;background:var(--sb-act-border);border-radius:0 3px 3px 0}
-.nav-item .icon{width:18px;flex-shrink:0;text-align:center;font-size:14px}
+.nav-item.active::before{content:'';position:absolute;left:0;top:8px;bottom:8px;width:3px;background:var(--sb-act-border);border-radius:0 3px 3px 0}
+.nav-item .icon{width:28px;height:28px;flex-shrink:0;display:flex;align-items:center;justify-content:center;border-radius:7px;color:inherit}
+.nav-item:hover .icon{background:var(--sb2)}
+.nav-item.active .icon{background:var(--blue);color:#fff}
 .nav-item .lbl{flex:1}
-.sb-footer{padding:12px 14px;border-top:1px solid var(--sb-border);display:flex;align-items:center;gap:8px}
-.avatar{width:30px;height:30px;border-radius:99px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0}
+.sb-footer{padding:14px 16px;border-top:1px solid var(--sb-border);display:flex;align-items:center;gap:9px;background:var(--sb2)}
+.avatar{width:32px;height:32px;border-radius:99px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;flex-shrink:0}
 .sb-user-name{font-size:12px;font-weight:600;color:var(--sb-text-act);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .sb-user-role{font-size:10px;color:var(--sb-text)}
 .sb-logout{background:var(--sb-hover);color:var(--sb-text);border-color:var(--sb-border);flex-shrink:0}
@@ -79,24 +85,25 @@ body{font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;background
 
 /* ── Main ── */
 #main{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0}
-#header{padding:12px 24px;background:var(--bg2);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;box-shadow:var(--shadow-sm)}
-#content{flex:1;padding:22px 26px;overflow-y:auto}
+#header{min-height:64px;padding:12px 24px;background:var(--bg2);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;box-shadow:var(--shadow-sm)}
+#content{flex:1;padding:24px 28px;overflow-y:auto;background:var(--bg)}
 
 /* ── Buttons ── */
-.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:var(--r);font-size:13px;font-weight:500;cursor:pointer;border:1px solid transparent;transition:all .15s;white-space:nowrap;font-family:inherit;line-height:1.3}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:36px;padding:8px 16px;border-radius:var(--r);font-size:13px;font-weight:650;cursor:pointer;border:1px solid transparent;transition:background .15s,border-color .15s,color .15s,box-shadow .15s,transform .15s;white-space:nowrap;font-family:inherit;line-height:1.3}
 .btn:active{transform:scale(.98)}
-.btn-primary{background:var(--blue);color:#fff;border-color:var(--blue)}
-.btn-primary:hover{background:#1d4ed8;border-color:#1d4ed8}
+.btn-primary{background:var(--button-primary);color:#fff;border-color:var(--button-primary);box-shadow:0 1px 2px rgba(37,99,235,.18)}
+.btn-primary:hover{background:var(--button-primary-hover);border-color:var(--button-primary-hover);box-shadow:0 8px 16px rgba(37,99,235,.18)}
 .btn-success{background:var(--green);color:#fff;border-color:var(--green)}
-.btn-success:hover{background:#15803d;border-color:#15803d}
+.btn-success:hover{background:#047857;border-color:#047857}
 .btn-danger{background:var(--red-bg);color:var(--red-text);border-color:var(--red-border)}
-.btn-danger:hover{background:#fee2e2;opacity:1}
+.btn-danger:hover{background:#fee2e2;opacity:1;border-color:#fca5a5}
+html[data-theme="dark"] .btn-danger:hover{background:rgba(248,113,113,.20);border-color:rgba(248,113,113,.42)}
 .btn-warning{background:var(--amber-bg);color:var(--amber-text);border-color:var(--amber-border)}
 .btn-default{background:var(--bg2);color:var(--text);border-color:var(--border2)}
-.btn-default:hover{background:var(--bg3)}
+.btn-default:hover{background:var(--bg3);border-color:var(--border)}
 .btn-sm{padding:5px 10px;font-size:12px}
 .btn-icon{padding:6px 9px}
-.theme-toggle{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:36px;padding:0 12px;border-radius:var(--r);border:1px solid var(--border);background:var(--bg2);color:var(--text);font:inherit;font-size:12px;font-weight:700;cursor:pointer}
+.theme-toggle{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:36px;padding:0 12px;border-radius:var(--r);border:1px solid var(--border);background:var(--bg2);color:var(--text);font:inherit;font-size:12px;font-weight:700;cursor:pointer;transition:background .15s,border-color .15s}
 .theme-toggle:hover{background:var(--bg3)}
 .theme-toggle svg,.nav-item svg,.sb-logo-icon svg{width:17px;height:17px;stroke-width:2.2}
 .inline-icon{width:16px;height:16px;stroke-width:2.2;vertical-align:-3px;flex-shrink:0}
@@ -119,11 +126,12 @@ body{font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;background
 .badge-purple{background:var(--purple-bg);color:var(--purple-text)}
 
 /* ── Cards ── */
-.card{background:var(--bg2);border-radius:var(--rl);border:1px solid var(--border);padding:18px 22px;box-shadow:var(--shadow-sm)}
-.stat-card{background:var(--bg2);border-radius:var(--rl);border:1px solid var(--border);padding:16px 20px;box-shadow:var(--shadow-sm);transition:box-shadow .15s,transform .15s}
+.card{background:var(--bg2);border-radius:var(--rl);border:1px solid var(--border);padding:20px 22px;box-shadow:var(--shadow-sm)}
+.stat-card{position:relative;overflow:hidden;background:var(--bg2);border-radius:var(--rl);border:1px solid var(--border);padding:17px 20px;box-shadow:var(--shadow-sm);transition:box-shadow .15s,transform .15s,border-color .15s}
+.stat-card::before{content:'';position:absolute;left:0;top:0;width:100%;height:3px;background:var(--blue);opacity:.72}
 .stat-card:hover{box-shadow:var(--shadow);transform:translateY(-1px)}
-.stat-label{font-size:12px;color:var(--text2);margin-bottom:6px;font-weight:500;text-transform:uppercase;letter-spacing:.04em}
-.stat-value{font-size:30px;font-weight:800;letter-spacing:-.5px;line-height:1}
+.stat-label{font-size:11px;color:var(--text2);margin-bottom:7px;font-weight:800;text-transform:uppercase;letter-spacing:.05em}
+.stat-value{font-size:30px;font-weight:850;letter-spacing:-.5px;line-height:1}
 .stat-icon{font-size:22px;margin-bottom:10px}
 .grid-4{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px}
 .grid-3{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px}
@@ -132,21 +140,24 @@ body{font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;background
 .flex-between{display:flex;justify-content:space-between;align-items:center}
 .flex-gap{display:flex;gap:8px;align-items:center}
 .section-title{font-size:15px;font-weight:700;margin-bottom:16px;display:flex;align-items:center;gap:8px;color:var(--text)}
+.cfg-tab-bar{scrollbar-width:none;-ms-overflow-style:none}
+.cfg-tab-bar::-webkit-scrollbar{display:none}
 
 /* ── Table ── */
-.table-wrap{overflow-x:auto;border-radius:var(--rl);border:1px solid var(--border);box-shadow:var(--shadow-sm)}
+.table-wrap{overflow-x:auto;border-radius:var(--rl);border:1px solid var(--border);box-shadow:var(--shadow-sm);background:var(--bg2)}
 table{width:100%;border-collapse:collapse;background:var(--bg2)}
-th{padding:10px 14px;font-size:11px;font-weight:700;color:var(--text2);border-bottom:2px solid var(--border);text-align:left;white-space:nowrap;background:var(--bg3);text-transform:uppercase;letter-spacing:.04em}
-td{padding:11px 14px;font-size:13px;border-bottom:1px solid var(--border);vertical-align:middle}
+th{position:sticky;top:0;z-index:1;padding:11px 14px;font-size:11px;font-weight:800;color:var(--text2);border-bottom:1px solid var(--border);text-align:left;white-space:nowrap;background:var(--bg3);text-transform:uppercase;letter-spacing:.05em}
+td{padding:12px 14px;font-size:13px;border-bottom:1px solid var(--border);vertical-align:middle}
 tr:last-child td{border-bottom:none}
 tr:hover td{background:var(--bg3)}
 .mono{font-family:var(--mono);font-size:12px}
 
 /* ── Form ── */
 .form-group{margin-bottom:14px}
-label{display:block;font-size:12px;font-weight:600;color:var(--text2);margin-bottom:5px;letter-spacing:.02em}
-input,select,textarea{width:100%;padding:8px 11px;border:1px solid var(--border2);border-radius:var(--r);font-size:13px;background:var(--bg2);color:var(--text);outline:none;font-family:inherit;transition:border-color .15s,box-shadow .15s}
-input:focus,select:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(37,99,235,.12)}
+label{display:block;font-size:12px;font-weight:700;color:var(--text2);margin-bottom:5px;letter-spacing:.02em}
+input,select,textarea{width:100%;min-height:38px;padding:8px 11px;border:1px solid var(--border2);border-radius:var(--r);font-size:13px;background:var(--bg2);color:var(--text);outline:none;font-family:inherit;transition:border-color .15s,box-shadow .15s,background .15s}
+input::placeholder,textarea::placeholder{color:var(--text3)}
+input:focus,select:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 0 3px var(--focus)}
 .search-wrap{position:relative}
 .search-wrap input{padding-left:32px;width:clamp(180px,280px,100%)}
 .search-icon{position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--text3);font-size:13px;pointer-events:none}
@@ -154,10 +165,10 @@ input:focus,select:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 
 .form-grid-2 .span-2{grid-column:span 2}
 
 /* ── Modal ── */
-.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:1000;backdrop-filter:blur(2px);animation:fadeIn .15s ease}
+.modal-overlay{position:fixed;inset:0;background:rgba(15,23,42,.48);display:flex;align-items:center;justify-content:center;z-index:1000;backdrop-filter:blur(4px);animation:fadeIn .15s ease}
 @keyframes fadeIn{from{opacity:0}to{opacity:1}}
 @keyframes slideUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
-.modal-box{background:var(--bg2);border-radius:16px;border:1px solid var(--border);width:min(540px,calc(100vw - 24px));max-height:90vh;overflow-y:auto;padding:26px;box-shadow:var(--shadow-lg);animation:slideUp .18s ease}
+.modal-box{background:var(--bg2);border-radius:14px;border:1px solid var(--border);width:min(540px,calc(100vw - 24px));max-height:90vh;overflow-y:auto;padding:26px;box-shadow:var(--shadow-lg);animation:slideUp .18s ease}
 .modal-box.wide{width:min(720px,calc(100vw - 24px))}
 .modal-box.narrow{width:min(420px,calc(100vw - 24px))}
 .modal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:22px}
@@ -187,7 +198,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 
 
 /* ── Misc ── */
 .loading{text-align:center;padding:48px;color:var(--text3);font-size:14px}
-.info-box{padding:11px 14px;border-radius:var(--r);font-size:12px;margin-bottom:14px;border-left:3px solid}
+.info-box{padding:12px 14px;border-radius:var(--r);font-size:12px;margin-bottom:14px;border:1px solid;border-left-width:3px}
 .info-box.blue{background:var(--blue-bg);color:var(--blue-text);border-color:var(--blue)}
 .info-box.amber{background:var(--amber-bg);color:var(--amber-text);border-color:var(--amber)}
 .info-box.red{background:var(--red-bg);color:var(--red-text);border-color:var(--red)}
@@ -219,13 +230,16 @@ input:focus,select:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 
 .empty-state-title{font-size:15px;font-weight:700;color:var(--text2);margin-bottom:8px}
 .empty-state-desc{font-size:13px;line-height:1.7;max-width:360px;margin:0 auto}
 
+button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:none;box-shadow:0 0 0 3px var(--focus)}
+::selection{background:var(--blue-bg);color:var(--blue-text)}
+
 /* ── Responsive breakpoints ── */
 @media(max-width:1024px){
-  #content{padding:16px 18px}
+  #content{padding:18px 18px}
   .grid-4{grid-template-columns:repeat(auto-fit,minmax(160px,1fr))}
 }
 @media(max-width:768px){
-  #sidebar{position:fixed;left:0;top:0;bottom:0;z-index:200;transform:translateX(-100%);width:232px!important}
+  #sidebar{position:fixed;left:0;top:0;bottom:0;z-index:200;transform:translateX(-100%);width:244px!important}
   #sidebar.sb-open{transform:translateX(0);box-shadow:var(--shadow-lg)}
   #sidebar.sb-collapsed{transform:translateX(-100%)}
   #sb-overlay.show{display:block}
@@ -243,6 +257,9 @@ input:focus,select:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 
   .grid-4,.grid-3{grid-template-columns:1fr 1fr}
   .grid-2{grid-template-columns:1fr}
   .btn-sm{font-size:11px;padding:4px 8px}
+}
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;scroll-behavior:auto!important;transition-duration:.01ms!important}
 }
 
 .print-zone{display:none}
@@ -285,6 +302,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 
       <button class="nav-item" data-module="alocacoes"><span class="icon"></span><span class="lbl">Alocações & Termos</span></button>
       <button class="nav-item" data-module="insumos"><span class="icon"></span><span class="lbl">Insumos & Periféricos</span></button>
       <button class="nav-item" data-module="licencas"><span class="icon"></span><span class="lbl">Licenças</span></button>
+      <button class="nav-item" data-module="auditorias"><span class="icon"></span><span class="lbl">Auditorias</span></button>
       <button class="nav-item" data-module="qrcode"><span class="icon"></span><span class="lbl">QR Code & Etiquetas</span></button>
 
       <div class="sb-section">Pessoas</div>
@@ -371,6 +389,7 @@ const ICONS = {
   ativos:'<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/>',
   alocacoes:'<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>',
   qrcode:'<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM20 14h1M14 20h1M18 20h3v1"/>',
+  auditorias:'<path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>',
   manutencao:'<path d="M14.7 6.3a4 4 0 0 0-5 5L3 18v3h3l6.7-6.7a4 4 0 0 0 5-5l-2.4 2.4-2.6-2.6 2.4-2.4Z"/>',
   licencas:'<circle cx="7.5" cy="15.5" r="5.5"/><path d="m21 2-9.6 9.6M15 7l2 2M17 5l2 2"/>',
   colaboradores:'<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>',
@@ -445,6 +464,9 @@ const STATUS_COLAB_COLOR = {Ativo:'green',Inativo:'red',Férias:'blue',Afastado:
 let _colab_cache = [];
 let _settings  = { setores:[], unidades:[], categorias_config:{} };
 const APP_VERSION = {{ build_version|tojson }};
+let _pendingDeleteBackup = null;
+let _srchTimer = null;
+function debounce(fn, ms=300){ clearTimeout(_srchTimer); _srchTimer=setTimeout(fn,ms); }
 
 function _applyAparencia(aparencia, empresa){
   const nomeSistema = aparencia.nome_sistema || 'TI Control';
@@ -483,8 +505,16 @@ function _applyAparencia(aparencia, empresa){
   if(nomeEmpresa && !_lblCfg.empresa) _lblCfg.empresa = nomeEmpresa;
 
   // Cores customizadas via CSS variables
+  ['--blue','--blue-hover','--button-primary','--button-primary-hover','--sb-hover'].forEach(prop=>document.documentElement.style.removeProperty(prop));
   if(aparencia.cor_primaria){
     document.documentElement.style.setProperty('--blue', aparencia.cor_primaria);
+    document.documentElement.style.setProperty('--blue-hover', aparencia.cor_primaria);
+    document.documentElement.style.setProperty('--button-primary', aparencia.cor_botao || aparencia.cor_primaria);
+    document.documentElement.style.setProperty('--button-primary-hover', aparencia.cor_botao || aparencia.cor_primaria);
+  }
+  if(aparencia.cor_botao){
+    document.documentElement.style.setProperty('--button-primary', aparencia.cor_botao);
+    document.documentElement.style.setProperty('--button-primary-hover', aparencia.cor_botao);
   }
   if(aparencia.cor_hover){
     document.documentElement.style.setProperty('--sb-hover', aparencia.cor_hover);
@@ -509,12 +539,15 @@ function catIsUnidade(cat){
 let _redirectingToLogin = false;
 
 async function api(path, method='GET', body=null) {
+  const csrf = document.querySelector('meta[name="csrf-token"]')?.content || '';
+  const isFormData = body instanceof FormData;
   const opts = {
     method,
     credentials: 'include',  // garante envio do cookie de sessão
-    headers: {'Content-Type':'application/json'}
+    headers: isFormData ? {} : {'Content-Type':'application/json'}
   };
-  if (body) opts.body = JSON.stringify(body);
+  if (csrf && method !== 'GET') opts.headers['X-CSRFToken'] = csrf;
+  if (body) opts.body = isFormData ? body : JSON.stringify(body);
   let r;
   try {
     r = await fetch('/api'+path, opts);
@@ -546,6 +579,84 @@ function toast(msg,type='success'){
   setTimeout(()=>t.className='',2600);
 }
 
+// ─── Anexos ───────────────────────────────────────────────────────────────
+const ATTACH_ENTITY_LABEL = {asset:'ativo', maintenance:'OS', license:'licença'};
+const ATTACH_CATEGORIES = ['Documento','Nota Fiscal','Contrato','Foto','Laudo','Orçamento','Comprovante'];
+
+function attachmentPanel(entityType, entityId, title='Anexos'){
+  return `<div style="margin-top:16px" id="attach-panel-${entityType}-${entityId}">
+    <div class="flex-between" style="margin-bottom:10px;gap:10px;flex-wrap:wrap">
+      <div class="section-title" style="margin-bottom:0">${title}</div>
+      <button class="btn btn-default btn-sm" onclick="openAttachmentUpload('${entityType}','${entityId}')">Adicionar anexo</button>
+    </div>
+    <div id="attach-list-${entityType}-${entityId}" style="font-size:13px;color:var(--text3)">Carregando anexos...</div>
+  </div>`;
+}
+
+async function loadAttachments(entityType, entityId){
+  const el = document.getElementById(`attach-list-${entityType}-${entityId}`);
+  if(!el) return;
+  try{
+    const data = await api(`/attachments/${entityType}/${entityId}`);
+    if(!data.length){
+      el.innerHTML = `<div style="padding:10px 0;color:var(--text3)">Nenhum anexo cadastrado.</div>`;
+      return;
+    }
+    el.innerHTML = data.map(a=>`
+      <div class="alert-row" style="padding:9px 0;gap:10px;align-items:flex-start">
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+            ${badge(a.category||'Documento','gray')}
+            <strong style="font-size:13px;word-break:break-word">${esc(a.originalName)}</strong>
+          </div>
+          <div style="font-size:11px;color:var(--text3);margin-top:3px">
+            ${fmtBytes(a.size)} · ${esc(a.uploadedBy||'sistema')} · ${fmtDateTime(a.uploadedAt)}
+          </div>
+          ${a.description?`<div style="font-size:12px;color:var(--text2);margin-top:4px">${esc(a.description)}</div>`:''}
+        </div>
+        <div class="flex-gap" style="flex-wrap:wrap;justify-content:flex-end">
+          <a class="btn btn-default btn-sm" href="/api/attachments/files/${a.id}" download>Baixar</a>
+          <button class="btn btn-danger btn-sm" onclick="deleteAttachment('${a.id}','${entityType}','${entityId}')">Excluir</button>
+        </div>
+      </div>`).join('');
+  }catch(e){
+    el.innerHTML = `<div style="color:var(--red-text)">Falha ao carregar anexos: ${esc(e.message)}</div>`;
+  }
+}
+
+function openAttachmentUpload(entityType, entityId){
+  openModal(`Adicionar anexo — ${ATTACH_ENTITY_LABEL[entityType]||entityType}`,`
+    <div class="form-group"><label>Arquivo</label><input id="att-file" type="file" accept=".pdf,.png,.jpg,.jpeg,.webp,.txt,.csv,.doc,.docx,.xls,.xlsx"></div>
+    <div class="form-grid-2">
+      <div class="form-group"><label>Categoria</label><select id="att-cat">${ATTACH_CATEGORIES.map(c=>`<option>${c}</option>`).join('')}</select></div>
+      <div class="form-group"><label>Limite</label><input value="8 MB" disabled></div>
+    </div>
+    <div class="form-group"><label>Descrição</label><textarea id="att-desc" style="min-height:80px;resize:vertical" placeholder="Ex: NF de compra, contrato de garantia, foto do estado físico..."></textarea></div>
+    <div class="modal-footer"><button class="btn btn-default" onclick="closeModal()">Cancelar</button><button class="btn btn-primary" onclick="uploadAttachment('${entityType}','${entityId}')">Enviar Anexo</button></div>
+  `);
+}
+
+async function uploadAttachment(entityType, entityId){
+  const file = $('att-file')?.files?.[0];
+  if(!file){toast('Selecione um arquivo.','error');return;}
+  if(file.size > 8 * 1024 * 1024){toast('Arquivo maior que 8 MB.','error');return;}
+  const fd = new FormData();
+  fd.append('file', file);
+  fd.append('category', $('att-cat').value);
+  fd.append('description', $('att-desc').value);
+  await api(`/attachments/${entityType}/${entityId}`,'POST',fd);
+  toast('Anexo enviado');
+  closeModal();
+  await loadAttachments(entityType, entityId);
+}
+
+async function deleteAttachment(id, entityType, entityId){
+  if(!confirm('Excluir este anexo?')) return;
+  await api(`/attachments/files/${id}`,'DELETE');
+  toast('Anexo removido');
+  await loadAttachments(entityType, entityId);
+}
+
 // ─── Modal ────────────────────────────────────────────────────────────────
 function openModal(title,html,wide=false,narrow=false){
   $('modal-title').textContent=title;
@@ -559,6 +670,7 @@ $('modal-overlay').addEventListener('click',e=>{ if(e.target===$('modal-overlay'
 // ─── Nav ──────────────────────────────────────────────────────────────────
 const PAGE_TITLES = {dashboard:'Dashboard',alertas:'Central de Alertas',insumos:'Insumos & Periféricos',
   ativos:'Ativos de TI',alocacoes:'Alocações & Termos Digitais',qrcode:'QR Code & Etiquetas',
+  auditorias:'Campanhas de Auditoria',
   manutencao:'Manutenção de Ativos',
   licencas:'Controle de Licenças',colaboradores:'Colaboradores',system_users:'Usuários do Sistema',configuracoes:'Configurações'};
 const NAV_STORAGE_KEY = 'ticontrol-current-module';
@@ -618,6 +730,7 @@ async function render(mod){
     else if(mod==='ativos')   await renderAtivos();
     else if(mod==='alocacoes')await renderAlocacoes();
     else if(mod==='qrcode')   await renderQRCode();
+    else if(mod==='auditorias') await renderAuditorias();
     else if(mod==='manutencao') await renderManutencao();
     else if(mod==='licencas') await renderLicencas();
     else if(mod==='alertas')  await renderAlertas();
@@ -806,7 +919,7 @@ async function renderInsumos(q=''){
   $('content').innerHTML=`
   <div class="flex-between mb-16">
     <div class="search-wrap"><span class="search-icon">${inlineIcon('search')}</span>
-      <input placeholder="Buscar insumo..." value="${esc(q)}" onkeyup="renderInsumos(this.value)">
+      <input placeholder="Buscar insumo..." value="${esc(q)}" onkeyup="debounce(()=>renderInsumos(this.value))">
     </div>
     <button class="btn btn-primary" onclick="openNewSupply()">Novo Item</button>
   </div>
@@ -947,7 +1060,7 @@ async function renderAtivos(q='',cat=''){
   <div class="flex-between mb-16">
     <div class="flex-gap">
       <div class="search-wrap"><span class="search-icon">${inlineIcon('search')}</span>
-        <input placeholder="Hostname, colaborador, service tag..." value="${esc(q)}" onkeyup="renderAtivos(this.value,document.getElementById('ac').value)">
+        <input placeholder="Hostname, colaborador, service tag..." value="${esc(q)}" onkeyup="debounce(()=>renderAtivos(this.value,document.getElementById('ac').value))">
       </div>
       <select id="ac" style="width:auto" onchange="renderAtivos(document.querySelector('#content input').value,this.value)">
         ${cats.map(c=>`<option ${c===cat?'selected':''}>${c}</option>`).join('')}
@@ -1007,11 +1120,13 @@ async function viewAsset(id){
       ${badge(i.tipo,'amber')} ${esc(i.descricao)}<span style="float:right;font-size:11px;color:var(--text3)">${new Date(i.data).toLocaleDateString('pt-BR')}</span>
     </div>`).join('')}
   </div>`:''}
+  ${attachmentPanel('asset', id, 'Anexos do Ativo')}
   <div class="modal-footer">
     <button class="btn btn-default" onclick="openIncident('${id}')">Registrar Incidente</button>
     <button class="btn btn-default" onclick="viewAssetHistory('${id}')">Histórico</button>
     <button class="btn btn-primary" onclick="closeModal();editAsset(${JSON.stringify(a).replace(/"/g,'&quot;')})">Editar</button>
   </div>`,true);
+  loadAttachments('asset', id);
 }
 
 function openIncident(aid){
@@ -1199,7 +1314,7 @@ async function renderAlocacoes(q=''){
   $('content').innerHTML=`
   <div class="flex-between mb-16">
     <div class="search-wrap"><span class="search-icon">${inlineIcon('search')}</span>
-      <input placeholder="Colaborador, ativo, setor..." value="${esc(q)}" onkeyup="renderAlocacoes(this.value)">
+      <input placeholder="Colaborador, ativo, setor..." value="${esc(q)}" onkeyup="debounce(()=>renderAlocacoes(this.value))">
     </div>
     <div class="flex-gap">
       <a class="btn btn-default" href="/api/export/alocacoes.csv" download>Exportar CSV</a>
@@ -1660,7 +1775,204 @@ async function saveSignTi(aid){
 }
 
 // ══════════════════════════════════════════════════════════════════════════
-// QR CODE
+// CAMPANHAS DE AUDITORIA
+// ══════════════════════════════════════════════════════════════════════════
+let _auditCampaignSelected = null;
+let _auditFilter = '';
+
+function auditStatusBadge(status){
+  return badge(status, status==='Conferido'?'green':status==='Divergente'?'red':status==='Extra'?'amber':status==='Encerrada'?'gray':'blue');
+}
+
+async function renderAuditorias(){
+  const [campaigns, settings] = await Promise.all([api('/audit-campaigns'), api('/settings')]);
+  if(!campaigns || !settings) return;
+  const openCampaigns = campaigns.filter(c=>c.status==='Aberta').length;
+  const totalPend = campaigns.reduce((s,c)=>s+(c.stats?.pendentes||0),0);
+  const totalDiv = campaigns.reduce((s,c)=>s+(c.stats?.divergentes||0)+(c.stats?.extras||0),0);
+  $('content').innerHTML = `
+  <div class="grid-3 mb-16">
+    <div class="stat-card"><div class="stat-label">Campanhas abertas</div><div class="stat-value" style="color:var(--blue)">${openCampaigns}</div></div>
+    <div class="stat-card"><div class="stat-label">Pendências de conferência</div><div class="stat-value" style="color:var(--amber)">${totalPend}</div></div>
+    <div class="stat-card"><div class="stat-label">Divergências / extras</div><div class="stat-value" style="color:var(--red)">${totalDiv}</div></div>
+  </div>
+  <div class="flex-between mb-16" style="gap:12px;flex-wrap:wrap">
+    <div class="search-wrap"><span class="search-icon">${inlineIcon('search')}</span>
+      <input placeholder="Filtrar campanhas..." onkeyup="_auditFilter=this.value;renderAuditoriasList()" id="audit-filter" value="${esc(_auditFilter)}">
+    </div>
+    <button class="btn btn-primary" onclick="openNewAuditCampaign()">Nova Campanha</button>
+  </div>
+  <div class="grid-2">
+    <div class="card">
+      <div class="section-title">Campanhas</div>
+      <div id="audit-campaign-list"></div>
+    </div>
+    <div id="audit-detail" class="card">
+      <div class="section-title">Detalhes</div>
+      <p style="font-size:13px;color:var(--text3)">Selecione uma campanha para acompanhar pendências e registrar conferências.</p>
+    </div>
+  </div>`;
+  window._auditCampaigns = campaigns;
+  window._auditSettings = settings;
+  renderAuditoriasList();
+}
+
+function renderAuditoriasList(){
+  const campaigns = (window._auditCampaigns || []).filter(c=>{
+    const q=(_auditFilter||'').toLowerCase();
+    return !q || [c.nome,c.unidade,c.setor,c.status].join(' ').toLowerCase().includes(q);
+  });
+  const html = campaigns.length ? campaigns.map(c=>{
+    const st=c.stats||{};
+    return `<div class="alert-row" style="align-items:flex-start;gap:10px;padding:10px 0">
+      <div style="flex:1;min-width:0">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px">
+          <strong style="font-size:13px">${esc(c.nome)}</strong>${auditStatusBadge(c.status)}
+        </div>
+        <div style="font-size:11px;color:var(--text3);line-height:1.6">
+          ${esc(c.unidade||'Todas as unidades')} · ${esc(c.setor||'Todos os setores')} · ${fmtDate(c.dataInicio)}
+        </div>
+        <div class="progress-wrap" style="margin-top:8px"><div class="progress-bar" style="width:${st.progresso||0}%;background:var(--blue)"></div></div>
+        <div style="font-size:11px;color:var(--text3);margin-top:4px">${st.conferidos||0}/${st.total||0} conferidos · ${st.pendentes||0} pendentes · ${st.divergentes||0} divergências · ${st.extras||0} extras</div>
+      </div>
+      <button class="btn btn-default btn-sm" onclick="openAuditCampaign('${c.id}')">Abrir</button>
+    </div>`;
+  }).join('') : `<p style="font-size:13px;color:var(--text3);padding:8px 0">Nenhuma campanha encontrada.</p>`;
+  const el=$('audit-campaign-list');
+  if(el) el.innerHTML=html;
+}
+
+function openNewAuditCampaign(){
+  const settings = window._auditSettings || {unidades:[],setores:[]};
+  openModal('Nova Campanha de Auditoria',`
+    <div class="form-group"><label>Nome</label><input id="ac-nome" placeholder="Auditoria física - Maio/2026"></div>
+    <div class="form-grid-2">
+      <div class="form-group"><label>Unidade</label><select id="ac-unidade"><option value="">Todas</option>${settings.unidades.map(u=>`<option>${esc(u.nome)}</option>`).join('')}</select></div>
+      <div class="form-group"><label>Setor</label><select id="ac-setor"><option value="">Todos</option>${settings.setores.map(s=>`<option>${esc(s)}</option>`).join('')}</select></div>
+    </div>
+    <div class="form-group"><label>Observação</label><textarea id="ac-obs" style="min-height:80px;resize:vertical"></textarea></div>
+    <div class="info-box blue">A campanha cria uma lista esperada com os ativos ativos do escopo escolhido. Depois, cada item pode ser conferido e marcado como OK, divergente ou extra.</div>
+    <div class="modal-footer"><button class="btn btn-default" onclick="closeModal()">Cancelar</button><button class="btn btn-primary" onclick="saveAuditCampaign()">Criar Campanha</button></div>
+  `,false);
+}
+
+async function saveAuditCampaign(){
+  const r = await api('/audit-campaigns','POST',{
+    nome:$('ac-nome').value,
+    unidade:$('ac-unidade').value,
+    setor:$('ac-setor').value,
+    observacao:$('ac-obs').value,
+  });
+  toast('Campanha criada');
+  closeModal();
+  _auditCampaignSelected = r.id;
+  await renderAuditorias();
+  await openAuditCampaign(r.id);
+}
+
+async function openAuditCampaign(id){
+  _auditCampaignSelected = id;
+  const c = await api('/audit-campaigns/'+id);
+  const items = c.items || [];
+  const st = c.stats || {};
+  const pending = items.filter(i=>i.status==='Pendente').length;
+  $('audit-detail').innerHTML = `
+    <div class="flex-between" style="align-items:flex-start;gap:12px;flex-wrap:wrap;margin-bottom:14px">
+      <div>
+        <div class="section-title" style="margin-bottom:4px">${esc(c.nome)}</div>
+        <div style="font-size:12px;color:var(--text3)">${esc(c.unidade||'Todas as unidades')} · ${esc(c.setor||'Todos os setores')} · início ${fmtDate(c.dataInicio)}</div>
+      </div>
+      <div class="flex-gap">
+        ${auditStatusBadge(c.status)}
+        ${c.status==='Aberta'
+          ? `<button class="btn btn-default btn-sm" onclick="toggleAuditCampaign('${c.id}','Encerrada')">Encerrar</button>`
+          : `<button class="btn btn-default btn-sm" onclick="toggleAuditCampaign('${c.id}','Aberta')">Reabrir</button>`}
+      </div>
+    </div>
+    <div class="grid-4 mb-16">
+      <div class="stat-card"><div class="stat-label">Total</div><div class="stat-value">${st.total||0}</div></div>
+      <div class="stat-card"><div class="stat-label">Conferidos</div><div class="stat-value" style="color:var(--green)">${st.conferidos||0}</div></div>
+      <div class="stat-card"><div class="stat-label">Pendentes</div><div class="stat-value" style="color:var(--amber)">${pending}</div></div>
+      <div class="stat-card"><div class="stat-label">Divergências</div><div class="stat-value" style="color:var(--red)">${(st.divergentes||0)+(st.extras||0)}</div></div>
+    </div>
+    <div class="flex-between mb-16" style="gap:10px;flex-wrap:wrap">
+      <input id="audit-asset-id" placeholder="ID do ativo ou leitura do QR..." style="max-width:260px">
+      <div class="flex-gap">
+        <button class="btn btn-primary btn-sm" onclick="checkAuditByAsset('${c.id}')">Conferir por ID</button>
+        <button class="btn btn-default btn-sm" onclick="exportAuditCampaignCsv('${c.id}')">Exportar CSV</button>
+      </div>
+    </div>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Ativo</th><th>Esperado</th><th>Observado</th><th>Status</th><th>Ação</th></tr></thead>
+      <tbody>${items.map(i=>`<tr>
+        <td><div class="mono" style="font-weight:700">${esc(i.assetId||'—')}</div><div style="font-size:11px;color:var(--text3)">${esc(i.assetNome||'')}</div></td>
+        <td style="font-size:12px;color:var(--text2)">${esc(i.expectedUnidade||'—')}<br>${esc(i.expectedSetor||'—')}<br>${esc(i.expectedColaborador||'—')}</td>
+        <td style="font-size:12px;color:var(--text2)">${esc(i.observedLocal||'—')}<br>${esc(i.observedResponsavel||'—')}</td>
+        <td>${auditStatusBadge(i.status)}${i.divergencia?`<div style="font-size:11px;color:var(--red-text);margin-top:4px">${esc(i.divergencia)}</div>`:''}</td>
+        <td>${c.status==='Aberta'?`<button class="btn btn-default btn-sm" onclick="openAuditCheck('${c.id}','${i.id}')">Conferir</button>`:'—'}</td>
+      </tr>`).join('')}</tbody>
+    </table></div>`;
+}
+
+function openAuditCheck(cid,itemId){
+  const c = window._auditCampaigns?.find(x=>x.id===cid);
+  api('/audit-campaigns/'+cid).then(full=>{
+    const item=(full.items||[]).find(i=>i.id===itemId);
+    if(!item) return;
+    openModal('Conferir Ativo',`
+      <div class="info-box blue" style="margin-bottom:12px"><strong>${esc(item.assetNome||item.assetId)}</strong><br>Esperado: ${esc(item.expectedUnidade||'—')} · ${esc(item.expectedColaborador||'—')}</div>
+      <div class="form-grid-2">
+        <div class="form-group"><label>Local observado</label><input id="aci-local" value="${escAttr(item.observedLocal||item.expectedUnidade||'')}"></div>
+        <div class="form-group"><label>Responsável observado</label><input id="aci-resp" value="${escAttr(item.observedResponsavel||item.expectedColaborador||'')}"></div>
+      </div>
+      <div class="form-group"><label>Status manual</label><select id="aci-status"><option value="">Automático</option><option>Conferido</option><option>Divergente</option><option>Extra</option></select></div>
+      <div class="form-group"><label>Observação</label><textarea id="aci-obs" style="min-height:80px;resize:vertical">${esc(item.observacao||'')}</textarea></div>
+      <div class="modal-footer"><button class="btn btn-default" onclick="closeModal()">Cancelar</button><button class="btn btn-primary" onclick="saveAuditCheck('${cid}','${itemId}')">Salvar Conferência</button></div>
+    `);
+  });
+}
+
+async function saveAuditCheck(cid,itemId){
+  await api(`/audit-campaigns/${cid}/items/${itemId}/check`,'POST',{
+    local:$('aci-local').value,
+    responsavel:$('aci-resp').value,
+    status:$('aci-status').value,
+    observacao:$('aci-obs').value,
+  });
+  toast('Ativo conferido');
+  closeModal();
+  await renderAuditorias();
+  await openAuditCampaign(cid);
+}
+
+async function checkAuditByAsset(cid){
+  const aid = $('audit-asset-id').value.trim();
+  if(!aid){toast('Informe ou leia o ID do ativo.','error');return;}
+  await api(`/audit-campaigns/${cid}/assets/${encodeURIComponent(aid)}/check`,'POST',{});
+  toast('Ativo conferido pela campanha');
+  await renderAuditorias();
+  await openAuditCampaign(cid);
+}
+
+async function toggleAuditCampaign(cid,status){
+  await api('/audit-campaigns/'+cid,'PUT',{status});
+  toast(status==='Encerrada'?'Campanha encerrada':'Campanha reaberta');
+  await renderAuditorias();
+  await openAuditCampaign(cid);
+}
+
+async function exportAuditCampaignCsv(cid){
+  const c = await api('/audit-campaigns/'+cid);
+  const rows = [['Campanha','Ativo','Hostname','Patrimonio','Service Tag','Unidade Esperada','Setor Esperado','Responsavel Esperado','Local Observado','Responsavel Observado','Status','Divergencia','Auditado Por','Auditado Em']];
+  (c.items||[]).forEach(i=>rows.push([c.nome,i.assetId,i.assetNome,i.patrimonio,i.serviceTag,i.expectedUnidade,i.expectedSetor,i.expectedColaborador,i.observedLocal,i.observedResponsavel,i.status,i.divergencia,i.auditadoPor,i.auditadoEm]));
+  const csv = rows.map(r=>r.map(v=>`"${String(v||'').replace(/"/g,'""')}"`).join(';')).join('\n');
+  const blob = new Blob([csv], {type:'text/csv;charset=utf-8'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `auditoria_${cid}.csv`; a.click();
+  URL.revokeObjectURL(url);
+}
+
 // ══════════════════════════════════════════════════════════════════════════
 // ══════════════════════════════════════════════════════════════════════════
 // QR CODE & ETIQUETAS
@@ -1689,7 +2001,7 @@ async function renderQRCode(q=''){
     <div class="card" style="padding:14px">
       <div style="font-size:12px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.04em;margin-bottom:10px">Selecionar Ativo</div>
       <div class="search-wrap" style="margin-bottom:10px"><span class="search-icon">${inlineIcon('search')}</span>
-        <input style="width:100%" value="${esc(q)}" placeholder="Buscar ativo..." onkeyup="renderQRCode(this.value)">
+        <input style="width:100%" value="${esc(q)}" placeholder="Buscar ativo..." onkeyup="debounce(()=>renderQRCode(this.value))">
       </div>
       <div style="display:flex;flex-direction:column;gap:2px;max-height:440px;overflow-y:auto">
         ${assets.map(a=>`<div onclick="qrSel('${a.id}')" style="padding:8px 10px;border-radius:var(--r);cursor:pointer;font-family:var(--mono);font-size:12px;transition:background .1s;${a.id===_qrSel?'background:var(--blue);color:#fff;font-weight:700':'color:var(--text)'}">${esc(a.hostname)}</div>`).join('')}
@@ -1939,7 +2251,7 @@ async function renderLicencas(){
   $('content').innerHTML=`
   <div class="flex-between mb-16"><div></div><button class="btn btn-primary" onclick="openNewLicense()">Nova Licença</button></div>
   <div class="card mb-16"><div class="table-wrap"><table>
-    <thead><tr><th>Software</th><th>Fornecedor</th><th>Tipo</th><th>Compradas</th><th>Atribuídas</th><th>Saldo</th><th>Vencimento</th><th>Custo Anual</th><th>Situação</th></tr></thead>
+    <thead><tr><th>Software</th><th>Fornecedor</th><th>Tipo</th><th>Compradas</th><th>Atribuídas</th><th>Saldo</th><th>Vencimento</th><th>Custo Anual</th><th>Situação</th><th></th></tr></thead>
     <tbody>${data.map(l=>{
       const saldo=l.total-l.atribuidas; const d=daysUntil(l.vencimento); const wV=d>=0&&d<=60;
       const sit=l.atribuidas>l.total?['Excedido','red']:wV?['Vence em breve','amber']:saldo===0?['Sem saldo','amber']:['Regular','green'];
@@ -1952,6 +2264,7 @@ async function renderLicencas(){
         <td style="font-size:12px;color:${wV?'var(--amber)':'inherit'}">${fmtDate(l.vencimento)}${wV?` <small>(${d}d)</small>`:''}</td>
         <td>${fmtCur(l.custo)}</td>
         <td>${badge(...sit)}</td>
+        <td><button class="btn btn-default btn-sm" onclick='viewLicense(${JSON.stringify(l).replace(/"/g,'&quot;')})'>Detalhes</button></td>
       </tr>`;}).join('')}
     </tbody>
   </table></div></div>
@@ -1960,6 +2273,31 @@ async function renderLicencas(){
     <div class="stat-card"><div class="stat-label">Custo Anual Total</div><div class="stat-value" style="font-size:20px">${fmtCur(data.reduce((s,l)=>s+l.custo,0))}</div></div>
     <div class="stat-card"><div class="stat-label">Vencendo em 60 dias</div><div class="stat-value" style="color:var(--amber)">${data.filter(l=>{const d=daysUntil(l.vencimento);return d>=0&&d<=60}).length}</div></div>
   </div>`;
+}
+function viewLicense(l){
+  const saldo = l.total - l.atribuidas;
+  openModal('Detalhes da Licença',`
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:16px">
+      <div>
+        <div style="font-size:18px;font-weight:800">${esc(l.software)}</div>
+        <div style="font-size:13px;color:var(--text2)">${esc(l.fornecedor)} · ${esc(l.tipo)}</div>
+      </div>
+      ${badge(saldo<0?'Excedido':saldo===0?'Sem saldo':'Regular',saldo<0?'red':saldo===0?'amber':'green')}
+    </div>
+    <div class="grid-4 mb-16">
+      <div class="stat-card"><div class="stat-label">Compradas</div><div class="stat-value">${l.total}</div></div>
+      <div class="stat-card"><div class="stat-label">Atribuídas</div><div class="stat-value">${l.atribuidas}</div></div>
+      <div class="stat-card"><div class="stat-label">Saldo</div><div class="stat-value" style="color:var(--${saldo<0?'red':saldo===0?'amber':'green'})">${saldo}</div></div>
+      <div class="stat-card"><div class="stat-label">Custo anual</div><div class="stat-value" style="font-size:18px">${fmtCur(l.custo)}</div></div>
+    </div>
+    <div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:10px 12px">
+      <div style="font-size:11px;color:var(--text3);font-weight:700;text-transform:uppercase;margin-bottom:3px">Vencimento</div>
+      <div style="font-size:14px;font-weight:700">${fmtDate(l.vencimento)}</div>
+    </div>
+    ${attachmentPanel('license', l.id, 'Anexos da Licença')}
+    <div class="modal-footer"><button class="btn btn-default" onclick="closeModal()">Fechar</button></div>
+  `,true);
+  loadAttachments('license', l.id);
 }
 function openNewLicense(){
   openModal('Nova Licença',`
@@ -2040,7 +2378,7 @@ async function renderColaboradores(q='',setor='',status=''){
     <div class="flex-gap" style="flex-wrap:wrap">
       <div class="search-wrap"><span class="search-icon">${inlineIcon('search')}</span>
         <input id="cs" placeholder="Nome, e-mail, cargo, matrícula..." value="${esc(q)}"
-          onkeyup="renderColaboradores(this.value,document.getElementById('cst').value,document.getElementById('css').value)">
+          onkeyup="debounce(()=>renderColaboradores(this.value,document.getElementById('cst').value,document.getElementById('css').value))">
       </div>
       <select id="cst" style="width:auto" onchange="renderColaboradores(document.getElementById('cs').value,this.value,document.getElementById('css').value)">
         <option value="">Todos os setores</option>
@@ -2298,7 +2636,7 @@ async function enviarLaudo(){
   const {devId, ativos, perifs} = _laudoPendente;
   const itens = [...ativos, ...perifs];
   const rhEmail = document.getElementById('laudo-rh-email').value.trim();
-  if(!rhEmail){alert('Informe o e-mail do RH.');return;}
+  if(!rhEmail){toast('Informe o e-mail do RH.','error');return;}
   const avaliacaoItens = itens.map((ativo,i)=>({
     ativo,
     estado: document.querySelector(`input[name="estado_${i}"]:checked`)?.value||'Bom estado',
@@ -2355,7 +2693,7 @@ async function confirmaReativacao(id){
 // ══════════════════════════════════════════════════════════════════════════
 let PERFIS_SYS=['Administrador','Técnico TI','Gestor','Visualizador'];
 const PERFIL_COR={Administrador:'red','Técnico TI':'blue',Gestor:'amber',Visualizador:'gray'};
-const MODULO_LABEL={dashboard:'Dashboard',ativos:'Ativos de TI',insumos:'Insumos & Periféricos',colaboradores:'Colaboradores',alocacoes:'Alocações',qrcode:'QR Code',licencas:'Licenças',alertas:'Alertas',manutencao:'Manutenção',system_users:'Usuários do Sistema',configuracoes:'Configurações'};
+const MODULO_LABEL={dashboard:'Dashboard',ativos:'Ativos de TI',insumos:'Insumos & Periféricos',colaboradores:'Colaboradores',alocacoes:'Alocações',auditorias:'Auditorias',qrcode:'QR Code',licencas:'Licenças',alertas:'Alertas',manutencao:'Manutenção',system_users:'Usuários do Sistema',configuracoes:'Configurações'};
 
 async function renderSystemUsers(){
   const [data, perfisData] = await Promise.all([api('/system-users'), api('/system-users/perfis')]);
@@ -2689,7 +3027,7 @@ async function renderConfiguracoes(){
     ['termos',    'Termos'],
     ['backup',    'Backup'],
   ];
-  const tabBar = `<div style="display:flex;gap:0;margin-bottom:20px;border-bottom:2px solid var(--border);overflow-x:auto">
+  const tabBar = `<div class="cfg-tab-bar" style="display:flex;gap:0;margin-bottom:20px;border-bottom:2px solid var(--border);overflow-x:auto">
     ${CFG_TABS_DEF.map(([id,label])=>`<button id="cfg-tab-${id}" onclick="cfgTab('${id}')"
       style="padding:9px 20px;font-size:13px;font-weight:600;border:none;background:none;cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent;margin-bottom:-2px;color:var(--text2)">${label}</button>`).join('')}
   </div>`;
@@ -3432,7 +3770,13 @@ async function runBackupNow(){
 }
 
 async function deleteBackupFile(filename){
-  if(!confirm('Excluir este backup armazenado?')) return;
+  if(_pendingDeleteBackup !== filename){
+    _pendingDeleteBackup = filename;
+    setTimeout(()=>{ if(_pendingDeleteBackup===filename) _pendingDeleteBackup=null; }, 4000);
+    toast('Clique novamente para confirmar a exclusão do backup.','warning');
+    return;
+  }
+  _pendingDeleteBackup = null;
   try{
     await api('/backups/files/' + encodeURIComponent(filename), 'DELETE');
     toast('Backup excluído');
@@ -3837,12 +4181,15 @@ async function viewManutencao(mid) {
   ${pecasList}
   ${!isClosed?`<button class="btn btn-default btn-sm" style="margin-bottom:12px" onclick="openAddPeca('${mid}')">Adicionar Peça</button>`:''}
 
+  ${attachmentPanel('maintenance', mid, 'Anexos da OS')}
+
   <div class="modal-footer">
     <button class="btn btn-default" onclick="closeModal()">Fechar</button>
     ${!isClosed?`
     <button class="btn btn-warning" onclick="updateManutencao('${mid}')">Salvar Alterações</button>
     <button class="btn btn-success" onclick="openEncerrarOS('${mid}',${m.custoTotal||0})">Encerrar OS</button>`:''}
   </div>`, true);
+  loadAttachments('maintenance', mid);
 }
 
 async function updateManutencao(mid) {
@@ -3978,20 +4325,14 @@ async function updateAlertBadge(){
   if(nomeEl)    nomeEl.textContent    = me.nome;
   if(perfilEl)  perfilEl.textContent  = me.perfil;
 
-  // Carrega configurações para dropdowns e aparência
+  // Carrega settings e colaboradores em paralelo
   try {
-    const cfg = await api('/settings');
+    const [cfg, col] = await Promise.all([api('/settings'), api('/colaboradores')]);
     if (cfg) {
       _settings = cfg;
       if (!_settings.categorias_config) _settings.categorias_config = {};
       _applyAparencia(cfg.aparencia || {}, cfg.empresa || {});
     }
-  } catch(e){}
-  if (_redirectingToLogin) return;
-
-  // Cache de colaboradores para autocomplete
-  try {
-    const col = await api('/colaboradores');
     if (col) _colab_cache = col;
   } catch(e){}
   if (_redirectingToLogin) return;

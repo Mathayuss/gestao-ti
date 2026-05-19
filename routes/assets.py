@@ -93,6 +93,25 @@ def update_asset(aid):
     return jsonify(a.to_dict())
 
 
+@app.route("/api/assets/<aid>/upload", methods=["POST"])
+@requires("Administrador","Técnico TI")
+def upload_asset_attachment(aid):
+    a = db.get_or_404(Asset, aid)
+    att, error = _create_attachment_record(
+        "asset",
+        aid,
+        request.files.get("file"),
+        request.form.get("category") or "Documento",
+        request.form.get("description") or "",
+    )
+    if error:
+        message, status = error
+        return jsonify({"error": message}), status
+    audit("ANEXO_UPLOAD", "ativos", aid, f"Anexo {att.original_name} adicionado ao ativo {a.hostname}")
+    db.session.commit()
+    return jsonify({"ok": True, "filename": att.original_name, "attachment": att.to_dict()}), 201
+
+
 @app.route("/api/assets/<aid>", methods=["DELETE"])
 @requires("Administrador")
 def delete_asset(aid):
@@ -255,4 +274,3 @@ def audit_asset_route():
     audit("AUDITORIA","ativos",a.id,f"Auditado em {d.get('local',a.unidade)} por {current_user.username}")
     db.session.commit()
     return jsonify({"ok":True,"hostname":a.hostname,"status":a.status,"colaborador":a.colaborador})
-

@@ -61,37 +61,40 @@ def create_allocation():
         return jsonify({"error":"Alocação cancelada:\n" + "\n".join(erros)}), 400
 
     # ── Tudo OK — executa transação ──────────────────────────────────────
-    aid = new_id("AL")
-    alloc = Allocation(
-        id=aid, ativo_id=asset.id,
-        ativo_nome=f"{asset.hostname} ({asset.fabricante} {asset.modelo})",
-        colaborador=colab.nome, setor=clean_text(d.get("setor") or colab.setor, 80),
-        unidade=clean_text(d.get("unidade") or colab.unidade, 80), email=clean_text(d.get("email") or colab.email, 120),
-        data_aloc=str(date.today()), motivo=clean_text(d.get("motivo") or "Uso contínuo", 80),
-        status="Ativo", termo=f"TERMO-{aid}", termo_status="Pendente",
-    )
-    db.session.add(alloc)
+    try:
+        aid = new_id("AL")
+        alloc = Allocation(
+            id=aid, ativo_id=asset.id,
+            ativo_nome=f"{asset.hostname} ({asset.fabricante} {asset.modelo})",
+            colaborador=colab.nome, setor=clean_text(d.get("setor") or colab.setor, 80),
+            unidade=clean_text(d.get("unidade") or colab.unidade, 80), email=clean_text(d.get("email") or colab.email, 120),
+            data_aloc=str(date.today()), motivo=clean_text(d.get("motivo") or "Uso contínuo", 80),
+            status="Ativo", termo=f"TERMO-{aid}", termo_status="Pendente",
+        )
+        db.session.add(alloc)
 
-    asset.status="Alocado"; asset.colaborador=colab.nome
-    asset.setor=alloc.setor; asset.unidade=alloc.unidade
+        asset.status="Alocado"; asset.colaborador=colab.nome
+        asset.setor=alloc.setor; asset.unidade=alloc.unidade
 
-    # Baixa periféricos e cria AllocationItems
-    for p in perifericos_in:
-        s = db.session.get(Supply, p["supplyId"]); qty = parse_int(p["quantidade"], default=1, minimum=1)
-        s.estoque -= qty
-        db.session.add(AllocationItem(
-            id=new_id("AI"), allocation_id=aid,
-            supply_id=s.id, supply_nome=s.nome, quantidade=qty,
-        ))
-        db.session.add(SupplyMovement(
-            id=new_id("MOV"), tipo="SAIDA", ref_id=s.id, supply_nome=s.nome,
-            descricao=f"Alocação {aid} — {colab.nome}: {s.nome} x{qty}", quantidade=-qty,
-            colaborador=colab.nome, motivo="Alocação",
-        ))
+        for p in perifericos_in:
+            s = db.session.get(Supply, p["supplyId"]); qty = parse_int(p["quantidade"], default=1, minimum=1)
+            s.estoque -= qty
+            db.session.add(AllocationItem(
+                id=new_id("AI"), allocation_id=aid,
+                supply_id=s.id, supply_nome=s.nome, quantidade=qty,
+            ))
+            db.session.add(SupplyMovement(
+                id=new_id("MOV"), tipo="SAIDA", ref_id=s.id, supply_nome=s.nome,
+                descricao=f"Alocação {aid} — {colab.nome}: {s.nome} x{qty}", quantidade=-qty,
+                colaborador=colab.nome, motivo="Alocação",
+            ))
 
-    audit("ALOCACAO","alocacoes",aid,f"{asset.hostname} → {colab.nome} ({len(perifericos_in)} periféricos)")
-    db.session.commit()
-    return jsonify(alloc.to_dict(include_items=True)), 201
+        audit("ALOCACAO","alocacoes",aid,f"{asset.hostname} → {colab.nome} ({len(perifericos_in)} periféricos)")
+        db.session.commit()
+        return jsonify(alloc.to_dict(include_items=True)), 201
+    except Exception:
+        db.session.rollback()
+        raise
 
 
 @app.route("/api/allocations/<aid>/sign", methods=["POST"])

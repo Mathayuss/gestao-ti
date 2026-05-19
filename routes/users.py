@@ -47,6 +47,9 @@ def update_system_user(uid):
         err = validate_email(d.get("email"))
         if err:
             return jsonify({"error": err}), 400
+    _perfis_validos = _get_setting("perfil_permissoes", PERFIL_PERMISSOES) or PERFIL_PERMISSOES
+    if "perfil" in d and d["perfil"] not in _perfis_validos:
+        return jsonify({"error":"Perfil inválido."}), 400
     for k,v in [("nome","nome"),("email","email"),("perfil","perfil"),("status","status")]:
         if k in d: setattr(u, v, d[k])
     if d.get("senha"): u.set_senha(d["senha"])
@@ -66,7 +69,7 @@ def toggle_system_user(uid):
 @app.route("/api/system-users/<uid>/reset-senha", methods=["POST"])
 @requires("Administrador")
 def reset_senha(uid):
-    d = request.get_json(); nova = d.get("senha","")
+    d = request.get_json() or {}; nova = d.get("senha","")
     if len(nova) < 8: return jsonify({"error":"Senha deve ter ao menos 8 caracteres."}), 400
     u = db.get_or_404(SystemUser, uid)
     u.set_senha(nova)

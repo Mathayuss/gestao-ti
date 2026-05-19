@@ -136,22 +136,25 @@ def colaborador_offboarding(cid):
             db.session.add(m)
         perifs_dev.append(f"{p['quantidade']}x {p['nome']}")
 
-    c.status="Inativo"; c.data_desligamento=str(date.today())
-    audit("DESLIGAMENTO","colaboradores",cid,f"Ativos:{ativos_dev} Periféricos:{perifs_dev}")
+    try:
+        c.status="Inativo"; c.data_desligamento=str(date.today())
+        audit("DESLIGAMENTO","colaboradores",cid,f"Ativos:{ativos_dev} Periféricos:{perifs_dev}")
 
-    # Cria registro de Devolução aguardando laudo técnico
-    dev_id = new_id("DEV")
-    dev = Devolucao(
-        id=dev_id, colaborador_id=cid, colaborador=c.nome,
-        setor=c.setor or "", unidade=c.unidade or "",
-        data_devolucao=str(date.today()),
-        status="Pendente",
-        laudo_status="Aguardando Laudo",
-        ativos_devolvidos=json.dumps(ativos_dev, ensure_ascii=False),
-        perifericos_devolvidos=json.dumps(perifs_dev, ensure_ascii=False),
-    )
-    db.session.add(dev)
-    db.session.commit()
+        dev_id = new_id("DEV")
+        dev = Devolucao(
+            id=dev_id, colaborador_id=cid, colaborador=c.nome,
+            setor=c.setor or "", unidade=c.unidade or "",
+            data_devolucao=str(date.today()),
+            status="Pendente",
+            laudo_status="Aguardando Laudo",
+            ativos_devolvidos=json.dumps(ativos_dev, ensure_ascii=False),
+            perifericos_devolvidos=json.dumps(perifs_dev, ensure_ascii=False),
+        )
+        db.session.add(dev)
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        raise
 
     return jsonify({"ok":True,"colaborador":c.nome,"colaboradorId":cid,
                     "setor":c.setor or "—","unidade":c.unidade or "—",

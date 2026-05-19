@@ -220,6 +220,7 @@
       {% endif %}
 
       <form method="POST" action="/assinar/{{ token }}" id="form-assinar">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <input type="hidden" name="assinatura" id="sig-data">
 
         <div class="form-group">

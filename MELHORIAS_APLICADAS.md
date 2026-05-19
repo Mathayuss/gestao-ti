@@ -221,3 +221,50 @@
 - `py_compile` de `app.py` sem erros.
 - Verificada ausência de `</script>` dentro de template literals em `index.html`.
 - Teste manual: slider, badge e preview sincronizados; transparência refletida corretamente no login após salvar.
+
+## Endurecimento Beta: Permissões, Licenças e Anexos — 2026-05-15
+
+### Modularização de rotas
+
+- Criado o módulo `routes/licenses.py` para concentrar as rotas de licenças fora do `app.py` e fora de `routes/operations.py`.
+- Registrado o novo módulo no carregamento da aplicação em `register_route_modules()`.
+- Mantido no `app.py` apenas o que ainda é compartilhado por toda a aplicação: modelos, helpers, permissões e rotinas transversais.
+
+### Permissões dinâmicas no backend
+
+- O decorator `requires()` passou a considerar o módulo acessado e a ação HTTP executada.
+- As permissões configuradas em `perfil_permissoes` agora são aplicadas nas APIs, não apenas na interface.
+- Perfis personalizados podem liberar ações quando tiverem módulo e permissão compatíveis.
+- O perfil Administrador segue com acesso total garantido pelo sistema.
+- Adicionado mapeamento de rotas para módulos como ativos, insumos, colaboradores, alocações, licenças, manutenção, auditorias, alertas, usuários e configurações.
+
+### Licenças
+
+- Adicionada validação centralizada para cadastro e edição de licenças.
+- Campos numéricos rejeitam valores inválidos ou negativos.
+- O campo vencimento passa a validar o formato `AAAA-MM-DD`.
+- O campo tipo passa a aceitar somente opções conhecidas.
+- Software passou a ser obrigatório.
+- O retorno da licença agora inclui `saldo` e `situacao`, facilitando leitura de compliance e excesso de licenças.
+- Cadastro e edição de licenças agora registram auditoria.
+
+### Anexos
+
+- Criado helper central `_create_attachment_record()` para padronizar uploads.
+- Uploads legados de ativo, licença e manutenção foram conectados à rotina central de anexos.
+- Corrigido o upload legado de ativo, que tentava usar um campo de anexos inexistente no modelo `Asset`.
+- Downloads e remoções de anexos passaram a respeitar o módulo da entidade vinculada.
+- Remoção de anexos agora também permite perfis personalizados quando tiverem permissão de exclusão no módulo correspondente.
+
+### Validações realizadas
+
+- `py_compile` de `app.py` e `routes/*.py`.
+- `git diff --check`.
+- Smoke test via Flask test client:
+  - login com administrador;
+  - `GET /api/licenses`;
+  - validação negativa em `POST /api/licenses`;
+  - criação temporária de licença válida;
+  - upload temporário de anexo em licença;
+  - liberação temporária de edição de licenças para perfil Gestor via `perfil_permissoes`;
+  - restauração das permissões originais e remoção dos dados temporários criados no teste.
