@@ -122,7 +122,7 @@ Usuários de demonstração só devem ser exibidos em ambiente local quando `SHO
 | Variável | Finalidade |
 |---|---|
 | `SECRET_KEY` | Chave da aplicação. Deve ser única e segura em produção. |
-| `DATABASE_URL` | URL SQLAlchemy do banco. Recomendado: PostgreSQL. |
+| `DATABASE_URL` | URL SQLAlchemy do banco para execução fora do Docker. Recomendado: PostgreSQL. |
 | `POSTGRES_DB` | Nome do banco usado pelo Docker Compose. |
 | `POSTGRES_USER` | Usuário PostgreSQL usado pelo Docker Compose. |
 | `POSTGRES_PASSWORD` | Senha PostgreSQL usada pelo Docker Compose. |
@@ -135,6 +135,8 @@ Usuários de demonstração só devem ser exibidos em ambiente local quando `SHO
 | `SMTP_*` | Configuração SMTP opcional via ambiente. Também pode ser feita pela interface. |
 
 Nunca compartilhe ou versiona o arquivo `.env`.
+
+Ao executar com Docker Compose, a aplicação usa o hostname interno `postgres`. Use `127.0.0.1` apenas quando a aplicação estiver rodando fora do container e acessando o PostgreSQL pela porta publicada no host.
 
 ## Backup
 

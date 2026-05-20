@@ -1,7 +1,7 @@
 """
 TI Control SRE — Sistema de Gestão de Ativos de TI com práticas de confiabilidade
 
-Inclui autenticação, persistência em SQLite, métricas Prometheus, health checks,
+Inclui autenticação, persistência relacional, métricas Prometheus, health checks,
 request-id, endpoints operacionais e documentação SRE para operação do serviço.
 """
 import os, io, uuid, warnings, csv, json, re, time as _time, hashlib, smtplib, base64, logging, html as _html

@@ -82,6 +82,8 @@ SETUP_TOKEN=...
 AUTO_SEED_DEMO=0
 ```
 
+Quando a aplicação roda dentro do Docker Compose, o host do banco deve ser `postgres`. Use `127.0.0.1` apenas para executar a aplicação fora do container, conectando no PostgreSQL publicado na máquina.
+
 Não compartilhe o `.env`; ele contém segredos da instalação.
 
 ## Observabilidade

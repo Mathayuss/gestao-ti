@@ -13,7 +13,7 @@ services:
       SERVICE_NAME: "${SERVICE_NAME:-ti-control-sre}"
       BUILD_VERSION: "${BUILD_VERSION:-local}"
       APP_BASE_URL: "${APP_BASE_URL:-http://localhost:5000}"
-      DATABASE_URL: "${DATABASE_URL:-postgresql+psycopg://ticontrol:ticontrol_dev_senha@postgres:5432/ticontrol_db}"
+      DATABASE_URL: "postgresql+psycopg://${POSTGRES_USER:-ticontrol}:${POSTGRES_PASSWORD:-ticontrol_dev_senha}@postgres:5432/${POSTGRES_DB:-ticontrol_db}"
       SHOW_DEMO_CREDENTIALS: "${SHOW_DEMO_CREDENTIALS:-0}"
       AUTO_SEED_DEMO: "${AUTO_SEED_DEMO:-0}"
       SETUP_TOKEN: "${SETUP_TOKEN:-}"
