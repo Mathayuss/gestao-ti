@@ -104,7 +104,7 @@ app.config.update(
     REMEMBER_COOKIE_SAMESITE     = "Lax",
     REMEMBER_COOKIE_SECURE       = _session_secure,
     REMEMBER_COOKIE_DURATION     = 86400 * 7,
-    MAX_CONTENT_LENGTH           = 8 * 1024 * 1024,
+    MAX_CONTENT_LENGTH           = 16 * 1024 * 1024,
     WTF_CSRF_CHECK_DEFAULT       = True,
 )
 
@@ -1448,6 +1448,26 @@ def _set_setting(key, value):
     else: db.session.add(Setting(key=key, value=raw))
 
 
+def get_app_base_url():
+    """Retorna a URL base da aplicação.
+
+    Prioridade:
+    1. Valor salvo no banco (Configurações → Geral → URL)
+    2. Auto-detecção via request atual (funciona com ProxyFix / nginx / HTTPS)
+    3. Env var APP_BASE_URL (fallback estático para contextos sem request)
+    """
+    saved = _get_setting("app.base_url", "")
+    if isinstance(saved, str) and saved.strip():
+        return clean_text(saved, 180).rstrip("/")
+    try:
+        from flask import request as _req
+        if _req and _req.host_url:
+            return _req.host_url.rstrip("/")
+    except RuntimeError:
+        pass  # fora de contexto de request (ex: envio de e-mail agendado)
+    return app.config["APP_BASE_URL"]
+
+
 ASSET_REQUIRED_FIELDS_ALLOWED = {
     "hostname", "ip", "mac", "serviceTag", "os", "fabricante", "modelo",
     "patrimonio", "nf", "categoria", "status", "colaborador", "setor",
@@ -1578,6 +1598,32 @@ def _normalize_termo_setting(key, value):
     return result, None
 
 
+APARENCIA_LOGO_MAX_BYTES = 300 * 1024
+APARENCIA_BG_MAX_BYTES = 8 * 1024 * 1024
+APARENCIA_LOGO_MIMES = {"image/png", "image/jpeg", "image/webp", "image/svg+xml"}
+APARENCIA_BG_MIMES = {"image/png", "image/jpeg", "image/webp"}
+
+
+def _validate_data_image(value, allowed_mimes, max_bytes, label):
+    if not value:
+        return None
+    if not isinstance(value, str) or not value.startswith("data:"):
+        return None
+    match = re.match(r"^data:([^;,]+);base64,(.*)$", value, flags=re.S)
+    if not match:
+        return f"{label} inválida."
+    mime = match.group(1).lower()
+    if mime not in allowed_mimes:
+        return f"{label} deve ser PNG, JPG" + (", WEBP ou SVG." if "image/svg+xml" in allowed_mimes else " ou WEBP.")
+    try:
+        raw = base64.b64decode(match.group(2), validate=True)
+    except Exception:
+        return f"{label} inválida."
+    if len(raw) > max_bytes:
+        return f"{label} excede o limite de {max_bytes // (1024 * 1024) if max_bytes >= 1024 * 1024 else max_bytes // 1024} {'MB' if max_bytes >= 1024 * 1024 else 'KB'}."
+    return None
+
+
 def _normalize_aparencia_setting(value):
     if not isinstance(value, dict):
         return None, "Configurações de aparência precisam ser um objeto."
@@ -1588,7 +1634,16 @@ def _normalize_aparencia_setting(value):
             result[key] = clean_text(value.get(key), max_len)
     for key in ("logo_sistema", "bg_login"):
         if key in value:
-            result[key] = clean_text(value.get(key), None)
+            v = clean_text(value.get(key), None)
+            err = _validate_data_image(
+                v,
+                APARENCIA_BG_MIMES if key == "bg_login" else APARENCIA_LOGO_MIMES,
+                APARENCIA_BG_MAX_BYTES if key == "bg_login" else APARENCIA_LOGO_MAX_BYTES,
+                "Imagem de fundo" if key == "bg_login" else "Logo do sistema",
+            )
+            if err:
+                return None, err
+            result[key] = v
     for key in ("cor_primaria", "cor_botao", "cor_hover"):
         if key in value:
             v = clean_text(value.get(key), 20)
@@ -1699,6 +1754,100 @@ DEFAULT_BACKUP_CONFIG = {
     "last_status": "Nunca executado",
     "last_error": "",
 }
+
+
+def _auto_seed_demo_enabled():
+    raw = os.environ.get("AUTO_SEED_DEMO")
+    if raw is not None:
+        return parse_bool(raw, default=False)
+    return (
+        app.config["ENVIRONMENT"] in ("development", "dev")
+        and str(app.config["SQLALCHEMY_DATABASE_URI"]).startswith("sqlite")
+    )
+
+
+def _initial_settings_defaults(empresa=None):
+    empresa = empresa if isinstance(empresa, dict) else {}
+    company = {
+        "nome": clean_text(empresa.get("nome") or "TI Control", 120),
+        "cnpj": clean_text(empresa.get("cnpj"), 30),
+        "email": clean_text(empresa.get("email"), 120),
+        "telefone": clean_text(empresa.get("telefone"), 40),
+        "site": clean_text(empresa.get("site"), 120),
+        "endereco": clean_text(empresa.get("endereco"), 240),
+        "logo_base64": "",
+    }
+    return {
+        "empresa": company,
+        "termo_recebimento": {
+            "titulo": "TERMO DE RESPONSABILIDADE DE EQUIPAMENTO",
+            "preambulo": "Eu, {colaborador}, lotado(a) no setor de {setor}, unidade {unidade},\ndeclaro ter recebido os seguintes equipamentos de propriedade da empresa:",
+            "clausulas": [
+                "Comprometo-me a:",
+                "  1. Utilizar exclusivamente para fins profissionais;",
+                "  2. Zelar pela conservação de todos os itens;",
+                "  3. Comunicar ao TI qualquer dano, perda ou furto;",
+                "  4. Devolver os equipamentos ao encerramento do vínculo.",
+            ],
+            "rodape": "{empresa} — Termo gerado automaticamente pelo sistema de gestão de TI",
+        },
+        "termo_devolucao": {
+            "titulo": "TERMO DE DEVOLUÇÃO DE EQUIPAMENTOS",
+            "preambulo": "Atestamos a devolução dos equipamentos abaixo pelo(a) colaborador(a) {colaborador},\ndo setor {setor}, unidade {unidade}:",
+            "clausulas": [],
+            "declaracao": "Declaro ter devolvido todos os equipamentos listados acima em plenas condições.",
+            "rodape": "{empresa} — Termo gerado automaticamente pelo sistema de gestão de TI",
+        },
+        "email_templates": DEFAULT_EMAIL_TEMPLATES,
+        "backup": DEFAULT_BACKUP_CONFIG,
+        "setores": ["TI", "Financeiro", "RH", "Vendas", "Marketing", "Operações"],
+        "unidades": [],
+        "alertas": {"dias_garantia": 60, "dias_licenca": 60, "estoque_minimo": True, "notif_email": False},
+        "regras_usuario": {
+            "exige_termo_alocacao": True,
+            "permite_alocar_sem_email": False,
+            "max_perifericos_por_colab": 10,
+            "obriga_vinculo_saida": True,
+        },
+        "campos_ativo_obrigatorios": ["hostname", "fabricante", "modelo", "categoria", "patrimonio"],
+        "categorias": CATEGORIAS_DEFAULT,
+        "categorias_insumos": CATEGORIAS_INSUMOS_DEFAULT,
+        "categorias_compat": {},
+        "categorias_config": {
+            "Notebook": {"tipo_alocacao": "colaborador"},
+            "Desktop": {"tipo_alocacao": "colaborador"},
+            "Monitor": {"tipo_alocacao": "colaborador"},
+            "Smartphone": {"tipo_alocacao": "colaborador"},
+            "Dock Station": {"tipo_alocacao": "colaborador"},
+            "Tablet": {"tipo_alocacao": "colaborador"},
+            "Impressora": {"tipo_alocacao": "unidade"},
+            "Switch": {"tipo_alocacao": "unidade"},
+            "Firewall": {"tipo_alocacao": "unidade"},
+            "Access Point": {"tipo_alocacao": "unidade"},
+            "Servidor": {"tipo_alocacao": "unidade"},
+            "Storage": {"tipo_alocacao": "unidade"},
+            "Rack": {"tipo_alocacao": "unidade"},
+            "Nobreak": {"tipo_alocacao": "unidade"},
+            "DVR": {"tipo_alocacao": "unidade"},
+            "NVR": {"tipo_alocacao": "unidade"},
+            "Câmera IP": {"tipo_alocacao": "unidade"},
+        },
+        "perfil_permissoes": PERFIL_PERMISSOES,
+        "aparencia": {
+            "nome_sistema": "TI Control",
+            "slogan_sistema": "Gestão de Ativos de TI",
+            "cor_primaria": "#2563eb",
+            "cor_botao": "#2563eb",
+            "cor_hover": "#eff6ff",
+            "login_box_transparencia": 0,
+        },
+    }
+
+
+def _ensure_initial_settings(empresa=None):
+    for key, value in _initial_settings_defaults(empresa).items():
+        if db.session.get(Setting, key) is None:
+            _set_setting(key, value)
 
 
 def _get_backup_config():
@@ -2162,6 +2311,7 @@ def _migrate_db():
         ],
         "maintenance_orders": [
             ("status_anterior", "VARCHAR(30)"),
+            ("attachments",     "JSON"),
         ],
         "licenses": [
             ("attachments", "JSON"),
@@ -2215,17 +2365,35 @@ def _export_route_globals():
 def register_route_modules():
     """Importa modulos de rotas para registrar os endpoints Flask."""
     from routes import (
-        auth, assets, supplies, colaboradores, allocations,
+        setup, auth, assets, supplies, colaboradores, allocations,
         licenses, operations, users, settings, devolucoes, reports, audit_campaigns, attachments,
     )
-    return (auth, assets, supplies, colaboradores, allocations, licenses, operations, users, settings, devolucoes, reports, audit_campaigns, attachments)
+    return (setup, auth, assets, supplies, colaboradores, allocations, licenses, operations, users, settings, devolucoes, reports, audit_campaigns, attachments)
 
 register_route_modules()
 
+
+def _run_startup_db_tasks():
+    """Executa bootstrap/migração com lock no PostgreSQL para múltiplos workers."""
+    lock_conn = None
+    if db.engine.dialect.name == "postgresql":
+        lock_conn = db.engine.connect()
+        lock_conn.execute(text("SELECT pg_advisory_lock(54720191)"))
+    try:
+        db.create_all()
+        _migrate_db()
+        if _auto_seed_demo_enabled():
+            seed()
+    finally:
+        if lock_conn is not None:
+            try:
+                lock_conn.execute(text("SELECT pg_advisory_unlock(54720191)"))
+            finally:
+                lock_conn.close()
+
+
 with app.app_context():
-    db.create_all()
-    _migrate_db()
-    seed()
+    _run_startup_db_tasks()
 
 if __name__ == "__main__":
     host = os.environ.get("FLASK_HOST", "0.0.0.0")

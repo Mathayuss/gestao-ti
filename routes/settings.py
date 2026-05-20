@@ -35,6 +35,7 @@ def get_settings():
         "termo_devolucao":   _get_setting("termo_devolucao", {}),
         "aparencia":    _get_setting("aparencia", {}),
         "patrimonio_prefixo": _get_setting("patrimonio.prefixo", "TI"),
+        "app_base_url": get_app_base_url(),
     })
 
 

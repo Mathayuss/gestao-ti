@@ -3,20 +3,19 @@ services:
     build: .
     container_name: ti-control-sre-app
     ports:
-      - "5000:5000"
+      - "${APP_PORT:-5000}:5000"
     env_file:
       - .env
     environment:
-      FLASK_DEBUG: "0"
-      ENVIRONMENT: "local"
-      SERVICE_NAME: "ti-control-sre"
-      BUILD_VERSION: "local"
-      APP_BASE_URL: "http://localhost"
-      # Para SQLite (padrão):
-      DATABASE_URL: "sqlite:////app/instance/ticontrol.db"
-      # Para PostgreSQL: comente a linha acima e descomente abaixo:
-      # DATABASE_URL: "postgresql://ticontrol:${POSTGRES_PASSWORD}@postgres:5432/ticontrol_db"
-      SHOW_DEMO_CREDENTIALS: "0"
+      FLASK_DEBUG: "${FLASK_DEBUG:-0}"
+      ENVIRONMENT: "${ENVIRONMENT:-local}"
+      SERVICE_NAME: "${SERVICE_NAME:-ti-control-sre}"
+      BUILD_VERSION: "${BUILD_VERSION:-local}"
+      APP_BASE_URL: "${APP_BASE_URL:-http://localhost:5000}"
+      DATABASE_URL: "${DATABASE_URL:-postgresql+psycopg://ticontrol:ticontrol_dev_senha@postgres:5432/ticontrol_db}"
+      SHOW_DEMO_CREDENTIALS: "${SHOW_DEMO_CREDENTIALS:-0}"
+      AUTO_SEED_DEMO: "${AUTO_SEED_DEMO:-0}"
+      SETUP_TOKEN: "${SETUP_TOKEN:-}"
     volumes:
       - ticontrol_instance:/app/instance
     healthcheck:
@@ -29,29 +28,28 @@ services:
       postgres:
         condition: service_healthy
 
-  # ── PostgreSQL (produção) ─────────────────────────────────────────────────
-  # Para usar: defina POSTGRES_PASSWORD no .env e ajuste DATABASE_URL acima
   postgres:
     image: postgres:16-alpine
     container_name: ti-control-sre-postgres
     environment:
-      POSTGRES_DB: ticontrol_db
-      POSTGRES_USER: ticontrol
+      POSTGRES_DB: ${POSTGRES_DB:-ticontrol_db}
+      POSTGRES_USER: ${POSTGRES_USER:-ticontrol}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ticontrol_dev_senha}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD", "pg_isready", "-U", "ticontrol", "-d", "ticontrol_db"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-ticontrol} -d ${POSTGRES_DB:-ticontrol_db}"]
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 10s
     ports:
-      - "5432:5432"
+      - "${POSTGRES_PORT:-5432}:5432"
 
   prometheus:
     image: prom/prometheus:v2.55.1
     container_name: ti-control-sre-prometheus
+    profiles: ["observability"]
     ports:
       - "9090:9090"
     volumes:
@@ -63,6 +61,7 @@ services:
   grafana:
     image: grafana/grafana-oss:11.3.0
     container_name: ti-control-sre-grafana
+    profiles: ["observability"]
     ports:
       - "3000:3000"
     environment:

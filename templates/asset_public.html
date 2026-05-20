@@ -1,219 +1,611 @@
+{% macro device_icon(name) -%}
+  {% if name == 'notebook' %}
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><rect x="5" y="4" width="14" height="10" rx="2"/><path d="M3 18h18l-2-4H5l-2 4Z"/><path d="M9 18h6"/></svg>
+  {% elif name == 'server' %}
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><rect x="4" y="3" width="16" height="7" rx="2"/><rect x="4" y="14" width="16" height="7" rx="2"/><path d="M8 7h.01M8 18h.01M12 7h4M12 18h4"/></svg>
+  {% elif name == 'network' %}
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><rect x="9" y="3" width="6" height="6" rx="1.5"/><rect x="3" y="15" width="6" height="6" rx="1.5"/><rect x="15" y="15" width="6" height="6" rx="1.5"/><path d="M12 9v3M6 15v-2h12v2"/></svg>
+  {% elif name == 'printer' %}
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M7 8V4h10v4"/><rect x="5" y="14" width="14" height="7" rx="1.5"/><rect x="3" y="8" width="18" height="8" rx="2"/><path d="M7 18h10M17 12h.01"/></svg>
+  {% elif name == 'monitor' %}
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/><path d="M7 9h2M11 9h6M7 13h4"/></svg>
+  {% else %}
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><rect x="4" y="4" width="16" height="12" rx="2"/><path d="M8 20h8M12 16v4"/><path d="M8 8h8M8 12h5"/></svg>
+  {% endif %}
+{%- endmacro %}
+
+{% macro ui_icon(name) -%}
+  {% if name == 'eye' %}
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>
+  {% elif name == 'edit' %}
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z"/></svg>
+  {% elif name == 'qr' %}
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM20 14h1M14 20h1M18 20h3v1"/></svg>
+  {% elif name == 'history' %}
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 3v6h6"/><path d="M12 7v5l3 2"/></svg>
+  {% elif name == 'file' %}
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><path d="M8 13h8M8 17h5"/></svg>
+  {% elif name == 'barcode' %}
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M4 7V5a1 1 0 0 1 1-1h2M4 17v2a1 1 0 0 0 1 1h2M17 4h2a1 1 0 0 1 1 1v2M17 20h2a1 1 0 0 0 1-1v-2"/><path d="M7 12h10"/></svg>
+  {% elif name == 'tag' %}
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8Z"/><circle cx="8" cy="8" r="1.5"/></svg>
+  {% elif name == 'factory' %}
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M3 21h18"/><path d="M5 21V8l6 4V8l6 4V5h2v16"/><path d="M8 17h1M12 17h1M16 17h1"/></svg>
+  {% elif name == 'serial' %}
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><rect x="4" y="5" width="16" height="14" rx="2"/><path d="M8 9h8M8 13h5M8 17h3"/></svg>
+  {% elif name == 'map' %}
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M20 10c0 5-8 12-8 12S4 15 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+  {% elif name == 'user' %}
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M20 21a8 8 0 0 0-16 0"/><circle cx="12" cy="7" r="4"/></svg>
+  {% elif name == 'activity' %}
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg>
+  {% elif name == 'rack' %}
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><rect x="2" y="4" width="20" height="6" rx="2"/><rect x="2" y="14" width="20" height="6" rx="2"/><circle cx="6" cy="7" r="1.5" fill="currentColor" stroke="none"/><circle cx="6" cy="17" r="1.5" fill="currentColor" stroke="none"/><path d="M10 7h5M10 17h5"/></svg>
+  {% elif name == 'sun' %}
+    <svg id="theme-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+  {% else %}
+    <svg id="theme-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 7.5A9 9 0 1 1 12 3Z"/></svg>
+  {% endif %}
+{%- endmacro %}
+
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="csrf-token" content="{{ csrf_token() }}">
-<title>Ativo {{ asset.id }} - TI Control</title>
+<title>{{ public_card.title }} · TI Control SRE</title>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   :root {
     color-scheme: light;
-    --bg: #f6f7f9; --surface: #ffffff; --surface-2: #f1f5f9;
-    --text: #111827; --muted: #64748b; --soft: #94a3b8; --border: #e2e8f0;
-    --primary: #2563eb; --primary-strong: #1d4ed8; --primary-soft: #dbeafe;
-    --success: #16a34a; --success-soft: #dcfce7;
-    --warning: #d97706; --warning-soft: #fef3c7;
-    --danger: #dc2626; --danger-soft: #fee2e2;
-    --shadow: 0 18px 48px rgba(15, 23, 42, .10), 0 3px 12px rgba(15, 23, 42, .06);
-    --radius: 8px;
+    --bg:           #f1f5f9;
+    --surface:      #ffffff;
+    --surface-soft: #f8fafc;
+    --surface-muted:#f1f5f9;
+    --primary:      #2563eb;
+    --primary-hover:#1d4ed8;
+    --primary-soft: #eff6ff;
+    --primary-border:rgba(37,99,235,.18);
+    --ink:          #0f172a;
+    --text:         #1e293b;
+    --muted:        #64748b;
+    --line:         #e2e8f0;
+    --line-strong:  #cbd5e1;
+    --green:        #15803d;
+    --green-soft:   #dcfce7;
+    --green-border: rgba(21,128,61,.18);
+    --amber:        #b45309;
+    --amber-soft:   #fef3c7;
+    --amber-border: rgba(180,83,9,.18);
+    --red:          #b91c1c;
+    --red-soft:     #fef2f2;
+    --red-border:   rgba(185,28,28,.18);
+    --gray-soft:    #f1f5f9;
+    --shadow-sm:    0 1px 3px rgba(15,23,42,.06), 0 1px 2px rgba(15,23,42,.04);
+    --shadow:       0 8px 24px rgba(15,23,42,.09), 0 2px 8px rgba(15,23,42,.05);
+    --shadow-lg:    0 20px 48px rgba(15,23,42,.11), 0 4px 16px rgba(15,23,42,.06);
+    --radius:       16px;
+    --radius-sm:    10px;
+    --radius-xs:    8px;
   }
   html[data-theme="dark"] {
     color-scheme: dark;
-    --bg: #0b1120; --surface: #111827; --surface-2: #1e293b;
-    --text: #f8fafc; --muted: #cbd5e1; --soft: #94a3b8; --border: #334155;
-    --primary: #60a5fa; --primary-strong: #93c5fd; --primary-soft: rgba(96, 165, 250, .15);
-    --success: #4ade80; --success-soft: rgba(74, 222, 128, .14);
-    --warning: #fbbf24; --warning-soft: rgba(251, 191, 36, .14);
-    --danger: #f87171; --danger-soft: rgba(248, 113, 113, .14);
-    --shadow: 0 18px 48px rgba(0, 0, 0, .36), 0 3px 12px rgba(0, 0, 0, .25);
+    --bg:           #0f172a;
+    --surface:      #111827;
+    --surface-soft: #1e293b;
+    --surface-muted:#172033;
+    --primary:      #60a5fa;
+    --primary-hover:#3b82f6;
+    --primary-soft: rgba(96,165,250,.13);
+    --primary-border:rgba(96,165,250,.28);
+    --ink:          #f8fafc;
+    --text:         #e2e8f0;
+    --muted:        #94a3b8;
+    --line:         #1e293b;
+    --line-strong:  #334155;
+    --green:        #4ade80;
+    --green-soft:   rgba(74,222,128,.12);
+    --green-border: rgba(74,222,128,.22);
+    --amber:        #fbbf24;
+    --amber-soft:   rgba(251,191,36,.12);
+    --amber-border: rgba(251,191,36,.22);
+    --red:          #f87171;
+    --red-soft:     rgba(248,113,113,.12);
+    --red-border:   rgba(248,113,113,.22);
+    --gray-soft:    rgba(148,163,184,.1);
+    --shadow-sm:    0 1px 3px rgba(0,0,0,.2);
+    --shadow:       0 8px 24px rgba(0,0,0,.28);
+    --shadow-lg:    0 20px 48px rgba(0,0,0,.38);
   }
+
   body {
+    min-height: 100vh;
+    background: var(--bg);
+    color: var(--text);
     font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
-    background: radial-gradient(circle at 12% 0%, rgba(37,99,235,.10), transparent 30%), linear-gradient(180deg, var(--bg), var(--surface-2));
-    color: var(--text); min-height: 100vh; padding: 20px;
+    padding: 20px 16px 40px;
+    font-size: 14px;
+    line-height: 1.5;
   }
-  .page { width: min(100%, 860px); margin: 0 auto; }
-  .topbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 18px; }
-  .brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
-  .brand-mark, .icon-wrap {
-    width: 42px; height: 42px; background: var(--primary-soft); color: var(--primary);
-    border: 1px solid color-mix(in srgb, var(--primary) 20%, transparent);
-    border-radius: var(--radius); display: grid; place-items: center; flex-shrink: 0;
+
+  .page { width: min(100%, 900px); margin: 0 auto; }
+
+  /* ── Topbar ── */
+  .topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 20px;
   }
-  .brand-title { font-size: 15px; font-weight: 800; }
-  .brand-sub { font-size: 12px; color: var(--muted); }
-  .theme-btn, .icon-btn {
-    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
-    min-height: 38px; padding: 0 12px; border-radius: var(--radius);
-    border: 1px solid var(--border); background: var(--surface); color: var(--text);
-    font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; transition: background 0.2s;
+  .brand { display: flex; align-items: center; gap: 11px; min-width: 0; }
+  .brand-mark {
+    width: 40px; height: 40px;
+    border-radius: 11px;
+    display: grid; place-items: center;
+    color: var(--primary);
+    background: var(--primary-soft);
+    border: 1px solid var(--primary-border);
+    flex-shrink: 0;
   }
-  .theme-btn:hover, .icon-btn:hover { background: var(--surface-2); }
-  .card {
-    background: color-mix(in srgb, var(--surface) 94%, transparent);
-    border: 1px solid var(--border); border-radius: 12px; padding: 0;
-    width: 100%; box-shadow: var(--shadow); overflow: hidden;
+  .brand-mark svg { width: 20px; height: 20px; stroke-width: 2; }
+  .brand-name {
+    font-size: 15px; font-weight: 800; color: var(--ink); line-height: 1.2;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
-  .header {
-    display: flex; justify-content: space-between; align-items: flex-start; gap: 18px;
-    padding: 24px; border-bottom: 1px solid var(--border);
-    background: linear-gradient(135deg, var(--surface), color-mix(in srgb, var(--primary-soft) 48%, var(--surface)));
+  .brand-name span { color: var(--muted); font-weight: 500; }
+  .brand-sub { font-size: 11px; color: var(--muted); margin-top: 1px; }
+
+  .theme-btn {
+    min-height: 36px; padding: 0 12px;
+    border: 1px solid var(--line); border-radius: var(--radius-xs);
+    background: var(--surface); color: var(--text);
+    cursor: pointer; display: inline-flex; align-items: center; gap: 7px;
+    font: inherit; font-size: 12px; font-weight: 700;
+    box-shadow: var(--shadow-sm); white-space: nowrap;
   }
-  .header-main { display: flex; align-items: flex-start; gap: 14px; min-width: 0; }
-  .icon-wrap { width: 52px; height: 52px; }
-  .hostname { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: clamp(20px, 4vw, 28px); font-weight: 850; line-height: 1.1; overflow-wrap: anywhere; }
-  .subtitle { font-size: 14px; color: var(--muted); margin-top: 6px; }
-  .badge { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 99px; font-size: 12px; font-weight: 800; white-space: nowrap; }
-  .badge-green { background: var(--success-soft); color: var(--success); }
-  .badge-blue { background: var(--primary-soft); color: var(--primary); }
-  .badge-amber { background: var(--warning-soft); color: var(--warning); }
-  .badge-red { background: var(--danger-soft); color: var(--danger); }
-  .badge-gray { background: var(--surface-2); color: var(--muted); }
-  .content { padding: 22px 24px 24px; }
-  .grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-bottom: 18px; }
-  .field { background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px; min-height: 82px; }
-  .field-label { color: var(--muted); font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; margin-bottom: 8px; display: flex; align-items: center; gap: 7px; }
-  .field-value { font-size: 14px; font-weight: 750; word-break: break-word; }
-  .field-value.mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 13px; }
-  .footer { border-top: 1px solid var(--border); padding-top: 18px; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
-  .logo { font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
-  .logo span { font-weight: 800; color: var(--primary); }
-  .audit-btn { background: var(--primary); color: #fff; border: 1px solid var(--primary); border-radius: var(--radius); min-height: 42px; padding: 0 16px; font-size: 14px; font-weight: 800; cursor: pointer; transition: all 0.2s; display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-family: inherit; }
-  .audit-btn:hover:not(:disabled) { background: var(--primary-strong); border-color: var(--primary-strong); }
-  .audit-btn:disabled { opacity: 0.68; cursor: not-allowed; }
-  .warn { color: var(--warning); }
-  .modal { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; padding: 18px; background: rgba(2, 6, 23, .55); backdrop-filter: blur(8px); z-index: 20; opacity: 0; transition: opacity 0.2s ease-in-out; }
-  .modal.open { display: flex; opacity: 1; }
-  .dialog { width: min(100%, 420px); background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow); padding: 20px; transform: translateY(10px); transition: transform 0.2s ease-in-out; }
-  .modal.open .dialog { transform: translateY(0); }
-  .dialog-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 16px; }
-  .dialog-title { font-size: 17px; font-weight: 850; }
-  label { display: block; font-size: 12px; font-weight: 800; color: var(--muted); margin-bottom: 6px; }
-  input { width: 100%; min-height: 42px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface-2); color: var(--text); padding: 0 12px; font: inherit; outline: none; transition: border-color 0.2s, box-shadow 0.2s; }
-  input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 18%, transparent); }
-  .dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
-  .status-msg { margin-top: 12px; padding: 10px 12px; border-radius: var(--radius); font-size: 13px; display: none; transition: opacity 0.3s; }
-  .status-msg.ok { display: block; background: var(--success-soft); color: var(--success); }
-  .status-msg.err { display: block; background: var(--danger-soft); color: var(--danger); }
-  svg { width: 18px; height: 18px; stroke-width: 2.2; flex-shrink: 0; }
-  @media (max-width: 720px) {
-    body { padding: 14px; }
-    .header { flex-direction: column; padding: 18px; }
-    .content { padding: 16px; }
-    .grid { grid-template-columns: 1fr 1fr; }
+  .theme-btn:hover { border-color: var(--line-strong); background: var(--surface-soft); }
+  .theme-btn svg { width: 15px; height: 15px; stroke-width: 2.2; flex-shrink: 0; }
+
+  /* ── Main card ── */
+  .asset-card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-lg);
+    overflow: hidden;
+    /* Accent line brand guide */
+    border-top: 3px solid var(--primary);
   }
-  @media (max-width: 460px) {
-    .grid { grid-template-columns: 1fr; }
-    .footer, .audit-btn { width: 100%; }
+
+  /* ── Card header ── */
+  .card-head {
+    display: grid;
+    grid-template-columns: minmax(0,1fr) auto;
+    gap: 20px;
+    padding: 24px 24px 20px;
+    border-bottom: 1px solid var(--line);
+    background: linear-gradient(135deg, var(--surface) 55%, var(--primary-soft) 100%);
+  }
+  .asset-identity { display: flex; align-items: flex-start; gap: 18px; min-width: 0; }
+
+  .device-frame {
+    width: 80px; height: 80px; border-radius: 18px;
+    display: grid; place-items: center;
+    color: var(--primary);
+    background: var(--surface);
+    border: 1.5px solid var(--primary-border);
+    box-shadow: 0 0 0 4px var(--primary-soft), var(--shadow-sm);
+    flex-shrink: 0;
+  }
+  .device-frame svg { width: 40px; height: 40px; stroke-width: 1.7; }
+
+  .asset-meta { min-width: 0; }
+  .kicker {
+    display: inline-flex; align-items: center; gap: 5px;
+    color: var(--primary); font-size: 10px; font-weight: 800;
+    letter-spacing: .1em; text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+  .kicker svg { width: 11px; height: 11px; stroke-width: 2.5; }
+  h1 {
+    color: var(--ink); font-size: clamp(20px, 3.5vw, 30px);
+    font-weight: 800; line-height: 1.1; letter-spacing: -.02em;
+    overflow-wrap: anywhere; margin-bottom: 10px;
+  }
+  .meta-row { display: flex; flex-wrap: wrap; gap: 6px; }
+  .meta-chip {
+    display: inline-flex; align-items: center; gap: 5px;
+    min-height: 26px; padding: 0 9px;
+    border: 1px solid var(--line); border-radius: 999px;
+    background: var(--surface); color: var(--text);
+    font-size: 11px; font-weight: 700;
+  }
+  .meta-chip svg { width: 13px; height: 13px; stroke-width: 2.2; color: var(--muted); }
+  .meta-chip code {
+    color: var(--ink);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 11px;
+  }
+
+  /* ── Head side ── */
+  .head-side {
+    display: flex; flex-direction: column;
+    align-items: flex-end; gap: 14px; flex-shrink: 0;
+  }
+  .status-badge {
+    display: inline-flex; align-items: center; gap: 7px;
+    min-height: 32px; padding: 0 12px;
+    border-radius: 999px; border: 1px solid transparent;
+    font-size: 12px; font-weight: 800; white-space: nowrap;
+  }
+  .status-dot {
+    width: 7px; height: 7px; border-radius: 999px;
+    background: currentColor; flex-shrink: 0;
+  }
+  .status-dot.pulse { animation: pulse 2s infinite; }
+  @keyframes pulse {
+    0%,100% { box-shadow: 0 0 0 0 currentColor; opacity: 1; }
+    50%      { box-shadow: 0 0 0 4px currentColor; opacity: .4; }
+  }
+  .status-green { background: var(--green-soft); color: var(--green); border-color: var(--green-border); }
+  .status-blue  { background: var(--primary-soft); color: var(--primary); border-color: var(--primary-border); }
+  .status-amber { background: var(--amber-soft); color: var(--amber); border-color: var(--amber-border); }
+  .status-red   { background: var(--red-soft); color: var(--red); border-color: var(--red-border); }
+  .status-gray  { background: var(--gray-soft); color: var(--muted); border-color: var(--line); }
+
+  .actions { display: flex; gap: 7px; }
+  .action-btn {
+    width: 36px; height: 36px; border-radius: var(--radius-xs);
+    border: 1px solid var(--line); background: var(--surface);
+    color: var(--muted); display: inline-grid; place-items: center;
+    cursor: pointer; transition: all .15s ease;
+    box-shadow: var(--shadow-sm);
+  }
+  .action-btn svg { width: 15px; height: 15px; stroke-width: 2.2; }
+  .action-btn:hover:not(:disabled) {
+    border-color: var(--primary); color: var(--primary);
+    background: var(--primary-soft); transform: translateY(-1px);
+    box-shadow: var(--shadow);
+  }
+  .action-btn:disabled { opacity: .45; cursor: not-allowed; }
+
+  /* ── Content ── */
+  .content { padding: 20px 24px 24px; }
+
+  .section-label {
+    font-size: 10px; font-weight: 800; color: var(--muted);
+    letter-spacing: .1em; text-transform: uppercase;
+    margin-bottom: 12px; display: flex; align-items: center; gap: 6px;
+  }
+  .section-label::after {
+    content: ''; flex: 1; height: 1px; background: var(--line);
+  }
+
+  .info-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0,1fr));
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+  .info-item {
+    display: flex; gap: 11px;
+    padding: 14px 14px 14px 14px;
+    border: 1px solid var(--line); border-radius: var(--radius-sm);
+    background: var(--surface-soft);
+    transition: border-color .15s, box-shadow .15s;
+  }
+  .info-item:hover { border-color: var(--primary-border); box-shadow: 0 0 0 3px var(--primary-soft); }
+  .info-icon {
+    width: 32px; height: 32px; border-radius: var(--radius-xs);
+    display: grid; place-items: center;
+    color: var(--primary); background: var(--surface);
+    border: 1px solid var(--line); flex-shrink: 0;
+  }
+  .info-icon svg { width: 15px; height: 15px; stroke-width: 2.2; }
+  .info-label {
+    display: block; color: var(--muted); font-size: 10px; font-weight: 700;
+    letter-spacing: .07em; text-transform: uppercase; margin-bottom: 4px;
+  }
+  .info-value {
+    color: var(--ink); font-size: 13px; font-weight: 700;
+    line-height: 1.3; overflow-wrap: anywhere;
+  }
+  .mono {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 12px; font-weight: 600;
+  }
+
+  /* ── Activity band ── */
+  .activity-band {
+    display: flex; gap: 13px; align-items: flex-start;
+    padding: 14px 16px;
+    border: 1px solid var(--amber-border); border-radius: var(--radius-sm);
+    background: var(--amber-soft);
+  }
+  .activity-band .info-icon { color: var(--amber); background: var(--surface); border-color: var(--amber-border); }
+  .activity-title { font-size: 13px; font-weight: 800; color: var(--ink); }
+  .activity-detail { margin-top: 3px; font-size: 12px; color: var(--muted); line-height: 1.4; }
+
+  /* ── Footer ── */
+  .card-footer {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    padding: 14px 24px; border-top: 1px solid var(--line);
+    background: var(--surface-soft);
+  }
+  .footer-brand {
+    display: inline-flex; align-items: center; gap: 7px;
+    color: var(--ink); font-size: 12px; font-weight: 800;
+  }
+  .footer-brand svg { width: 16px; height: 16px; stroke-width: 2; color: var(--primary); }
+  .footer-right { font-size: 11px; color: var(--muted); }
+
+  /* ── Toast ── */
+  .toast {
+    position: fixed; left: 50%; bottom: 22px;
+    transform: translateX(-50%) translateY(10px);
+    min-width: min(340px, calc(100vw - 32px)); padding: 11px 16px;
+    border-radius: 12px; border: 1px solid var(--line);
+    background: var(--ink); color: var(--surface);
+    box-shadow: var(--shadow-lg); font-size: 13px; font-weight: 700;
+    opacity: 0; pointer-events: none; z-index: 30;
+    transition: opacity .2s ease, transform .2s ease; text-align: center;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* ── QR Dialog ── */
+  .qr-dialog {
+    position: fixed; inset: 0; display: none;
+    align-items: center; justify-content: center; padding: 18px;
+    background: rgba(15,23,42,.55); backdrop-filter: blur(3px); z-index: 20;
+  }
+  .qr-dialog.open { display: flex; }
+  .qr-panel {
+    width: min(100%, 340px); border: 1px solid var(--line);
+    border-radius: 16px; border-top: 3px solid var(--primary);
+    background: var(--surface); box-shadow: var(--shadow-lg); overflow: hidden;
+  }
+  .qr-panel-head {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    padding: 16px 18px 14px;
+    background: linear-gradient(135deg, var(--surface) 50%, var(--primary-soft));
+    border-bottom: 1px solid var(--line);
+  }
+  .qr-asset-id { font-size: 10px; font-weight: 800; color: var(--primary); letter-spacing: .08em; text-transform: uppercase; margin-bottom: 3px; }
+  .qr-panel-title { font-size: 15px; font-weight: 800; color: var(--ink); }
+  .qr-code-box {
+    display: grid; place-items: center; padding: 20px;
+    background: #ffffff;
+  }
+  .qr-code-box img { width: 200px; height: 200px; object-fit: contain; display: block; }
+  .qr-meta {
+    padding: 10px 18px 14px;
+    background: var(--surface-soft);
+    border-top: 1px solid var(--line);
+    display: grid; grid-template-columns: 1fr 1fr; gap: 6px;
+  }
+  .qr-meta-item { font-size: 11px; color: var(--muted); }
+  .qr-meta-item strong { display: block; font-size: 12px; color: var(--ink); font-weight: 700; }
+  .qr-panel-actions {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 0 18px 18px;
+  }
+  .qr-panel-actions a,
+  .qr-panel-actions button {
+    min-height: 36px; border-radius: var(--radius-xs);
+    border: 1px solid var(--line); background: var(--surface-soft); color: var(--text);
+    cursor: pointer; display: inline-flex; align-items: center; justify-content: center;
+    gap: 6px; font: inherit; font-size: 12px; font-weight: 700; text-decoration: none;
+    transition: all .15s;
+  }
+  .qr-panel-actions a:hover, .qr-panel-actions button:hover {
+    border-color: var(--primary); color: var(--primary); background: var(--primary-soft);
+  }
+  .qr-panel-actions svg { width: 14px; height: 14px; stroke-width: 2.2; }
+
+  /* ── Responsive ── */
+  @media (max-width: 760px) {
+    .card-head { grid-template-columns: 1fr; gap: 16px; }
+    .head-side { align-items: flex-start; flex-direction: row; justify-content: space-between; flex-wrap: wrap; }
+    .info-grid { grid-template-columns: repeat(2, minmax(0,1fr)); }
+  }
+  @media (max-width: 520px) {
+    body { padding: 12px 12px 32px; }
+    .topbar { flex-direction: column; align-items: flex-start; }
+    .theme-btn { width: 100%; justify-content: center; }
+    .card-head, .content, .card-footer { padding: 16px; }
+    .asset-identity { flex-direction: column; }
+    .device-frame { width: 68px; height: 68px; border-radius: 14px; }
+    .device-frame svg { width: 34px; height: 34px; }
+    .head-side, .actions { width: 100%; }
+    .actions { justify-content: flex-start; }
+    .info-grid { grid-template-columns: 1fr; }
+    .card-footer { flex-direction: column; align-items: flex-start; gap: 6px; }
   }
 </style>
 </head>
 <body>
 <div class="page">
-<div class="topbar">
-  <div class="brand">
-    <div class="brand-mark" aria-hidden="true">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg>
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-mark" aria-hidden="true">{{ ui_icon('rack') }}</div>
+      <div>
+        <div class="brand-name">TI Control <span>SRE</span></div>
+        <div class="brand-sub">Consulta pública · Ativo de TI</div>
+      </div>
     </div>
-    <div>
-      <div class="brand-title">TI Control</div>
-      <div class="brand-sub">Consulta pública de ativo</div>
-    </div>
-  </div>
-  <button class="theme-btn" type="button" onclick="toggleTheme()" aria-label="Alternar tema">
-    <svg id="theme-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"></svg>
-    <span id="theme-label">Tema</span>
-  </button>
+    <button class="theme-btn" type="button" onclick="toggleTheme()" aria-label="Alternar tema">
+      <span id="theme-icon-wrap">{{ ui_icon('moon') }}</span>
+      <span id="theme-label">Escuro</span>
+    </button>
+  </header>
+
+  <main class="asset-card" aria-labelledby="asset-title">
+    <section class="card-head">
+      <div class="asset-identity">
+        <div class="device-frame" aria-hidden="true">{{ device_icon(public_card.icon) }}</div>
+        <div class="asset-meta">
+          <div class="kicker">
+            {{ ui_icon('rack') }}
+            Ativo Corporativo · Inventário TI
+          </div>
+          <h1 id="asset-title">{{ public_card.title }}</h1>
+          <div class="meta-row" aria-label="Identificação do ativo">
+            <span class="meta-chip">{{ ui_icon('barcode') }} <code>{{ public_card.code }}</code></span>
+            <span class="meta-chip">{{ ui_icon('tag') }} {{ public_card.type }}</span>
+          </div>
+        </div>
+      </div>
+
+      <aside class="head-side" aria-label="Status e ações">
+        <span class="status-badge status-{{ public_card.status_class }}" role="status">
+          <span class="status-dot{% if public_card.status_class == 'green' %} pulse{% endif %}"></span>
+          {{ public_card.status_label }}
+        </span>
+        <div class="actions" role="toolbar" aria-label="Ações">
+          <button class="action-btn" type="button" onclick="scrollToAsset()" title="Visualizar detalhes" aria-label="Visualizar">{{ ui_icon('eye') }}</button>
+          <button class="action-btn" type="button" onclick="showProtectedNotice('Edição disponível no painel autenticado.')" title="Editar" aria-label="Editar" disabled>{{ ui_icon('edit') }}</button>
+          <button class="action-btn" type="button" onclick="openQrDialog()" title="QR Code" aria-label="Ver QR Code">{{ ui_icon('qr') }}</button>
+          <button class="action-btn" type="button" onclick="showProtectedNotice('Histórico disponível no painel autenticado.')" title="Histórico" aria-label="Histórico" disabled>{{ ui_icon('history') }}</button>
+          <button class="action-btn" type="button" onclick="showProtectedNotice('Termo disponível no painel autenticado.')" title="Termo" aria-label="Gerar termo" disabled>{{ ui_icon('file') }}</button>
+        </div>
+      </aside>
+    </section>
+
+    <section class="content">
+      <div class="section-label">Dados do equipamento</div>
+      <div class="info-grid">
+        <article class="info-item">
+          <span class="info-icon" aria-hidden="true">{{ ui_icon('barcode') }}</span>
+          <div>
+            <span class="info-label">Patrimônio</span>
+            <div class="info-value mono">{{ public_card.code }}</div>
+          </div>
+        </article>
+        <article class="info-item">
+          <span class="info-icon" aria-hidden="true">{{ ui_icon('tag') }}</span>
+          <div>
+            <span class="info-label">Categoria</span>
+            <div class="info-value">{{ public_card.type }}</div>
+          </div>
+        </article>
+        <article class="info-item">
+          <span class="info-icon" aria-hidden="true">{{ ui_icon('factory') }}</span>
+          <div>
+            <span class="info-label">Marca / Modelo</span>
+            <div class="info-value">{{ public_card.brand_model }}</div>
+          </div>
+        </article>
+        <article class="info-item">
+          <span class="info-icon" aria-hidden="true">{{ ui_icon('serial') }}</span>
+          <div>
+            <span class="info-label">Nº de série / S/Tag</span>
+            <div class="info-value mono">{{ public_card.serial }}</div>
+          </div>
+        </article>
+        <article class="info-item">
+          <span class="info-icon" aria-hidden="true">{{ ui_icon('map') }}</span>
+          <div>
+            <span class="info-label">Localização</span>
+            <div class="info-value">{{ public_card.location }}</div>
+          </div>
+        </article>
+        <article class="info-item">
+          <span class="info-icon" aria-hidden="true">{{ ui_icon('user') }}</span>
+          <div>
+            <span class="info-label">Responsável</span>
+            <div class="info-value">{{ public_card.owner }}</div>
+          </div>
+        </article>
+      </div>
+
+      <section class="activity-band" aria-label="Última movimentação">
+        <span class="info-icon" aria-hidden="true">{{ ui_icon('activity') }}</span>
+        <div>
+          <span class="info-label">Última manutenção / movimentação</span>
+          <div class="activity-title">{{ public_card.last_event }}</div>
+          <p class="activity-detail">{{ public_card.last_event_detail }}</p>
+        </div>
+      </section>
+    </section>
+
+    <footer class="card-footer">
+      <span class="footer-brand">{{ ui_icon('rack') }} TI Control SRE</span>
+      <span class="footer-right">Rastreabilidade operacional · dados críticos protegidos</span>
+    </footer>
+  </main>
 </div>
 
-<div class="card">
-  <div class="header">
-    <div class="header-main">
-      <div class="icon-wrap" aria-hidden="true">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg>
-      </div>
-      <div style="flex:1;min-width:0">
-        <div class="hostname">{{ asset.id }}</div>
-        <div class="subtitle">{{ asset.categoria or 'Ativo de TI' }}</div>
-      </div>
-    </div>
-    <span class="badge badge-{{ {'Alocado':'blue','Disponível':'green','Ativo':'green','Manutenção':'amber','Inativo':'red'}.get(asset.status,'gray') }}">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
-      {{ asset.status }}
-    </span>
-  </div>
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
 
-  <div class="content">
-  <div class="grid">
-    <div class="field">
-      <div class="field-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M20 21a8 8 0 0 0-16 0"/><circle cx="12" cy="7" r="4"/></svg>Responsável</div>
-      <div class="field-value">{{ 'Alocado' if asset.colaborador else 'Não alocado' }}</div>
-    </div>
-    <div class="field">
-      <div class="field-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M3 21h18"/><path d="M5 21V7l8-4v18"/><path d="M19 21V11l-6-4"/></svg>Setor</div>
-      <div class="field-value">{{ 'Registrado' if asset.setor else '—' }}</div>
-    </div>
-    <div class="field">
-      <div class="field-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>Unidade</div>
-      <div class="field-value">{{ 'Registrada' if asset.unidade else '—' }}</div>
-    </div>
-    <div class="field">
-      <div class="field-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 8h10M7 12h4"/></svg>Sistema</div>
-      <div class="field-value">{{ 'Registrado' if asset.os else '—' }}</div>
-    </div>
-    <div class="field">
-      <div class="field-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M4 7V5a1 1 0 0 1 1-1h2M4 17v2a1 1 0 0 0 1 1h2M17 4h2a1 1 0 0 1 1 1v2M17 20h2a1 1 0 0 0 1-1v-2"/><path d="M7 12h10"/></svg>Identificação</div>
-      <div class="field-value mono">{{ asset.id }}</div>
-    </div>
-    <div class="field">
-      <div class="field-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M20 7H4"/><path d="M20 17H4"/><path d="M7 4v16"/><path d="M17 4v16"/></svg>Patrimônio</div>
-      <div class="field-value mono">{{ 'Registrado' if asset.patrimonio else '—' }}</div>
-    </div>
-    <div class="field">
-      <div class="field-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M6 9V7a6 6 0 0 1 12 0v2"/><rect x="4" y="9" width="16" height="11" rx="2"/></svg>Rede</div>
-      <div class="field-value mono">{{ 'Registrada' if asset.ip else '—' }}</div>
-    </div>
-    <div class="field">
-      <div class="field-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M20 13c0 5-3.5 7.5-8 9-4.5-1.5-8-4-8-9V5l8-3 8 3v8Z"/></svg>Garantia</div>
-      <div class="field-value {% if asset.garantia %}warn{% endif %}">
-        {% if asset.garantia and '-' in asset.garantia %}
-          {{ asset.garantia.split('-')[2] }}/{{ asset.garantia.split('-')[1] }}/{{ asset.garantia.split('-')[0] }}
-        {% elif asset.garantia %}
-          {{ asset.garantia }}
-        {% else %}
-          —
-        {% endif %}
+<div id="qrDialog" class="qr-dialog" role="dialog" aria-modal="true" aria-labelledby="qrDialogTitle">
+  <div class="qr-panel">
+    <div class="qr-panel-head">
+      <div>
+        <div class="qr-asset-id">{{ public_card.code }}</div>
+        <div id="qrDialogTitle" class="qr-panel-title">{{ public_card.title }}</div>
       </div>
+      <button class="action-btn" type="button" onclick="closeQrDialog()" title="Fechar" aria-label="Fechar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" style="width:15px;height:15px" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="qr-code-box">
+      {% if public_card.qr_data_uri %}
+        <img src="{{ public_card.qr_data_uri }}" alt="QR Code · {{ public_card.code }}">
+      {% else %}
+        <div class="activity-detail" style="padding:20px;text-align:center">Gerador de QR Code indisponível.</div>
+      {% endif %}
+    </div>
+    <div class="qr-meta">
+      <div class="qr-meta-item">Tipo <strong>{{ public_card.type }}</strong></div>
+      <div class="qr-meta-item">Status <strong>{{ public_card.status_label }}</strong></div>
+      <div class="qr-meta-item">Marca/Modelo <strong>{{ public_card.brand_model }}</strong></div>
+      <div class="qr-meta-item">Localização <strong>{{ public_card.location }}</strong></div>
+    </div>
+    <div class="qr-panel-actions">
+      {% if public_card.qr_data_uri %}
+        <a href="{{ public_card.qr_data_uri }}" download="qrcode-{{ asset.id }}.png">{{ ui_icon('qr') }} Baixar</a>
+      {% else %}
+        <button type="button" onclick="showProtectedNotice('QR Code indisponível.')">{{ ui_icon('qr') }} Baixar</button>
+      {% endif %}
+      <button type="button" onclick="copyPublicLink()">{{ ui_icon('barcode') }} Copiar link</button>
     </div>
   </div>
-
-  <div class="footer">
-    <div class="logo"><span>TI Control</span> — Consulta pública com dados internos protegidos</div>
-  </div>
-  </div>
-</div>
 </div>
 
 <script>
-const icons = {
-  sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>',
-  moon: '<path d="M12 3a6 6 0 0 0 9 7.5A9 9 0 1 1 12 3Z"/>'
-};
+function setTheme(t) {
+  document.documentElement.dataset.theme = t;
+  localStorage.setItem('ticontrol-theme', t);
+  document.getElementById('theme-icon-wrap').innerHTML = t === 'dark'
+    ? '<svg id="theme-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="width:15px;height:15px" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>'
+    : '<svg id="theme-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="width:15px;height:15px" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 7.5A9 9 0 1 1 12 3Z"/></svg>';
+  document.getElementById('theme-label').textContent = t === 'dark' ? 'Claro' : 'Escuro';
+}
+function toggleTheme() { setTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'); }
 
-function applyTheme(theme) {
-  document.documentElement.dataset.theme = theme;
-  localStorage.setItem('ticontrol-theme', theme);
-  document.getElementById('theme-icon').innerHTML = theme === 'dark' ? icons.sun : icons.moon;
-  document.getElementById('theme-label').textContent = theme === 'dark' ? 'Claro' : 'Escuro';
+function showToast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg; el.classList.add('show');
+  clearTimeout(window.__toastTimer);
+  window.__toastTimer = setTimeout(() => el.classList.remove('show'), 2800);
+}
+function showProtectedNotice(msg) { showToast(msg); }
+function openQrDialog()  { document.getElementById('qrDialog').classList.add('open'); }
+function closeQrDialog() { document.getElementById('qrDialog').classList.remove('open'); }
+function scrollToAsset() { document.getElementById('asset-title').scrollIntoView({ behavior: 'smooth', block: 'center' }); }
+
+async function copyPublicLink() {
+  try {
+    await navigator.clipboard.writeText(window.location.href);
+    showToast('Link copiado para a área de transferência.');
+  } catch {
+    showToast('Link: ' + window.location.href);
+  }
 }
 
-function toggleTheme() {
-  applyTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark');
-}
-
-applyTheme(localStorage.getItem('ticontrol-theme') || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'));
-
+document.getElementById('qrDialog').addEventListener('click', e => { if (e.target.id === 'qrDialog') closeQrDialog(); });
+setTheme(localStorage.getItem('ticontrol-theme') || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'));
 </script>
 </body>
 </html>

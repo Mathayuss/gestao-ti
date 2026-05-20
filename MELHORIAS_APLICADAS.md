@@ -269,6 +269,77 @@
   - liberação temporária de edição de licenças para perfil Gestor via `perfil_permissoes`;
   - restauração das permissões originais e remoção dos dados temporários criados no teste.
 
+## Instalador com PostgreSQL e Setup Web — 2026-05-19
+
+### Instalação Linux e Windows
+
+- Criado `scripts/install-linux.sh` para instalação guiada em Linux.
+- Criado `scripts/install-windows.ps1` para instalação guiada em Windows/PowerShell.
+- Scripts validam Docker, Docker Compose e portas locais antes de iniciar.
+- Adicionado modo seguro de verificação: `install-linux.sh --check` e `install-windows.ps1 -Check`.
+- Adicionada validação de portas, nomes de banco/usuário PostgreSQL e URL pública antes de gerar `.env`.
+- Scripts geram automaticamente `.env`, `SECRET_KEY`, senha do PostgreSQL e `SETUP_TOKEN`.
+- Scripts sobem `app` e `postgres` via Docker Compose e exibem o link de `/setup`.
+
+### PostgreSQL no Docker Compose
+
+- `docker-compose.yml` passou a usar PostgreSQL como banco padrão da instalação.
+- `DATABASE_URL`, portas, banco, usuário e senha passaram a ser parametrizados pelo `.env`.
+- Prometheus e Grafana foram movidos para o profile `observability`, evitando subir ferramentas extras na instalação padrão.
+- Adicionado suporte aos drivers `psycopg` e `psycopg2-binary` em `requirements.txt`.
+
+### Assistente Web `/setup`
+
+- Criada rota `routes/setup.py`.
+- Criado template `templates/setup.html` com fluxo em etapas:
+  - banco de dados;
+  - empresa;
+  - administrador;
+  - serviços;
+  - finalização.
+- `/setup` exige `SETUP_TOKEN` e fica bloqueado após existir administrador.
+- O assistente cria o administrador inicial, configura dados da empresa, backup e SMTP opcional.
+- SMTP opcional agora valida servidor, e-mail remetente e faixa de porta.
+- URL pública salva no setup passou a ser usada pelos links gerados pelo sistema mesmo após restart.
+- Adicionado `AUTO_SEED_DEMO=0` para instalações novas não criarem dados demonstrativos automaticamente.
+- Adicionado lock advisory no startup PostgreSQL para evitar corrida de `db.create_all()` quando o Gunicorn inicia múltiplos workers.
+
+### Documentação
+
+- Criado `INSTALL.md` com instruções de instalação para Linux, Windows, setup web e observabilidade.
+- Atualizado `.env.example` com variáveis de PostgreSQL, setup e instalação Docker.
+
+### Validações realizadas
+
+- Instalação real do Docker Engine e Docker Compose plugin em Debian 13.
+- `docker run --rm hello-world`.
+- `docker compose config --quiet`.
+- Build da imagem da aplicação via `docker compose build app`.
+- Teste real do instalador Linux em cópia temporária do projeto com:
+  - porta web alternativa `5055`;
+  - porta PostgreSQL alternativa `55433`;
+  - geração automática de `.env`;
+  - subida de `app` e `postgres`;
+  - healthcheck `GET /health/ready`;
+  - finalização do `/setup`;
+  - criação e login do administrador inicial;
+  - bloqueio do `/setup` após conclusão;
+  - restart do container app;
+  - validação de persistência das configurações no PostgreSQL.
+
+## Ajuste de Upload de Background — 2026-05-20
+
+- A imagem de fundo da tela de login em `Configurações > Aparência` passou de 1 MB para 8 MB.
+- O frontend agora informa o limite correto e valida usando `AP_BG_MAX_BYTES`.
+- O backend valida `bg_login` como PNG, JPG ou WEBP com limite real de 8 MB.
+- O limite global de request Flask foi ajustado para 16 MB para comportar o aumento de tamanho causado pelo envio em base64.
+
+## Correção do Botão Sair — 2026-05-20
+
+- O botão `Sair` da barra lateral deixou de usar a variável `--sb-hover`.
+- Criadas variáveis próprias `--sb-logout-bg` e `--sb-logout-hover`.
+- A personalização de `Cor de Hover dos Itens do Menu` agora afeta apenas os itens de navegação, sem alterar visualmente o botão de logout.
+
 ## Ciclo de Vida de Ativos, Categorias e Manual do Sistema - 2026-05-19
 
 ### Entrada, patrimonio e categorias

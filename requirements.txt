@@ -10,5 +10,5 @@ reportlab>=4.0
 Pillow>=10.0
 prometheus-client>=0.20
 gunicorn>=22.0
-# PostgreSQL — descomente quando migrar do SQLite
-# psycopg2-binary>=2.9
+psycopg[binary]>=3.2
+psycopg2-binary>=2.9
