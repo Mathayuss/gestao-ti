@@ -14,7 +14,14 @@ function Fail($Message) {
 
 function New-RandomHex([int]$Bytes) {
   $buffer = New-Object byte[] $Bytes
-  [System.Security.Cryptography.RandomNumberGenerator]::Fill($buffer)
+  $rng = [System.Security.Cryptography.RandomNumberGenerator]::Create()
+  try {
+    $rng.GetBytes($buffer)
+  } finally {
+    if ($null -ne $rng) {
+      $rng.Dispose()
+    }
+  }
   return -join ($buffer | ForEach-Object { $_.ToString("x2") })
 }
 
