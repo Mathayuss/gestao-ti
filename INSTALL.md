@@ -110,6 +110,38 @@ ou:
 
 Isso não remove volumes Docker automaticamente. Para apagar dados persistentes, faça isso manualmente e com backup prévio.
 
+## Atualização
+
+Instalações novas já ficam preparadas para atualização pela tela `Configurações > Atualizações`. A ação é manual: o administrador escolhe aplicar, o sistema gera backup lógico, baixa a versão mais recente do repositório público e reinicia a aplicação automaticamente.
+
+Para instalações antigas, ou para reconstruir o container com esse suporte, use os scripts de atualização. Eles preservam o `.env`, geram backup lógico pela aplicação quando o container está em execução, atualizam o código, recriam apenas a aplicação e validam `/health/ready`.
+
+No Windows PowerShell:
+
+```powershell
+.\scripts\update-windows.ps1
+```
+
+No Linux:
+
+```bash
+./scripts/update-linux.sh
+```
+
+Valide o ambiente sem alterar nada com:
+
+```powershell
+.\scripts\update-windows.ps1 -Check
+```
+
+ou:
+
+```bash
+./scripts/update-linux.sh --check
+```
+
+Use `-NoPull` ou `--no-pull` quando a nova versão já tiver sido copiada manualmente para a pasta do projeto. Se houver alterações locais, o atualizador interrompe por segurança; resolva essas alterações antes ou use `-AllowDirty` / `--allow-dirty` conscientemente.
+
 ## Solução de problemas
 
 ### `password authentication failed for user "ticontrol"`

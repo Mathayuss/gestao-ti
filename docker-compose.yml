@@ -11,12 +11,15 @@ services:
       FLASK_DEBUG: "${FLASK_DEBUG:-0}"
       ENVIRONMENT: "${ENVIRONMENT:-local}"
       SERVICE_NAME: "${SERVICE_NAME:-ti-control-sre}"
-      BUILD_VERSION: "${BUILD_VERSION:-local}"
+      BUILD_VERSION: "${BUILD_VERSION:-0.1.1-BETA}"
       APP_BASE_URL: "${APP_BASE_URL:-http://localhost:5000}"
       DATABASE_URL: "postgresql+psycopg://${POSTGRES_USER:-ticontrol}:${POSTGRES_PASSWORD:-ticontrol_dev_senha}@postgres:5432/${POSTGRES_DB:-ticontrol_db}"
       SHOW_DEMO_CREDENTIALS: "${SHOW_DEMO_CREDENTIALS:-0}"
       AUTO_SEED_DEMO: "${AUTO_SEED_DEMO:-0}"
+      SELF_UPDATE_ENABLED: "${SELF_UPDATE_ENABLED:-1}"
+      SELF_UPDATE_AUTO_RESTART: "${SELF_UPDATE_AUTO_RESTART:-1}"
       SETUP_TOKEN: "${SETUP_TOKEN:-}"
+      TZ: "${TZ:-America/Sao_Paulo}"
     volumes:
       - ticontrol_instance:/app/instance
     healthcheck:

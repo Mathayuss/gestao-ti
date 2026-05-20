@@ -66,7 +66,8 @@ def get_dashboard():
         "licencas": {
             "total":      db.session.query(func.sum(License.total)).scalar() or 0,
             "atribuidas": db.session.query(func.sum(License.atribuidas)).scalar() or 0,
-            "custoAnual": db.session.query(func.sum(License.custo)).scalar() or 0,
+            "custoMensal": round(sum(l.custo_mensal for l in db.session.execute(db.select(License)).scalars().all()), 2),
+            "custoAnual": round(sum(l.custo_anual for l in db.session.execute(db.select(License)).scalars().all()), 2),
         },
     })
 
@@ -203,4 +204,87 @@ def delete_backup_file(filename):
     audit("BACKUP_DELETE", "sistema", filename, "Backup salvo removido")
     db.session.commit()
     return jsonify({"ok": True})
+
+
+@app.route("/api/backups/validate", methods=["POST"])
+@requires("Administrador")
+def validate_backup():
+    sha256_actual = None
+    if request.files.get("file"):
+        data = request.files["file"].read()
+        if len(data) > BACKUP_UPLOAD_MAX_BYTES:
+            return jsonify({"error": "Arquivo excede 20 MB."}), 400
+    else:
+        d = json_payload() or {}
+        filename = clean_text(d.get("filename"), 200)
+        if not filename:
+            return jsonify({"error": "Parâmetro 'filename' ou upload obrigatório."}), 400
+        path = _backup_file_path(filename)
+        if not path or not os.path.exists(path):
+            return jsonify({"error": "Backup não encontrado."}), 404
+        with open(path, "rb") as fh:
+            data = fh.read()
+    sha256_actual = hashlib.sha256(data).hexdigest()
+    try:
+        payload = json.loads(data.decode("utf-8"))
+    except Exception:
+        return jsonify({"error": "Arquivo não é um JSON válido.", "valid": False}), 400
+    result = _validate_backup_payload(payload)
+    result["sha256"] = sha256_actual
+    return jsonify(result)
+
+
+@app.route("/api/backups/restore/<filename>", methods=["POST"])
+@requires("Administrador")
+def restore_backup_stored(filename):
+    path = _backup_file_path(filename)
+    if not path or not os.path.exists(path):
+        return jsonify({"error": "Backup não encontrado."}), 404
+    with open(path, "rb") as fh:
+        data = fh.read()
+    try:
+        payload = json.loads(data.decode("utf-8"))
+    except Exception:
+        return jsonify({"error": "Arquivo corrompido — JSON inválido."}), 400
+    validation = _validate_backup_payload(payload)
+    if not validation["valid"]:
+        return jsonify({"error": "Backup inválido.", "details": validation["errors"]}), 422
+    try:
+        stats = _restore_from_payload(payload, restored_by=current_user.username)
+        audit("RESTORE", "sistema", filename, f"Banco restaurado de {filename}")
+        db.session.commit()
+        return jsonify({"ok": True, "stats": stats, "source": filename})
+    except Exception as exc:
+        db.session.rollback()
+        logger.exception("Falha na restauração de backup")
+        return jsonify({"error": f"Falha na restauração: {exc}"}), 500
+
+
+@app.route("/api/backups/restore", methods=["POST"])
+@requires("Administrador")
+def restore_backup_upload():
+    file = request.files.get("file")
+    if not file:
+        return jsonify({"error": "Arquivo obrigatório."}), 400
+    data = file.read()
+    if not data:
+        return jsonify({"error": "Arquivo vazio."}), 400
+    if len(data) > BACKUP_UPLOAD_MAX_BYTES:
+        return jsonify({"error": "Arquivo excede 20 MB."}), 400
+    try:
+        payload = json.loads(data.decode("utf-8"))
+    except Exception:
+        return jsonify({"error": "Arquivo não é um JSON válido."}), 400
+    validation = _validate_backup_payload(payload)
+    if not validation["valid"]:
+        return jsonify({"error": "Backup inválido.", "details": validation["errors"]}), 422
+    try:
+        stats = _restore_from_payload(payload, restored_by=current_user.username)
+        audit("RESTORE", "sistema", file.filename or "upload", f"Banco restaurado via upload")
+        db.session.commit()
+        return jsonify({"ok": True, "stats": stats, "source": file.filename or "upload"})
+    except Exception as exc:
+        db.session.rollback()
+        logger.exception("Falha na restauração de backup via upload")
+        return jsonify({"error": f"Falha na restauração: {exc}"}), 500
 

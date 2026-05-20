@@ -89,7 +89,7 @@ app.config.update(
     JSON_SORT_KEYS               = False,
     APP_BASE_URL                 = os.environ.get("APP_BASE_URL", "http://localhost").rstrip("/"),
     SERVICE_NAME                 = os.environ.get("SERVICE_NAME", "ti-control-sre"),
-    BUILD_VERSION                = os.environ.get("BUILD_VERSION", "dev"),
+    BUILD_VERSION                = os.environ.get("BUILD_VERSION", "0.1.1-BETA"),
     ENVIRONMENT                  = os.environ.get("ENVIRONMENT", "development"),
     # Credenciais de demo: NUNCA mostrar a não ser que explicitamente ativado
     SHOW_DEMO_CREDENTIALS        = os.environ.get("SHOW_DEMO_CREDENTIALS", "0") == "1",
@@ -432,12 +432,40 @@ class License(db.Model):
     tipo        = db.Column(db.String(40))
     attachments = db.Column(db.JSON, default=list)
 
+    @property
+    def tipo_normalizado(self):
+        tipo = (self.tipo or "").strip()
+        if tipo in ("Assinatura", "Mensal", "Assinatura mensal"):
+            return "Assinatura mensal"
+        return tipo
+
+    @property
+    def custo_total(self):
+        custo = self.custo or 0
+        return round(custo * (self.total or 0), 2)
+
+    @property
+    def custo_mensal(self):
+        if self.tipo_normalizado == "Assinatura mensal":
+            return self.custo_total
+        return 0
+
+    @property
+    def custo_anual(self):
+        if self.tipo_normalizado == "Assinatura mensal":
+            return round(self.custo_mensal * 12, 2)
+        if self.tipo_normalizado == "Anual":
+            return self.custo_total
+        return 0
+
     def to_dict(self):
         saldo = (self.total or 0) - (self.atribuidas or 0)
         situacao = "Excedido" if saldo < 0 else ("Sem saldo" if saldo == 0 else "Regular")
         return {"id":self.id,"software":self.software,"fornecedor":self.fornecedor,
                 "total":self.total,"atribuidas":self.atribuidas,"vencimento":self.vencimento,
-                "custo":self.custo,"tipo":self.tipo,"attachments":self.attachments or [],
+                "custo":self.custo,"custoUnitario":self.custo,"custoTotal":self.custo_total,
+                "custoMensal":self.custo_mensal,"custoAnual":self.custo_anual,
+                "tipo":self.tipo_normalizado,"attachments":self.attachments or [],
                 "saldo":saldo,"situacao":situacao}
 
 
@@ -1004,6 +1032,7 @@ PERMISSION_MODULE_PREFIXES = (
     ("/api/movements", "dashboard"),
     ("/api/system-users", "system_users"),
     ("/api/settings", "configuracoes"),
+    ("/api/system/update", "configuracoes"),
     ("/api/backups", "configuracoes"),
     ("/api/backup.json", "configuracoes"),
     ("/api/export", "configuracoes"),
@@ -1723,7 +1752,8 @@ SETTING_NORMALIZERS = {
 
 
 BACKUP_DIR = os.path.join(app.instance_path, "backups")
-BACKUP_FILE_RE = re.compile(r"^backup_ticontrol_\d{8}_\d{6}_(manual|auto)\.json$")
+BACKUP_FILE_RE = re.compile(r"^backup_ticontrol_\d{8}_\d{6}_(manual|auto|pre_restore)\.json$")
+BACKUP_UPLOAD_MAX_BYTES = 20 * 1024 * 1024
 _backup_last_check = 0
 ATTACHMENT_DIR = os.path.join(app.instance_path, "attachments")
 ATTACHMENT_MAX_BYTES = 8 * 1024 * 1024
@@ -2027,6 +2057,251 @@ def _maybe_run_scheduled_backup():
         logger.exception("Falha na rotina automática de backup")
 
 
+_BACKUP_REQUIRED_LISTS = (
+    "assets", "colaboradores", "supplies", "supplyMovements",
+    "allocations", "licenses", "incidents", "maintenance",
+    "devolucoes", "attachments",
+)
+
+
+def _parse_backup_dt(val):
+    if not val:
+        return None
+    try:
+        return datetime.fromisoformat(str(val))
+    except Exception:
+        return None
+
+
+def _validate_backup_payload(payload):
+    errors, warnings, summary = [], [], {}
+    if not isinstance(payload, dict):
+        return {"valid": False, "errors": ["Arquivo não é um objeto JSON válido."],
+                "warnings": [], "summary": {}, "geradoEm": None, "geradoPor": None, "versao": None}
+    for key in _BACKUP_REQUIRED_LISTS:
+        val = payload.get(key)
+        if val is None:
+            errors.append(f"Chave obrigatória ausente: '{key}'.")
+        elif not isinstance(val, list):
+            errors.append(f"'{key}' deve ser uma lista.")
+        else:
+            summary[key] = len(val)
+    settings_val = payload.get("settings")
+    if settings_val is None:
+        errors.append("Chave obrigatória ausente: 'settings'.")
+    elif not isinstance(settings_val, dict):
+        errors.append("'settings' deve ser um objeto.")
+    else:
+        summary["settings"] = len(settings_val)
+    if "geradoEm" not in payload:
+        warnings.append("Metadado 'geradoEm' ausente — data do backup desconhecida.")
+    if "versao" not in payload:
+        warnings.append("Metadado 'versao' ausente — versão desconhecida.")
+    if errors:
+        return {"valid": False, "errors": errors, "warnings": warnings, "summary": summary,
+                "geradoEm": payload.get("geradoEm"), "geradoPor": payload.get("geradoPor"),
+                "versao": payload.get("versao")}
+    # Deep checks
+    asset_ids = set()
+    for a in payload.get("assets", []):
+        if not isinstance(a, dict) or not a.get("id"):
+            errors.append("Um ou mais ativos sem campo 'id'.")
+            break
+        asset_ids.add(a["id"])
+    for c in payload.get("colaboradores", []):
+        if not isinstance(c, dict) or not c.get("id"):
+            errors.append("Um ou mais colaboradores sem campo 'id'.")
+            break
+    orphan_allocs = sum(1 for al in payload.get("allocations", [])
+                        if isinstance(al, dict) and al.get("ativo") and al["ativo"] not in asset_ids)
+    if orphan_allocs:
+        warnings.append(f"{orphan_allocs} alocação(ões) referencia(m) ativos não encontrados no backup.")
+    orphan_maint = sum(1 for m in payload.get("maintenance", [])
+                       if isinstance(m, dict) and m.get("assetId") and m["assetId"] not in asset_ids)
+    if orphan_maint:
+        warnings.append(f"{orphan_maint} ordem(ns) de manutenção referencia(m) ativos não encontrados no backup.")
+    if payload.get("attachments"):
+        warnings.append("Metadados de anexos serão restaurados, mas os arquivos físicos NÃO são restaurados via JSON (ficam em instance/attachments).")
+    return {
+        "valid": len(errors) == 0,
+        "errors": errors,
+        "warnings": warnings,
+        "summary": summary,
+        "geradoEm": payload.get("geradoEm"),
+        "geradoPor": payload.get("geradoPor"),
+        "versao": payload.get("versao"),
+    }
+
+
+def _restore_from_payload(payload, restored_by="sistema"):
+    try:
+        _write_backup_file("pre_restore", generated_by=f"pre_restore:{restored_by}")
+    except Exception as exc:
+        logger.warning("Backup pré-restauração falhou: %s", exc)
+
+    # Deleção em ordem segura de FK
+    for model in (AuditCampaignItem, AuditCampaign, LaudoTecnico, MaintenancePart,
+                  AllocationItem, Devolucao, Allocation, Incident, MaintenanceOrder,
+                  Attachment, SupplyMovement, Supply, License, Asset, Colaborador):
+        db.session.execute(db.delete(model))
+
+    stats = {}
+
+    colabs = [c for c in payload.get("colaboradores", []) if isinstance(c, dict) and c.get("id")]
+    for c in colabs:
+        db.session.add(Colaborador(
+            id=c["id"], nome=c.get("nome", ""), email=c.get("email"),
+            telefone=c.get("telefone"), cargo=c.get("cargo"), setor=c.get("setor"),
+            unidade=c.get("unidade"), status=c.get("status", "Ativo"),
+            matricula=c.get("matricula"), data_admissao=c.get("dataAdmissao"),
+            data_cadastro=c.get("dataCadastro"), data_desligamento=c.get("dataDesligamento"),
+            observacao=c.get("observacao", ""),
+        ))
+    stats["colaboradores"] = len(colabs)
+
+    assets = [a for a in payload.get("assets", []) if isinstance(a, dict) and a.get("id")]
+    for a in assets:
+        db.session.add(Asset(
+            id=a["id"], hostname=a.get("hostname"), ip=a.get("ip", "DHCP"),
+            mac=a.get("mac"), service_tag=a.get("serviceTag"),
+            os=a.get("os"), fabricante=a.get("fabricante"), modelo=a.get("modelo"),
+            patrimonio=a.get("patrimonio"), nf=a.get("nf"),
+            categoria=a.get("categoria"), status=a.get("status", "Disponível"),
+            colaborador=a.get("colaborador", ""), setor=a.get("setor", ""),
+            unidade=a.get("unidade", ""), garantia=a.get("garantia"),
+        ))
+    stats["assets"] = len(assets)
+
+    supplies = [s for s in payload.get("supplies", []) if isinstance(s, dict) and s.get("id")]
+    for s in supplies:
+        db.session.add(Supply(
+            id=s["id"], nome=s.get("nome", ""), categoria=s.get("categoria"),
+            unidade=s.get("unidade"), estoque=s.get("estoque", 0),
+            minimo=s.get("minimo", 0), preco=s.get("preco", 0.0),
+        ))
+    stats["supplies"] = len(supplies)
+
+    movements = [m for m in payload.get("supplyMovements", []) if isinstance(m, dict) and m.get("id")]
+    for m in movements:
+        db.session.add(SupplyMovement(
+            id=m["id"], tipo=m.get("tipo"), ref_id=m.get("refId"),
+            supply_nome=m.get("supplyNome"), descricao=m.get("descricao"),
+            quantidade=m.get("quantidade"), colaborador=m.get("colaborador", ""),
+            ativo_id=m.get("ativoId", ""), motivo=m.get("motivo", ""),
+            data=_parse_backup_dt(m.get("data")),
+        ))
+    stats["supplyMovements"] = len(movements)
+
+    licenses = [l for l in payload.get("licenses", []) if isinstance(l, dict) and l.get("id")]
+    for l in licenses:
+        db.session.add(License(
+            id=l["id"], software=l.get("software"), fornecedor=l.get("fornecedor"),
+            total=l.get("total", 0), atribuidas=l.get("atribuidas", 0),
+            vencimento=l.get("vencimento"), custo=l.get("custo", 0.0),
+            tipo=l.get("tipo"), attachments=l.get("attachments", []),
+        ))
+    stats["licenses"] = len(licenses)
+
+    incidents = [i for i in payload.get("incidents", []) if isinstance(i, dict) and i.get("id")]
+    for i in incidents:
+        db.session.add(Incident(
+            id=i["id"], ref_id=i.get("refId"), tipo=i.get("tipo"),
+            descricao=i.get("descricao"), status=i.get("status", "Aberto"),
+            data=_parse_backup_dt(i.get("data")),
+        ))
+    stats["incidents"] = len(incidents)
+
+    maintenances = [m for m in payload.get("maintenance", []) if isinstance(m, dict) and m.get("id")]
+    for mo in maintenances:
+        db.session.add(MaintenanceOrder(
+            id=mo["id"], asset_id=mo.get("assetId"), asset_nome=mo.get("assetNome"),
+            tipo=mo.get("tipo", "Corretiva"), status=mo.get("status", "Aberta"),
+            status_anterior=mo.get("statusAnterior", "Disponível"),
+            descricao_defeito=mo.get("descricaoDefeito"), diagnostico=mo.get("diagnostico"),
+            tecnico=mo.get("tecnico"), data_abertura=mo.get("dataAbertura"),
+            data_conclusao=mo.get("dataConclusao"), custo_total=mo.get("custoTotal", 0.0),
+            observacao=mo.get("observacao"), attachments=mo.get("attachments", []),
+        ))
+        for p in (mo.get("pecas") or []):
+            if not isinstance(p, dict) or not p.get("id"):
+                continue
+            db.session.add(MaintenancePart(
+                id=p["id"], maintenance_id=mo["id"],
+                supply_id=p.get("supplyId"), supply_nome=p.get("nome"),
+                quantidade=p.get("quantidade", 1), custo_unitario=p.get("custoUnitario", 0.0),
+            ))
+    stats["maintenance"] = len(maintenances)
+
+    allocations = [a for a in payload.get("allocations", []) if isinstance(a, dict) and a.get("id")]
+    for al in allocations:
+        db.session.add(Allocation(
+            id=al["id"], ativo_id=al.get("ativo"), ativo_nome=al.get("ativoNome"),
+            colaborador=al.get("colaborador"), setor=al.get("setor"),
+            unidade=al.get("unidade"), email=al.get("email"),
+            data_aloc=al.get("dataAloc"), data_encerramento=al.get("dataEncerramento"),
+            motivo=al.get("motivo", "Uso contínuo"), status=al.get("status", "Ativo"),
+            termo=al.get("termo"), termo_status=al.get("termoStatus", "Pendente"),
+            data_assinatura=_parse_backup_dt(al.get("dataAssinatura")),
+            assinatura_ip=al.get("assinaturaIp"),
+        ))
+        for item in (al.get("perifericos") or []):
+            if not isinstance(item, dict) or not item.get("id"):
+                continue
+            db.session.add(AllocationItem(
+                id=item["id"], allocation_id=al["id"],
+                supply_id=item.get("supplyId"), supply_nome=item.get("nome"),
+                quantidade=item.get("quantidade", 1),
+            ))
+    stats["allocations"] = len(allocations)
+
+    devolucoes = [d for d in payload.get("devolucoes", []) if isinstance(d, dict) and d.get("id")]
+    for d in devolucoes:
+        ativos = d.get("ativosDevolvidos", [])
+        peris = d.get("perifericosDevolvidos", [])
+        db.session.add(Devolucao(
+            id=d["id"], colaborador_id=d.get("colaboradorId"),
+            colaborador=d.get("colaborador", ""), setor=d.get("setor", ""),
+            unidade=d.get("unidade", ""), data_devolucao=d.get("dataDevolucao"),
+            data_assinatura=_parse_backup_dt(d.get("dataAssinatura")),
+            assinatura_ip=d.get("assinaturaIp"),
+            status=d.get("status", "Pendente"),
+            ativos_devolvidos=json.dumps(ativos if isinstance(ativos, list) else []),
+            perifericos_devolvidos=json.dumps(peris if isinstance(peris, list) else []),
+            laudo_status=d.get("laudoStatus", "Aguardando Laudo"),
+            rh_email=d.get("rhEmail"),
+            rh_data_ciencia=_parse_backup_dt(d.get("rhDataCiencia")),
+            cobranca_valor=d.get("cobrancaValor", 0.0),
+            cobranca_obs=d.get("cobrancaObs", ""),
+        ))
+    stats["devolucoes"] = len(devolucoes)
+
+    att_list = [a for a in payload.get("attachments", []) if isinstance(a, dict) and a.get("id")]
+    for a in att_list:
+        db.session.add(Attachment(
+            id=a["id"], entity_type=a.get("entityType", ""), entity_id=a.get("entityId", ""),
+            original_name=a.get("originalName", "arquivo"), stored_name=a.get("id", a.get("originalName", "arquivo")),
+            content_type=a.get("contentType", "application/octet-stream"),
+            size=a.get("size", 0), category=a.get("category", "Documento"),
+            description=a.get("description", ""), uploaded_by=a.get("uploadedBy", ""),
+            uploaded_at=_parse_backup_dt(a.get("uploadedAt")),
+        ))
+    stats["attachments"] = len(att_list)
+
+    settings_payload = payload.get("settings", {})
+    count = 0
+    if isinstance(settings_payload, dict):
+        for key, value in settings_payload.items():
+            if value == "__REDACTED__":
+                continue
+            if isinstance(value, str) and "__REDACTED__" in value:
+                continue
+            _set_setting(key, value)
+            count += 1
+    stats["settings"] = count
+
+    return stats
+
+
 def _attachment_entity_exists(entity_type, entity_id):
     model_map = {
         "asset": Asset,
@@ -2221,11 +2496,11 @@ def seed():
 
     # Licenses
     licenses_data = [
-        ("Microsoft 365 Business","Microsoft",50,47,"2025-07-31",29900,"Assinatura"),
-        ("Adobe Creative Cloud","Adobe",5,5,"2025-06-15",4500,"Assinatura"),
-        ("Antivírus Kaspersky","Kaspersky",60,53,"2025-09-30",3600,"Anual"),
-        ("VPN Cisco AnyConnect","Cisco",30,22,"2026-01-15",8000,"Perpétua"),
-        ("AutoCAD 2024","Autodesk",3,3,"2025-05-20",12000,"Assinatura"),
+        ("Microsoft 365 Business","Microsoft",50,47,"2025-07-31",598,"Assinatura mensal"),
+        ("Adobe Creative Cloud","Adobe",5,5,"2025-06-15",900,"Assinatura mensal"),
+        ("Antivírus Kaspersky","Kaspersky",60,53,"2025-09-30",60,"Anual"),
+        ("VPN Cisco AnyConnect","Cisco",30,22,"2026-01-15",266.67,"Perpétua"),
+        ("AutoCAD 2024","Autodesk",3,3,"2025-05-20",4000,"Assinatura mensal"),
     ]
     for sw,forn,tot,atr,venc,custo,tipo in licenses_data:
         db.session.add(License(id=new_id("L"),software=sw,fornecedor=forn,total=tot,

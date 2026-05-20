@@ -8,6 +8,142 @@ from app import _export_route_globals
 
 globals().update(_export_route_globals())
 
+import shutil
+import subprocess
+import threading
+
+
+APP_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+
+
+def _run_update_command(args, timeout=30):
+    try:
+        result = subprocess.run(
+            args,
+            cwd=APP_ROOT,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            check=False,
+        )
+    except subprocess.TimeoutExpired:
+        return None, "Tempo limite excedido ao executar comando de atualização."
+    except OSError as exc:
+        return None, str(exc)
+    return result, None
+
+
+def _git_value(*args, timeout=10):
+    result, error = _run_update_command(["git", *args], timeout=timeout)
+    if error or result.returncode != 0:
+        return ""
+    return (result.stdout or "").strip()
+
+
+def _set_env_file_value(name, value):
+    env_path = os.path.join(APP_ROOT, ".env")
+    if not os.path.exists(env_path):
+        return False
+    with open(env_path, "r", encoding="utf-8") as fh:
+        lines = fh.read().splitlines()
+    found = False
+    updated = []
+    for line in lines:
+        if line.startswith(f"{name}="):
+            updated.append(f"{name}={value}")
+            found = True
+        else:
+            updated.append(line)
+    if not found:
+        updated.append(f"{name}={value}")
+    with open(env_path, "w", encoding="utf-8", newline="\n") as fh:
+        fh.write("\n".join(updated) + "\n")
+    return True
+
+
+def _app_version_from_file(default=None):
+    version_path = os.path.join(APP_ROOT, "VERSION")
+    try:
+        with open(version_path, "r", encoding="utf-8") as fh:
+            version = fh.read().strip()
+            return version or default
+    except OSError:
+        return default
+
+
+def _self_update_enabled():
+    return os.environ.get("SELF_UPDATE_ENABLED", "1") == "1"
+
+
+def _schedule_self_restart():
+    if os.environ.get("SELF_UPDATE_AUTO_RESTART", "1") != "1":
+        return False
+
+    def _restart():
+        logger.warning("Reiniciando aplicação após atualização self-update")
+        os._exit(0)
+
+    threading.Timer(2.0, _restart).start()
+    return True
+
+
+def _system_update_status(fetch=False):
+    git_path = shutil.which("git")
+    has_repo = os.path.isdir(os.path.join(APP_ROOT, ".git"))
+    enabled = _self_update_enabled()
+    supported = bool(enabled and git_path and has_repo)
+    current = app.config.get("BUILD_VERSION", "0.1.1-BETA")
+    status = {
+        "supported": supported,
+        "enabled": enabled,
+        "gitAvailable": bool(git_path),
+        "repositoryAvailable": has_repo,
+        "currentVersion": current,
+        "currentCommit": "",
+        "branch": "",
+        "remote": "",
+        "dirty": False,
+        "ahead": 0,
+        "behind": 0,
+        "updateAvailable": False,
+        "canApply": supported,
+        "mode": "git" if supported else "manual",
+        "lastCheck": None,
+        "message": "",
+        "manualCommand": ".\\scripts\\update-windows.ps1 ou ./scripts/update-linux.sh",
+    }
+    if not enabled:
+        status["message"] = "Atualização pela interface desativada por configuração do ambiente."
+        return status
+    if not supported:
+        status["message"] = "Atualização manual pelo servidor. Esta instalação precisa ser reconstruída uma vez para ativar a atualização automática pela interface."
+        return status
+
+    status["currentCommit"] = _git_value("rev-parse", "--short", "HEAD")
+    status["branch"] = _git_value("rev-parse", "--abbrev-ref", "HEAD")
+    status["remote"] = _git_value("config", "--get", f"branch.{status['branch']}.remote") or "origin"
+    status["dirty"] = bool(_git_value("status", "--porcelain"))
+
+    if fetch:
+        result, error = _run_update_command(["git", "fetch", "--prune", status["remote"]], timeout=120)
+        status["lastCheck"] = datetime.now().isoformat()
+        if error or result.returncode != 0:
+            status["message"] = error or (result.stderr or result.stdout or "Falha ao verificar atualizações.").strip()
+            return status
+
+    upstream = _git_value("rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}")
+    if upstream:
+        counts = _git_value("rev-list", "--left-right", "--count", f"HEAD...{upstream}")
+        parts = counts.split()
+        if len(parts) == 2 and all(p.isdigit() for p in parts):
+            status["ahead"] = int(parts[0])
+            status["behind"] = int(parts[1])
+            status["updateAvailable"] = status["behind"] > 0
+            status["message"] = "Atualização disponível." if status["updateAvailable"] else "Sistema já está na versão mais recente conhecida."
+    else:
+        status["message"] = "Branch atual não possui upstream configurado."
+    return status
+
 @app.route("/api/settings", methods=["GET"])
 @login_required
 def get_settings():
@@ -207,6 +343,57 @@ def update_backup_settings():
     audit("EDITAR", "configuracoes", "", "Configuração de backup atualizada")
     db.session.commit()
     return jsonify(cfg)
+
+
+@app.route("/api/system/update/status")
+@requires("Administrador")
+def system_update_status():
+    fetch = request.args.get("fetch") == "1"
+    return jsonify(_system_update_status(fetch=fetch))
+
+
+@app.route("/api/system/update/apply", methods=["POST"])
+@requires("Administrador")
+def system_update_apply():
+    status = _system_update_status(fetch=True)
+    if not status["supported"]:
+        return jsonify({"error": status["message"], "status": status}), 409
+    if status["dirty"]:
+        return jsonify({"error": "Existem alterações locais no servidor. Resolva antes de atualizar.", "status": status}), 409
+    if status["ahead"]:
+        return jsonify({"error": "O servidor possui commits locais à frente do repositório remoto. Atualização automática bloqueada.", "status": status}), 409
+
+    try:
+        backup = _write_backup_file("manual", generated_by=f"pre_update:{current_user.username}")
+    except Exception as exc:
+        return jsonify({"error": f"Falha ao gerar backup pré-atualização: {exc}", "status": status}), 500
+
+    result, error = _run_update_command(["git", "pull", "--ff-only"], timeout=180)
+    if error or result.returncode != 0:
+        return jsonify({
+            "error": error or (result.stderr or result.stdout or "Falha ao aplicar atualização.").strip(),
+            "backup": backup,
+            "status": status,
+        }), 500
+
+    new_commit = _git_value("rev-parse", "--short", "HEAD")
+    new_version = _app_version_from_file(new_commit or "0.1.1-BETA")
+    env_updated = _set_env_file_value("BUILD_VERSION", new_version) if new_version else False
+    audit("ATUALIZAR_SISTEMA", "configuracoes", "", f"Atualização aplicada para {new_version or new_commit or 'versão desconhecida'}")
+    db.session.commit()
+    restart_scheduled = _schedule_self_restart()
+    return jsonify({
+        "ok": True,
+        "backup": backup,
+        "previous": status,
+        "newVersion": new_version,
+        "newCommit": new_commit,
+        "envUpdated": env_updated,
+        "restartRequired": not restart_scheduled,
+        "restartScheduled": restart_scheduled,
+        "message": "Atualização aplicada. A aplicação será reiniciada automaticamente." if restart_scheduled else "Atualização aplicada. Reinicie/recrie a aplicação para carregar o novo código.",
+        "output": (result.stdout or "").strip()[-2000:],
+    })
 
 
 @app.route("/api/settings/termos", methods=["PUT"])

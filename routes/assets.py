@@ -12,7 +12,7 @@ globals().update(_export_route_globals())
 @login_required
 def index():
     return render_template("index.html",
-        build_version=app.config.get("BUILD_VERSION", "1.0"),
+        build_version=app.config.get("BUILD_VERSION", "0.1.1-BETA"),
     )
 
 

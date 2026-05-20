@@ -2586,12 +2586,25 @@ function qrSel(id){_qrSel=id;renderQRCode();}
 // ══════════════════════════════════════════════════════════════════════════
 // LICENÇAS
 // ══════════════════════════════════════════════════════════════════════════
+function licenseUnitCost(l){return Number(l.custoUnitario ?? l.custo ?? 0);}
+function licenseTotalCost(l){return Number(l.custoTotal ?? (licenseUnitCost(l) * Number(l.total || 0)));}
+function licenseMonthlyCost(l){
+  if(l.custoMensal !== undefined) return Number(l.custoMensal || 0);
+  return (l.tipo === 'Assinatura mensal' || l.tipo === 'Assinatura') ? licenseTotalCost(l) : 0;
+}
+function licenseAnnualCost(l){
+  if(l.custoAnual !== undefined) return Number(l.custoAnual || 0);
+  if(l.tipo === 'Assinatura mensal' || l.tipo === 'Assinatura') return licenseMonthlyCost(l) * 12;
+  if(l.tipo === 'Anual') return licenseTotalCost(l);
+  return 0;
+}
+function fmtOptionalCur(v){return Number(v || 0) > 0 ? fmtCur(v) : '—';}
 async function renderLicencas(){
   const data=await api('/licenses');
   $('content').innerHTML=`
   <div class="flex-between mb-16"><div></div><button class="btn btn-primary" onclick="openNewLicense()">Nova Licença</button></div>
   <div class="card mb-16"><div class="table-wrap"><table>
-    <thead><tr><th>Software</th><th>Fornecedor</th><th>Tipo</th><th>Compradas</th><th>Atribuídas</th><th>Saldo</th><th>Vencimento</th><th>Custo Anual</th><th>Situação</th><th></th></tr></thead>
+    <thead><tr><th>Software</th><th>Fornecedor</th><th>Tipo</th><th>Quantidade</th><th>Atribuídas</th><th>Saldo</th><th>Vencimento</th><th>Custo Unit.</th><th>Custo Mensal</th><th>Custo Anual</th><th>Situação</th><th></th></tr></thead>
     <tbody>${data.map(l=>{
       const saldo=l.total-l.atribuidas; const d=daysUntil(l.vencimento); const wV=d>=0&&d<=60;
       const sit=l.atribuidas>l.total?['Excedido','red']:wV?['Vence em breve','amber']:saldo===0?['Sem saldo','amber']:['Regular','green'];
@@ -2602,15 +2615,18 @@ async function renderLicencas(){
         <td>${l.total}</td><td>${l.atribuidas}</td>
         <td style="font-weight:700;color:${saldo<0?'var(--red)':saldo===0?'var(--amber)':'var(--green)'}">${saldo<0?'−'+Math.abs(saldo):saldo}</td>
         <td style="font-size:12px;color:${wV?'var(--amber)':'inherit'}">${fmtDate(l.vencimento)}${wV?` <small>(${d}d)</small>`:''}</td>
-        <td>${fmtCur(l.custo)}</td>
+        <td>${fmtCur(licenseUnitCost(l))}</td>
+        <td>${fmtOptionalCur(licenseMonthlyCost(l))}</td>
+        <td>${fmtOptionalCur(licenseAnnualCost(l))}</td>
         <td>${badge(...sit)}</td>
         <td><button class="btn btn-default btn-sm" onclick='viewLicense(${JSON.stringify(l).replace(/"/g,'&quot;')})'>Detalhes</button></td>
       </tr>`;}).join('')}
     </tbody>
   </table></div></div>
-  <div class="grid-3">
+  <div class="grid-4">
     <div class="stat-card"><div class="stat-label">Total de Licenças</div><div class="stat-value">${data.reduce((s,l)=>s+l.total,0)}</div></div>
-    <div class="stat-card"><div class="stat-label">Custo Anual Total</div><div class="stat-value" style="font-size:20px">${fmtCur(data.reduce((s,l)=>s+l.custo,0))}</div></div>
+    <div class="stat-card"><div class="stat-label">Custo Mensal Total</div><div class="stat-value" style="font-size:20px">${fmtCur(data.reduce((s,l)=>s+licenseMonthlyCost(l),0))}</div></div>
+    <div class="stat-card"><div class="stat-label">Custo Anual Total</div><div class="stat-value" style="font-size:20px">${fmtCur(data.reduce((s,l)=>s+licenseAnnualCost(l),0))}</div></div>
     <div class="stat-card"><div class="stat-label">Vencendo em 60 dias</div><div class="stat-value" style="color:var(--amber)">${data.filter(l=>{const d=daysUntil(l.vencimento);return d>=0&&d<=60}).length}</div></div>
   </div>`;
 }
@@ -2625,10 +2641,13 @@ function viewLicense(l){
       ${badge(saldo<0?'Excedido':saldo===0?'Sem saldo':'Regular',saldo<0?'red':saldo===0?'amber':'green')}
     </div>
     <div class="grid-4 mb-16">
-      <div class="stat-card"><div class="stat-label">Compradas</div><div class="stat-value">${l.total}</div></div>
+      <div class="stat-card"><div class="stat-label">Quantidade</div><div class="stat-value">${l.total}</div></div>
       <div class="stat-card"><div class="stat-label">Atribuídas</div><div class="stat-value">${l.atribuidas}</div></div>
       <div class="stat-card"><div class="stat-label">Saldo</div><div class="stat-value" style="color:var(--${saldo<0?'red':saldo===0?'amber':'green'})">${saldo}</div></div>
-      <div class="stat-card"><div class="stat-label">Custo anual</div><div class="stat-value" style="font-size:18px">${fmtCur(l.custo)}</div></div>
+      <div class="stat-card"><div class="stat-label">Custo unitário</div><div class="stat-value" style="font-size:18px">${fmtCur(licenseUnitCost(l))}</div></div>
+      <div class="stat-card"><div class="stat-label">Custo total</div><div class="stat-value" style="font-size:18px">${fmtCur(licenseTotalCost(l))}</div></div>
+      <div class="stat-card"><div class="stat-label">Custo mensal</div><div class="stat-value" style="font-size:18px">${fmtOptionalCur(licenseMonthlyCost(l))}</div></div>
+      <div class="stat-card"><div class="stat-label">Custo anual</div><div class="stat-value" style="font-size:18px">${fmtOptionalCur(licenseAnnualCost(l))}</div></div>
     </div>
     <div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:10px 12px">
       <div style="font-size:11px;color:var(--text3);font-weight:700;text-transform:uppercase;margin-bottom:3px">Vencimento</div>
@@ -2644,13 +2663,20 @@ function openNewLicense(){
   <div class="form-group"><label>Software</label><input id="fl-sw"></div>
   <div class="form-grid-2">
     <div class="form-group"><label>Fornecedor</label><input id="fl-forn"></div>
-    <div class="form-group"><label>Tipo</label><select id="fl-tipo"><option>Assinatura</option><option>Anual</option><option>Perpétua</option><option>Por uso</option></select></div>
-    <div class="form-group"><label>Total</label><input id="fl-tot" type="number" value="10"></div>
+    <div class="form-group"><label>Tipo</label><select id="fl-tipo" onchange="updateLicenseCostLabel()"><option>Assinatura mensal</option><option>Anual</option><option>Perpétua</option><option>Por uso</option></select></div>
+    <div class="form-group"><label>Quantidade</label><input id="fl-tot" type="number" min="0" value="10"></div>
     <div class="form-group"><label>Atribuídas</label><input id="fl-atr" type="number" value="0"></div>
-    <div class="form-group"><label>Custo (R$)</label><input id="fl-custo" type="number" value="0"></div>
+    <div class="form-group"><label id="fl-custo-label">Custo unitário mensal (R$)</label><input id="fl-custo" type="number" step="0.01" min="0" value="0"></div>
     <div class="form-group"><label>Vencimento</label><input id="fl-venc" type="date"></div>
   </div>
   <div class="modal-footer"><button class="btn btn-default" onclick="closeModal()">Cancelar</button><button class="btn btn-primary" onclick="saveLicense()">Salvar</button></div>`);
+  updateLicenseCostLabel();
+}
+function updateLicenseCostLabel(){
+  const label=$('fl-custo-label'); if(!label || !$('fl-tipo')) return;
+  const tipo=$('fl-tipo').value;
+  label.textContent = tipo === 'Assinatura mensal' ? 'Custo unitário mensal (R$)' :
+    tipo === 'Anual' ? 'Custo unitário anual (R$)' : 'Custo unitário (R$)';
 }
 async function saveLicense(){
   await api('/licenses','POST',{software:$('fl-sw').value,fornecedor:$('fl-forn').value,tipo:$('fl-tipo').value,total:$('fl-tot').value,atribuidas:$('fl-atr').value,custo:$('fl-custo').value,vencimento:$('fl-venc').value});
@@ -3277,10 +3303,16 @@ async function savePerfilPerms(perfil){
 async function renderConfiguracoes(){
   const [cfg, perfis, sysUsers] = await Promise.all([api('/settings'), api('/system-users/perfis'), api('/system-users')]);
   let backupState = {config: cfg.backup || {}, files: []};
+  let updateState = null;
   try{
     backupState = await api('/backups');
   }catch(e){
     backupState = {config: cfg.backup || {}, files: []};
+  }
+  try{
+    updateState = await api('/system/update/status');
+  }catch(e){
+    updateState = {supported:false, message:'Não foi possível consultar atualização.', currentVersion:APP_VERSION};
   }
   PERFIS_SYS = Object.keys(perfis);
   _settings.categorias = cfg.categorias || [];
@@ -3297,6 +3329,12 @@ async function renderConfiguracoes(){
   const cfg_pat_prefixo = cfg.patrimonio_prefixo || 'TI';
   const backupFiles = Array.isArray(backupState.files) ? backupState.files : [];
   const backupFreqLabel = {daily:'Diário', weekly:'Semanal', monthly:'Mensal'};
+  const updateBadge = updateState.supported
+    ? (updateState.updateAvailable ? badge('Disponível','amber') : badge('OK','green'))
+    : badge('Manual','blue');
+  const updateDetails = updateState.supported
+    ? `${esc(updateState.branch||'branch')} · ${esc(updateState.currentCommit||updateState.currentVersion||'?')} · atrás ${updateState.behind||0} · à frente ${updateState.ahead||0}`
+    : `Execute no servidor: <span class="mono">${esc(updateState.manualCommand || './scripts/update-linux.sh')}</span>`;
   const tplAss = cfg_tpl.assinatura || {};
   const tplDev = cfg_tpl.devolucao || {};
   const emailTemplateCard = (kind,title,subtitle,variables,tpl) => `
@@ -3337,7 +3375,9 @@ async function renderConfiguracoes(){
         <div class="mono" style="font-size:10px;color:var(--text3);margin-top:4px;word-break:break-all">${esc(f.sha256)}</div>
       </div>
       <div class="flex-gap" style="flex-wrap:wrap;justify-content:flex-end">
+        <button class="btn btn-default btn-sm" onclick="validateBackupFile('${escAttr(f.filename)}')" type="button">Validar</button>
         <a class="btn btn-default btn-sm" href="/api/backups/files/${encodeURIComponent(f.filename)}" download>Baixar</a>
+        <button class="btn btn-warning btn-sm" onclick="confirmRestoreBackupFile('${escAttr(f.filename)}')" type="button">Restaurar</button>
         <button class="btn btn-danger btn-sm" onclick="deleteBackupFile('${escAttr(f.filename)}')" type="button">Excluir</button>
       </div>
     </div>`).join('') : `<div style="font-size:12px;color:var(--text3);padding:10px 0">Nenhum backup armazenado pela aplicação ainda.</div>`;
@@ -3370,6 +3410,7 @@ async function renderConfiguracoes(){
     ['email',     'E-mail'],
     ['termos',    'Termos'],
     ['backup',    'Backup'],
+    ['updates',   'Atualizações'],
   ];
   const tabBar = `<div class="cfg-tab-bar" style="display:flex;gap:0;margin-bottom:20px;border-bottom:2px solid var(--border);overflow-x:auto">
     ${CFG_TABS_DEF.map(([id,label])=>`<button id="cfg-tab-${id}" onclick="cfgTab('${id}')"
@@ -3828,6 +3869,13 @@ async function renderConfiguracoes(){
       </div>
       <div class="section-title" style="margin-top:4px">Backups Armazenados</div>
       <div style="margin-bottom:20px">${backupFilesHtml}</div>
+      <div class="section-title" style="margin-top:4px">Importar / Restaurar Backup</div>
+      <div style="margin-bottom:8px;font-size:12px;color:var(--text3)">Valide ou restaure um arquivo de backup JSON externo. Um backup automático é gerado antes de qualquer restauração.</div>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:16px">
+        <input type="file" id="backup-restore-file" accept=".json" style="flex:1;min-width:200px;font-size:13px">
+        <button class="btn btn-default btn-sm" onclick="validateBackupUpload()" type="button">Validar Arquivo</button>
+        <button class="btn btn-warning btn-sm" onclick="confirmRestoreBackupUpload()" type="button">Restaurar de Arquivo</button>
+      </div>
       <div class="section-title">Exportações CSV</div>
       <div class="flex-gap" style="flex-wrap:wrap">
         <a class="btn btn-default" href="/api/export/assets.csv" download>Ativos CSV</a>
@@ -3837,14 +3885,53 @@ async function renderConfiguracoes(){
     </div>
   </div>`;
 
-  $('content').innerHTML = tabBar + panelGeral + panelOperacao + panelAparencia + panelPerfis + panelEmail + panelTermos + panelBackup;
+  const panelUpdates = `<div id="cfg-panel-updates" style="display:none">
+    <div class="card">
+      <div class="flex-between" style="margin-bottom:14px;gap:14px;align-items:flex-start;flex-wrap:wrap">
+        <div>
+          <div class="section-title" style="margin-bottom:4px">Atualização do Sistema</div>
+          <div style="font-size:12px;color:var(--text3)">A atualização é manual: o administrador verifica, decide e aplica quando quiser.</div>
+        </div>
+        ${updateBadge}
+      </div>
+      <div class="grid-3" style="margin-bottom:16px">
+        <div style="border:1px solid var(--border);border-radius:var(--r);padding:12px;background:var(--bg3)">
+          <div style="font-size:11px;color:var(--text3);font-weight:700;text-transform:uppercase;margin-bottom:4px">Versão atual</div>
+          <div style="font-size:14px;font-weight:700;color:var(--text)">${esc(updateState.currentVersion||APP_VERSION||'local')}</div>
+        </div>
+        <div style="border:1px solid var(--border);border-radius:var(--r);padding:12px;background:var(--bg3)">
+          <div style="font-size:11px;color:var(--text3);font-weight:700;text-transform:uppercase;margin-bottom:4px">${updateState.supported?'Repositório':'Modo'}</div>
+          <div style="font-size:14px;font-weight:700;color:var(--text)">${updateState.supported?'Disponível':'Manual pelo servidor'}</div>
+        </div>
+        <div style="border:1px solid var(--border);border-radius:var(--r);padding:12px;background:var(--bg3)">
+          <div style="font-size:11px;color:var(--text3);font-weight:700;text-transform:uppercase;margin-bottom:4px">Estado</div>
+          <div style="font-size:12px;color:var(--text2)">${updateDetails}</div>
+        </div>
+      </div>
+      <div class="info-box blue" style="margin-bottom:14px">
+        ${esc(updateState.message || 'Clique em Verificar atualizações para consultar o repositório remoto.')}
+        ${updateState.dirty ? '<br><strong>Há alterações locais no servidor; a atualização pela tela fica bloqueada até resolver.</strong>' : ''}
+      </div>
+      <div class="flex-gap" style="flex-wrap:wrap">
+        <button class="btn btn-default btn-sm" onclick="checkSystemUpdate()" type="button" ${!updateState.supported ? 'disabled' : ''}>Verificar atualizações</button>
+        ${updateState.supported
+          ? `<button class="btn btn-primary btn-sm" onclick="confirmApplySystemUpdate()" type="button" ${(!updateState.canApply || updateState.dirty || updateState.ahead) ? 'disabled' : ''}>Aplicar atualização</button>`
+          : `<button class="btn btn-primary btn-sm" onclick="showManualUpdateInstructions()" type="button">Ver instruções</button>`}
+      </div>
+      <div style="margin-top:14px;font-size:12px;color:var(--text3)">
+        Antes de atualizar, gere backup. Após aplicar, reinicie/recrie a aplicação para carregar o novo código.
+      </div>
+    </div>
+  </div>`;
+
+  $('content').innerHTML = tabBar + panelGeral + panelOperacao + panelAparencia + panelPerfis + panelEmail + panelTermos + panelBackup + panelUpdates;
   cfgTab(_cfgTab);
 }
 
 function cfgTab(tab){
   _cfgTab = tab;
   const panels = {
-    geral: 'grid', operacao: 'grid', aparencia: 'block', perfis: 'block', email: 'block', termos: 'flex', backup: 'block'
+    geral: 'grid', operacao: 'grid', aparencia: 'block', perfis: 'block', email: 'block', termos: 'flex', backup: 'block', updates: 'block'
   };
   Object.keys(panels).forEach(t=>{
     const panel = document.getElementById('cfg-panel-'+t);
@@ -4361,6 +4448,68 @@ async function runBackupNow(){
   }catch(e){ toast(e.message,'error'); }
 }
 
+async function checkSystemUpdate(){
+  try{
+    toast('Verificando atualizações...');
+    const r = await api('/system/update/status?fetch=1');
+    if(r.updateAvailable) toast('Atualização disponível','warning');
+    else toast(r.message || 'Nenhuma atualização pendente');
+    _cfgTab = 'updates';
+    renderConfiguracoes();
+  }catch(e){ toast(e.message,'error'); }
+}
+
+function confirmApplySystemUpdate(){
+  openModal('Confirmar Atualização',`
+    <div class="info-box amber" style="margin-bottom:14px;font-size:13px">
+      O sistema irá gerar um backup lógico e aplicar a atualização disponível no repositório. Depois disso, reinicie/recrie a aplicação para carregar o novo código.
+    </div>
+    <div style="font-size:13px;color:var(--text2);line-height:1.5">
+      Esta ação não é automática: ela só começa quando você confirmar abaixo.
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-default" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="applySystemUpdate()">Aplicar atualização</button>
+    </div>`);
+}
+
+function showManualUpdateInstructions(){
+  openModal('Atualização Manual',`
+    <div class="info-box blue" style="margin-bottom:14px;font-size:13px">
+      Neste ambiente a aplicação não tem acesso direto ao repositório do servidor. A atualização continua sendo uma escolha manual do administrador.
+    </div>
+    <div style="font-size:13px;color:var(--text2);line-height:1.55;margin-bottom:10px">
+      Execute um dos comandos abaixo no servidor onde o sistema está instalado:
+    </div>
+    <pre style="white-space:pre-wrap;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:10px;font-size:12px;margin:0 0 12px;overflow:auto">Windows:
+.\\scripts\\update-windows.ps1
+
+Linux:
+./scripts/update-linux.sh</pre>
+    <div style="font-size:12px;color:var(--text3);line-height:1.5">
+      O script gera backup antes da troca, atualiza o código, reconstrói a aplicação e valida o serviço.
+    </div>
+    <div class="modal-footer"><button class="btn btn-default" onclick="closeModal()">Fechar</button></div>`);
+}
+
+async function applySystemUpdate(){
+  try{
+    const r = await api('/system/update/apply','POST',{});
+    closeModal();
+    toast(r.message || 'Atualização aplicada');
+    openModal('Atualização Aplicada',`
+      <div class="info-box blue" style="margin-bottom:12px">
+        Backup gerado: <strong>${esc(r.backup?.filename || 'backup criado')}</strong>
+      </div>
+      <div style="font-size:13px;color:var(--text2);line-height:1.5">
+        Nova versão: <strong>${esc(r.newVersion || '?')}</strong><br>
+        ${r.restartScheduled ? 'A aplicação será reiniciada automaticamente em instantes.' : 'Reinicie/recrie a aplicação para carregar o novo código.'}
+      </div>
+      ${r.output?`<pre style="white-space:pre-wrap;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:10px;font-size:11px;margin-top:12px;max-height:180px;overflow:auto">${esc(r.output)}</pre>`:''}
+      <div class="modal-footer"><button class="btn btn-default" onclick="closeModal();renderConfiguracoes()">Fechar</button></div>`);
+  }catch(e){ toast(e.message,'error'); }
+}
+
 async function deleteBackupFile(filename){
   if(_pendingDeleteBackup !== filename){
     _pendingDeleteBackup = filename;
@@ -4373,6 +4522,119 @@ async function deleteBackupFile(filename){
     await api('/backups/files/' + encodeURIComponent(filename), 'DELETE');
     toast('Backup excluído');
     renderConfiguracoes();
+  }catch(e){ toast(e.message,'error'); }
+}
+
+let _pendingRestoreAction = null;
+
+function _buildValidationModalHtml(r, source){
+  const valid = r.valid !== false;
+  const summaryRows = Object.entries(r.summary||{}).map(([k,v])=>
+    `<tr><td style="padding:3px 10px 3px 0;color:var(--text2);font-size:12px">${esc(k)}</td><td style="font-weight:700;font-size:12px">${v}</td></tr>`
+  ).join('');
+  const errHtml = (r.errors||[]).length ? `<div style="margin-top:10px"><b style="font-size:12px">Erros:</b><ul style="margin:4px 0 0 16px;font-size:12px">${(r.errors||[]).map(e=>`<li style="color:var(--red-text)">${esc(e)}</li>`).join('')}</ul></div>` : '';
+  const warnHtml = (r.warnings||[]).length ? `<div style="margin-top:10px"><b style="font-size:12px">Avisos:</b><ul style="margin:4px 0 0 16px;font-size:12px">${(r.warnings||[]).map(w=>`<li style="color:var(--amber-text,#92400e)">${esc(w)}</li>`).join('')}</ul></div>` : '';
+  const sha = r.sha256 ? `<div><b>SHA-256:</b> <span class="mono" style="font-size:10px">${esc(r.sha256.slice(0,20))}…</span></div>` : '';
+  return `
+    <div style="margin-bottom:12px;display:flex;gap:10px;align-items:center">
+      <span style="font-weight:700">Status:</span>${badge(valid?'VÁLIDO':'INVÁLIDO',valid?'green':'red')}
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:12px;font-size:12px">
+      <div><b>Arquivo:</b> ${esc(source)}</div>
+      <div><b>Gerado em:</b> ${esc(r.geradoEm||'?')}</div>
+      <div><b>Gerado por:</b> ${esc(r.geradoPor||'?')}</div>
+      <div><b>Versão:</b> ${esc(r.versao||'?')}</div>
+      ${sha}
+    </div>
+    <details open><summary style="cursor:pointer;font-weight:700;font-size:13px;margin-bottom:6px">Registros</summary>
+      <table style="width:100%">${summaryRows}</table>
+    </details>
+    ${errHtml}${warnHtml}`;
+}
+
+async function validateBackupFile(filename){
+  try{
+    const r = await api('/backups/validate','POST',{filename});
+    if(!r) return;
+    openModal('Validação de Backup', _buildValidationModalHtml(r, filename)+`
+      <div class="modal-footer"><button class="btn btn-default" onclick="closeModal()">Fechar</button></div>`);
+  }catch(e){ toast(e.message,'error'); }
+}
+
+async function validateBackupUpload(){
+  const fi = document.getElementById('backup-restore-file');
+  if(!fi||!fi.files[0]){ toast('Selecione um arquivo JSON de backup.','warning'); return; }
+  const fd = new FormData(); fd.append('file', fi.files[0]);
+  try{
+    const r = await api('/backups/validate','POST',fd);
+    if(!r) return;
+    openModal('Validação de Backup', _buildValidationModalHtml(r, fi.files[0].name)+`
+      <div class="modal-footer"><button class="btn btn-default" onclick="closeModal()">Fechar</button></div>`);
+  }catch(e){ toast(e.message,'error'); }
+}
+
+function _showRestoreConfirmModal(r, source, onConfirm){
+  _pendingRestoreAction = onConfirm;
+  const summaryRows = Object.entries(r.summary||{}).map(([k,v])=>
+    `<tr><td style="padding:3px 10px 3px 0;color:var(--text2);font-size:12px">${esc(k)}</td><td style="font-weight:700;font-size:12px">${v}</td></tr>`
+  ).join('');
+  const warnHtml = (r.warnings||[]).length ? `<div class="info-box" style="margin-top:10px;background:var(--amber-bg,#fef3c7);border-left-color:var(--amber-text,#92400e)"><b style="font-size:12px">Avisos:</b><ul style="margin:4px 0 0 16px;font-size:12px">${(r.warnings||[]).map(w=>`<li>${esc(w)}</li>`).join('')}</ul></div>` : '';
+  openModal('Confirmar Restauração', `
+    <div class="info-box red" style="margin-bottom:14px;font-size:13px">
+      <b>Atenção:</b> Esta operação irá <b>apagar todos os dados atuais</b> e restaurar a partir do backup selecionado. Um backup automático será gerado antes.
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:12px;font-size:12px">
+      <div><b>Arquivo:</b> ${esc(source)}</div>
+      <div><b>Gerado em:</b> ${esc(r.geradoEm||'?')}</div>
+      <div><b>Gerado por:</b> ${esc(r.geradoPor||'?')}</div>
+      <div><b>Versão:</b> ${esc(r.versao||'?')}</div>
+    </div>
+    <details><summary style="cursor:pointer;font-weight:700;font-size:13px;margin-bottom:6px">Registros a restaurar</summary>
+      <table style="width:100%">${summaryRows}</table>
+    </details>
+    ${warnHtml}
+    <div class="modal-footer">
+      <button class="btn btn-default" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-danger" onclick="_pendingRestoreAction && _pendingRestoreAction()">Confirmar Restauração</button>
+    </div>`);
+}
+
+async function confirmRestoreBackupFile(filename){
+  try{
+    const r = await api('/backups/validate','POST',{filename});
+    if(!r) return;
+    if(!r.valid){ toast('Backup inválido: '+(r.errors||[])[0],'error'); return; }
+    _showRestoreConfirmModal(r, filename, async ()=>{
+      closeModal();
+      try{
+        const res = await api('/backups/restore/'+encodeURIComponent(filename),'POST',{});
+        if(!res) return;
+        toast('Restauração concluída! '+Object.entries(res.stats||{}).map(([k,v])=>k+':'+v).join(', '));
+        renderConfiguracoes();
+      }catch(e){ toast(e.message,'error'); }
+    });
+  }catch(e){ toast(e.message,'error'); }
+}
+
+async function confirmRestoreBackupUpload(){
+  const fi = document.getElementById('backup-restore-file');
+  if(!fi||!fi.files[0]){ toast('Selecione um arquivo JSON de backup.','warning'); return; }
+  const file = fi.files[0];
+  const fdV = new FormData(); fdV.append('file', file);
+  try{
+    const r = await api('/backups/validate','POST',fdV);
+    if(!r) return;
+    if(!r.valid){ toast('Backup inválido: '+(r.errors||[])[0],'error'); return; }
+    _showRestoreConfirmModal(r, file.name, async ()=>{
+      closeModal();
+      const fdR = new FormData(); fdR.append('file', file);
+      try{
+        const res = await api('/backups/restore','POST',fdR);
+        if(!res) return;
+        toast('Restauração concluída! '+Object.entries(res.stats||{}).map(([k,v])=>k+':'+v).join(', '));
+        renderConfiguracoes();
+      }catch(e){ toast(e.message,'error'); }
+    });
   }catch(e){ toast(e.message,'error'); }
 }
 

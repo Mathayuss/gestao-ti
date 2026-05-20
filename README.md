@@ -98,6 +98,38 @@ docker compose --profile observability up -d
 
 Credencial padrão do Grafana local: `admin` / `admin`.
 
+## Atualizações
+
+Quando uma correção ou nova função for publicada no repositório público, instalações novas já ficam preparadas para atualização manual pela tela `Configurações > Atualizações`. O administrador clica em verificar/aplicar, o sistema gera backup lógico, executa `git pull --ff-only` e reinicia a aplicação automaticamente quando `SELF_UPDATE_AUTO_RESTART=1`.
+
+Para instalações antigas ou ambientes sem metadados Git dentro do container, use os scripts abaixo uma vez para reconstruir a aplicação com suporte ao atualizador interno.
+
+### Windows
+
+```powershell
+.\scripts\update-windows.ps1
+```
+
+Para validar pré-requisitos sem atualizar:
+
+```powershell
+.\scripts\update-windows.ps1 -Check
+```
+
+### Linux
+
+```bash
+./scripts/update-linux.sh
+```
+
+Para validar pré-requisitos sem atualizar:
+
+```bash
+./scripts/update-linux.sh --check
+```
+
+Se a nova versão foi copiada manualmente para o servidor e você não quer executar `git pull`, use `-NoPull` no Windows ou `--no-pull` no Linux. O atualizador recusa rodar quando há alterações locais não commitadas, para evitar sobrescrever customizações sem perceber.
+
 ## Desenvolvimento local
 
 Para desenvolvimento sem Docker:
