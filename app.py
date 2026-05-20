@@ -2373,13 +2373,13 @@ def register_route_modules():
 register_route_modules()
 
 
-def _run_startup_db_tasks():
-    """Executa bootstrap/migração com lock no PostgreSQL para múltiplos workers."""
+def _run_startup_db_tasks_once():
+    """Executa bootstrap/migração uma vez, com lock no PostgreSQL para múltiplos workers."""
     lock_conn = None
-    if db.engine.dialect.name == "postgresql":
-        lock_conn = db.engine.connect()
-        lock_conn.execute(text("SELECT pg_advisory_lock(54720191)"))
     try:
+        if db.engine.dialect.name == "postgresql":
+            lock_conn = db.engine.connect()
+            lock_conn.execute(text("SELECT pg_advisory_lock(54720191)"))
         db.create_all()
         _migrate_db()
         if _auto_seed_demo_enabled():
@@ -2390,6 +2390,32 @@ def _run_startup_db_tasks():
                 lock_conn.execute(text("SELECT pg_advisory_unlock(54720191)"))
             finally:
                 lock_conn.close()
+
+
+def _run_startup_db_tasks():
+    """Executa bootstrap/migração com retry para tolerar atraso do banco no boot."""
+    retries = int(os.environ.get("DB_STARTUP_RETRIES", "12"))
+    delay = float(os.environ.get("DB_STARTUP_RETRY_DELAY", "2"))
+    for attempt in range(1, retries + 1):
+        try:
+            _run_startup_db_tasks_once()
+            return
+        except Exception as exc:
+            db.session.remove()
+            db.engine.dispose()
+            if attempt >= retries:
+                logger.exception(
+                    "Falha ao inicializar banco de dados apos %s tentativa(s)", retries
+                )
+                raise
+            logger.warning(
+                "Banco indisponivel na inicializacao (%s/%s): %s. Nova tentativa em %.1fs.",
+                attempt,
+                retries,
+                exc.__class__.__name__,
+                delay,
+            )
+            _time.sleep(delay)
 
 
 with app.app_context():

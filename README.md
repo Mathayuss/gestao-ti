@@ -123,6 +123,8 @@ Usuários de demonstração só devem ser exibidos em ambiente local quando `SHO
 |---|---|
 | `SECRET_KEY` | Chave da aplicação. Deve ser única e segura em produção. |
 | `DATABASE_URL` | URL SQLAlchemy do banco para execução fora do Docker. Recomendado: PostgreSQL. |
+| `DB_STARTUP_RETRIES` | Número de tentativas de conexão no boot da aplicação. |
+| `DB_STARTUP_RETRY_DELAY` | Intervalo, em segundos, entre tentativas de conexão no boot. |
 | `POSTGRES_DB` | Nome do banco usado pelo Docker Compose. |
 | `POSTGRES_USER` | Usuário PostgreSQL usado pelo Docker Compose. |
 | `POSTGRES_PASSWORD` | Senha PostgreSQL usada pelo Docker Compose. |
