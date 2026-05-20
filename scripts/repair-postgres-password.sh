@@ -42,7 +42,7 @@ echo "Parando app para interromper tentativas com senha antiga..."
 docker compose stop app >/dev/null 2>&1 || true
 
 docker compose exec -T postgres psql \
-  -U "$POSTGRES_USER" \
+  -U postgres \
   -d "$POSTGRES_DB" \
   -v ON_ERROR_STOP=1 \
   -c "ALTER USER \"${sql_user}\" WITH PASSWORD '${sql_password}';"

@@ -111,15 +111,14 @@ if (Test-PortInUse ([int]$PostgresPort)) {
 $PostgresPassword = New-RandomHex 24
 $SecretKey = New-RandomHex 32
 $SetupToken = New-RandomHex 18
-$DatabaseUrl = "postgresql+psycopg://$($PostgresUser):$($PostgresPassword)@postgres:5432/$($PostgresDb)"
+$SessionSecure = if ($AppBaseUrl -match "^https://") { "1" } else { "0" }
 
 $EnvContent = @"
 SECRET_KEY=$SecretKey
-DATABASE_URL=$DatabaseUrl
 APP_BASE_URL=$AppBaseUrl
 APP_PORT=$AppPort
 FLASK_DEBUG=0
-SESSION_SECURE=0
+SESSION_SECURE=$SessionSecure
 SHOW_DEMO_CREDENTIALS=0
 AUTO_SEED_DEMO=0
 SERVICE_NAME=ti-control-sre
