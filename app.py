@@ -1661,14 +1661,14 @@ def _normalize_aparencia_setting(value):
     for key, max_len in (("nome_sistema", 80), ("slogan_sistema", 120)):
         if key in value:
             result[key] = clean_text(value.get(key), max_len)
-    for key in ("logo_sistema", "bg_login"):
+    for key in ("logo_sistema", "favicon", "bg_login"):
         if key in value:
             v = clean_text(value.get(key), None)
             err = _validate_data_image(
                 v,
                 APARENCIA_BG_MIMES if key == "bg_login" else APARENCIA_LOGO_MIMES,
                 APARENCIA_BG_MAX_BYTES if key == "bg_login" else APARENCIA_LOGO_MAX_BYTES,
-                "Imagem de fundo" if key == "bg_login" else "Logo do sistema",
+                "Imagem de fundo" if key == "bg_login" else ("Favicon" if key == "favicon" else "Logo do sistema"),
             )
             if err:
                 return None, err

@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="csrf-token" content="{{ csrf_token() }}">
 <title id="app-title">TI Control</title>
+<link id="app-favicon" rel="icon" href="/static/bg.png">
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -480,12 +481,21 @@ function _applyAparencia(aparencia, empresa){
   const nomeSistema = aparencia.nome_sistema || 'TI Control';
   const sloganSistema = aparencia.slogan_sistema || 'Gestão de Ativos';
   const logoSistema = aparencia.logo_sistema || empresa.logo_base64 || '';
+  const favicon = aparencia.favicon || '';
   const nomeEmpresa = empresa.nome || '';
 
   // Título da aba
   document.title = nomeSistema;
   const titleEl = document.getElementById('app-title');
   if(titleEl) titleEl.textContent = nomeSistema;
+  let favEl = document.getElementById('app-favicon');
+  if(!favEl){
+    favEl = document.createElement('link');
+    favEl.id = 'app-favicon';
+    favEl.rel = 'icon';
+    document.head.appendChild(favEl);
+  }
+  favEl.href = favicon || '/static/bg.png';
 
   // Sidebar logo
   const sbIcon = document.getElementById('sb-logo-icon');
@@ -3588,18 +3598,18 @@ async function renderConfiguracoes(){
           <input id="ap-slogan" value="${esc(cfg_ap.slogan_sistema||'')}" placeholder="Ex: Gestão de Ativos de TI">
         </div>
         <div class="form-group" style="grid-column:span 2">
-          <label>Logo do Sistema (substitui o ícone no menu e na tela de login)</label>
+          <label>Favicon do Sistema (ícone da aba do navegador)</label>
           <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:8px">
-            ${cfg_ap.logo_sistema
+            ${cfg_ap.favicon
               ? `<div style="padding:6px 10px;background:#fff;border:1px solid var(--border);border-radius:var(--r);display:inline-flex;align-items:center;gap:8px">
-                   <img src="${cfg_ap.logo_sistema}" style="height:28px;object-fit:contain;max-width:120px">
+                   <img src="${cfg_ap.favicon}" style="height:28px;width:28px;object-fit:contain">
                  </div>
-                 <button class="btn btn-danger btn-sm" onclick="removeLogoSistema()" type="button">Remover logo do sistema</button>`
-              : `<span style="font-size:12px;color:var(--text3)">Nenhuma logo do sistema cadastrada — usando ícone padrão</span>`}
+                 <button class="btn btn-danger btn-sm" onclick="removeFaviconSistema()" type="button">Remover favicon</button>`
+              : `<span style="font-size:12px;color:var(--text3)">Nenhum favicon cadastrado — usando ícone padrão</span>`}
           </div>
-          <input type="file" id="ap-logo" accept="image/png,image/jpeg,image/svg+xml,image/webp" onchange="previewAparenciaLogo(this,'ap-logo-preview')">
-          <div class="hint">PNG, JPG ou SVG · Fundo transparente recomendado · Máx 4 MB</div>
-          <div id="ap-logo-preview" style="margin-top:8px"></div>
+          <input type="file" id="ap-favicon" accept="image/png,image/jpeg,image/svg+xml,image/webp" onchange="previewAparenciaLogo(this,'ap-favicon-preview')">
+          <div class="hint">PNG, JPG, WEBP ou SVG · Recomendado quadrado 32×32 ou 64×64 · Máx 300 KB</div>
+          <div id="ap-favicon-preview" style="margin-top:8px"></div>
         </div>
       </div>
       <div class="modal-footer" style="padding-top:10px;margin-top:0;border-top:none;justify-content:flex-start">
@@ -4213,24 +4223,24 @@ async function _readFile(inputId){
   return new Promise(res=>{ const r=new FileReader(); r.onload=e=>res(e.target.result); r.readAsDataURL(file); });
 }
 async function saveAparenciaIdentidade(){
-  const logo_sistema = (await _readFile('ap-logo')) || (_settings?.aparencia?.logo_sistema || '');
+  const favicon = (await _readFile('ap-favicon')) || (_settings?.aparencia?.favicon || '');
   await api('/settings','PUT',{aparencia:{
     ..._settings.aparencia,
     nome_sistema: $('ap-nome')?.value?.trim() || '',
     slogan_sistema: $('ap-slogan')?.value?.trim() || '',
-    logo_sistema,
+    favicon,
   }});
   const cfg = await api('/settings');
   if(cfg){ _settings = cfg; _applyAparencia(cfg.aparencia||{}, cfg.empresa||{}); }
   toast('Identidade salva');
-  if($('ap-logo')) $('ap-logo').value='';
+  if($('ap-favicon')) $('ap-favicon').value='';
   renderConfiguracoes();
 }
-async function removeLogoSistema(){
-  await api('/settings','PUT',{aparencia:{..._settings.aparencia, logo_sistema:''}});
-  if(_settings.aparencia) _settings.aparencia.logo_sistema='';
+async function removeFaviconSistema(){
+  await api('/settings','PUT',{aparencia:{..._settings.aparencia, favicon:''}});
+  if(_settings.aparencia) _settings.aparencia.favicon='';
   _applyAparencia(_settings.aparencia||{}, _settings.empresa||{});
-  toast('Logo do sistema removida');
+  toast('Favicon removido');
   renderConfiguracoes();
 }
 async function saveAparenciaLogin(){
