@@ -120,14 +120,14 @@ Para corrigir sem apagar dados, rode:
 
 ```bash
 ./scripts/repair-postgres-password.sh
-docker compose up -d --force-recreate app
 ```
 
 No Windows PowerShell:
 
 ```powershell
 .\scripts\repair-postgres-password.ps1
-docker compose up -d --force-recreate app
 ```
+
+O script para o app, ajusta a senha do usuário PostgreSQL conforme o `.env`, valida a autenticação TCP e recria o container da aplicação.
 
 Não remova o volume `postgres_data` se já houver dados importantes na instalação.

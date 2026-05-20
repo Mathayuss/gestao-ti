@@ -38,11 +38,27 @@ sql_user="${POSTGRES_USER//\"/\"\"}"
 sql_password="${POSTGRES_PASSWORD//\'/\'\'}"
 
 echo "Ajustando senha do usuario PostgreSQL '${POSTGRES_USER}' conforme o .env..."
+echo "Parando app para interromper tentativas com senha antiga..."
+docker compose stop app >/dev/null 2>&1 || true
+
 docker compose exec -T postgres psql \
   -U "$POSTGRES_USER" \
   -d "$POSTGRES_DB" \
   -v ON_ERROR_STOP=1 \
   -c "ALTER USER \"${sql_user}\" WITH PASSWORD '${sql_password}';"
 
-echo "Senha ajustada. Reinicie a aplicacao com:"
-echo "docker compose up -d --force-recreate app"
+echo "Validando autenticacao TCP com a senha do .env..."
+docker compose exec -T -e PGPASSWORD="$POSTGRES_PASSWORD" postgres psql \
+  -h 127.0.0.1 \
+  -U "$POSTGRES_USER" \
+  -d "$POSTGRES_DB" \
+  -v ON_ERROR_STOP=1 \
+  -c "SELECT 1;"
+
+echo "Recriando app com a configuracao atual..."
+if ! docker compose up -d --build --force-recreate app; then
+  die "Falha ao recriar o app. Verifique se a porta APP_PORT do .env esta livre e rode: docker compose logs --tail=80 app"
+fi
+
+echo "Senha ajustada e app recriado. Para acompanhar:"
+echo "docker compose logs --tail=80 app"

@@ -50,10 +50,25 @@ $SqlPassword = $PostgresPassword.Replace("'", "''")
 $Sql = "ALTER USER `"$SqlUser`" WITH PASSWORD '$SqlPassword';"
 
 Write-Host "Ajustando senha do usuario PostgreSQL '$PostgresUser' conforme o .env..."
+Write-Host "Parando app para interromper tentativas com senha antiga..."
+docker compose stop app *> $null
+
 docker compose exec -T postgres psql -U $PostgresUser -d $PostgresDb -v ON_ERROR_STOP=1 -c $Sql
 if ($LASTEXITCODE -ne 0) {
   Fail "Falha ao ajustar a senha no PostgreSQL."
 }
 
-Write-Host "Senha ajustada. Reinicie a aplicacao com:"
-Write-Host "docker compose up -d --force-recreate app"
+Write-Host "Validando autenticacao TCP com a senha do .env..."
+docker compose exec -T -e "PGPASSWORD=$PostgresPassword" postgres psql -h 127.0.0.1 -U $PostgresUser -d $PostgresDb -v ON_ERROR_STOP=1 -c "SELECT 1;"
+if ($LASTEXITCODE -ne 0) {
+  Fail "A senha foi ajustada, mas a validacao TCP falhou."
+}
+
+Write-Host "Recriando app com a configuracao atual..."
+docker compose up -d --build --force-recreate app
+if ($LASTEXITCODE -ne 0) {
+  Fail "Falha ao recriar o app. Verifique se a porta APP_PORT do .env esta livre e rode: docker compose logs --tail=80 app"
+}
+
+Write-Host "Senha ajustada e app recriado. Para acompanhar:"
+Write-Host "docker compose logs --tail=80 app"
