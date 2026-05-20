@@ -510,7 +510,7 @@ class AuditLog(db.Model):
     usuario   = db.Column(db.String(80))
     acao      = db.Column(db.String(60))
     modulo    = db.Column(db.String(40))
-    ref_id    = db.Column(db.String(20), index=True)
+    ref_id    = db.Column(db.String(120), index=True)
     detalhe   = db.Column(db.Text)
     ip        = db.Column(db.String(50))
     data      = db.Column(db.DateTime, default=datetime.now, index=True)

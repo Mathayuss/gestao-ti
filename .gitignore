@@ -4,6 +4,7 @@
 __pycache__/
 *.py[cod]
 instance/
+migration_backups/
 *.db
 *.sqlite
 *.sqlite3
