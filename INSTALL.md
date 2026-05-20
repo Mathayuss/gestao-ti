@@ -109,3 +109,25 @@ ou:
 ```
 
 Isso não remove volumes Docker automaticamente. Para apagar dados persistentes, faça isso manualmente e com backup prévio.
+
+## Solução de problemas
+
+### `password authentication failed for user "ticontrol"`
+
+Esse erro costuma acontecer quando já existe um volume PostgreSQL criado com uma senha antiga, mas o `.env` foi recriado com uma senha nova. O PostgreSQL só aplica `POSTGRES_PASSWORD` na primeira criação do volume; depois disso, trocar o `.env` não muda a senha gravada no banco.
+
+Para corrigir sem apagar dados, rode:
+
+```bash
+./scripts/repair-postgres-password.sh
+docker compose up -d --force-recreate app
+```
+
+No Windows PowerShell:
+
+```powershell
+.\scripts\repair-postgres-password.ps1
+docker compose up -d --force-recreate app
+```
+
+Não remova o volume `postgres_data` se já houver dados importantes na instalação.
