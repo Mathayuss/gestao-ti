@@ -42,6 +42,15 @@ Set-ExecutionPolicy -Scope Process Bypass
 .\scripts\install-windows.ps1
 ```
 
+Se o Docker Desktop ainda não estiver instalado, o instalador irá orientar o processo. Também é possível pedir a instalação automática via `winget`:
+
+```powershell
+.\scripts\install-windows.ps1 -InstallDocker
+```
+
+Depois da instalação do Docker Desktop, abra o Docker Desktop, finalize a configuração inicial e execute o instalador novamente. Pode ser necessário reiniciar o Windows ou o PowerShell.
+Se o `winget` solicitar permissão elevada, execute o PowerShell como administrador.
+
 Para validar pré-requisitos sem criar `.env` nem subir containers:
 
 ```powershell
