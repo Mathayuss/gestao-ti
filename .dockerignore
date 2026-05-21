@@ -6,3 +6,15 @@ instance/*.sqlite
 .gitignore
 *.zip
 .env
+.env.*
+.git
+.github
+.claude
+.agents
+docs
+imagens
+migration_backups
+o
+*.md
+!README.md
+scripts

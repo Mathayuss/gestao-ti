@@ -908,15 +908,13 @@ def proximo_patrimonio():
     """Gera o próximo número de patrimônio sequencial com base no prefixo configurado."""
     prefix = ((_get_setting("patrimonio.prefixo") or "TI")).strip().upper()
     pattern = f"{prefix}-%"
-    existing = db.session.execute(
-        db.select(Asset.patrimonio).where(Asset.patrimonio.like(pattern))
-    ).scalars().all()
+    last = db.session.execute(
+        db.select(func.max(Asset.patrimonio)).where(Asset.patrimonio.like(pattern))
+    ).scalar()
     max_num = 0
-    for pat in (existing or []):
+    if last:
         try:
-            num = int(str(pat).rsplit("-", 1)[-1])
-            if num > max_num:
-                max_num = num
+            max_num = int(str(last).rsplit("-", 1)[-1])
         except (ValueError, IndexError):
             pass
     return f"{prefix}-{(max_num + 1):06d}"
@@ -1145,17 +1143,34 @@ def compute_alerts():
     if s_gar: cfg_dias_gar = int(s_gar.value)
     if s_lic: cfg_dias_lic = int(s_lic.value)
 
-    for a in db.session.execute(db.select(Asset).where(Asset.status.notin_(["Baixado","Descartado","Vendido"]))).scalars().all():
+    today_iso = date.today().isoformat()
+    gar_cutoff = (date.today() + timedelta(days=cfg_dias_gar)).isoformat()
+    lic_cutoff = (date.today() + timedelta(days=cfg_dias_lic)).isoformat()
+    for a in db.session.execute(
+        db.select(Asset)
+        .where(Asset.status.notin_(["Baixado","Descartado","Vendido"]))
+        .where(Asset.garantia.isnot(None))
+        .where(Asset.garantia >= today_iso)
+        .where(Asset.garantia <= gar_cutoff)
+    ).scalars().all():
         d = days_until(a.garantia)
-        if 0 <= d <= cfg_dias_gar:
-            alerts.append({"tipo":"garantia","nivel":"danger" if d<=30 else "warning",
-                           "titulo":f"Garantia vencendo: {a.hostname}","detalhe":f"{d} dias","ref":a.id})
-    for s in db.session.execute(db.select(Supply)).scalars().all():
+        alerts.append({"tipo":"garantia","nivel":"danger" if d<=30 else "warning",
+                       "titulo":f"Garantia vencendo: {a.hostname}","detalhe":f"{d} dias","ref":a.id})
+    for s in db.session.execute(
+        db.select(Supply).where(Supply.estoque <= Supply.minimo)
+    ).scalars().all():
         if s.estoque == 0:
             alerts.append({"tipo":"estoque","nivel":"danger","titulo":f"Estoque zerado: {s.nome}","detalhe":"Repor imediatamente","ref":s.id})
-        elif s.estoque <= s.minimo:
+        else:
             alerts.append({"tipo":"estoque","nivel":"warning","titulo":f"Estoque mínimo: {s.nome}","detalhe":f"{s.estoque} un (mín: {s.minimo})","ref":s.id})
-    for l in db.session.execute(db.select(License)).scalars().all():
+    for l in db.session.execute(
+        db.select(License).where(
+            db.or_(
+                db.and_(License.vencimento.isnot(None), License.vencimento >= today_iso, License.vencimento <= lic_cutoff),
+                License.atribuidas > License.total,
+            )
+        )
+    ).scalars().all():
         d = days_until(l.vencimento)
         if 0 <= d <= cfg_dias_lic:
             alerts.append({"tipo":"licenca","nivel":"danger" if d<=30 else "warning",

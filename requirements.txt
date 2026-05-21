@@ -11,4 +11,3 @@ Pillow>=10.0
 prometheus-client>=0.20
 gunicorn>=22.0
 psycopg[binary]>=3.2
-psycopg2-binary>=2.9
