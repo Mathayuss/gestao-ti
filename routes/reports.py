@@ -72,10 +72,10 @@ def get_dashboard():
     })
 
 
-@app.route("/api/sre/status")
+@app.route("/api/operational/status")
 @api_auth
-def sre_status():
-    """Resumo operacional para análise de confiabilidade e gestão de SLO."""
+def operational_status():
+    """Resumo operacional para monitoramento da aplicação."""
     db_health = _database_health()
     total_requests = None
     if METRICS_OK:
@@ -95,7 +95,7 @@ def sre_status():
     return jsonify({
         **_service_metadata(),
         "health": {"database": db_health},
-        "sloTargets": {
+        "operationalTargets": {
             "availability": "99.5% mensal",
             "latencyP95": "<= 500ms para rotas principais",
             "errorRate": "< 1% de respostas 5xx",
@@ -287,4 +287,3 @@ def restore_backup_upload():
         db.session.rollback()
         logger.exception("Falha na restauração de backup via upload")
         return jsonify({"error": f"Falha na restauração: {exc}"}), 500
-

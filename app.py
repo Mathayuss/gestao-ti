@@ -1,8 +1,8 @@
 """
-TI Control SRE — Sistema de Gestão de Ativos de TI com práticas de confiabilidade
+TI Control — Sistema de Gestão de Ativos de TI
 
 Inclui autenticação, persistência relacional, métricas Prometheus, health checks,
-request-id, endpoints operacionais e documentação SRE para operação do serviço.
+request-id e endpoints operacionais para monitoramento do serviço.
 """
 import os, io, uuid, warnings, csv, json, re, time as _time, hashlib, smtplib, base64, logging, html as _html
 import sys
@@ -88,7 +88,7 @@ app.config.update(
     },
     JSON_SORT_KEYS               = False,
     APP_BASE_URL                 = os.environ.get("APP_BASE_URL", "http://localhost").rstrip("/"),
-    SERVICE_NAME                 = os.environ.get("SERVICE_NAME", "ti-control-sre"),
+    SERVICE_NAME                 = os.environ.get("SERVICE_NAME", "ti-control"),
     BUILD_VERSION                = os.environ.get("BUILD_VERSION", "0.1.1-BETA"),
     ENVIRONMENT                  = os.environ.get("ENVIRONMENT", "development"),
     # Credenciais de demo: NUNCA mostrar a não ser que explicitamente ativado
@@ -128,7 +128,7 @@ except ImportError:
     MIGRATE_OK = False
 
 # ═══════════════════════════════════════════════════════════════════════════
-# SRE / OBSERVABILITY
+# OBSERVABILITY
 # ═══════════════════════════════════════════════════════════════════════════
 
 SERVICE_STARTED_AT = datetime.now()
@@ -151,7 +151,7 @@ if METRICS_OK:
     )
     HTTP_EXCEPTIONS_TOTAL = Counter(
         "ticontrol_http_exceptions_total",
-        "Exceções não tratadas observadas pelo middleware SRE.",
+        "Exceções não tratadas observadas pelo middleware de observabilidade.",
         ["exception_type"]
     )
     APP_INFO = Gauge(
@@ -175,7 +175,7 @@ def _endpoint_label():
 
 
 @app.before_request
-def sre_before_request():
+def observability_before_request():
     g.request_started_at = perf_counter()
     g.request_id = request.headers.get("X-Request-ID") or uuid.uuid4().hex[:16]
     g.metrics_active_request_tracked = False
@@ -193,7 +193,7 @@ def sre_before_request():
 
 
 @app.after_request
-def sre_after_request(response):
+def observability_after_request(response):
     response.headers["X-Request-ID"] = getattr(g, "request_id", "")
     response.headers.setdefault("X-Content-Type-Options", "nosniff")
     response.headers.setdefault("X-Frame-Options", "DENY")
@@ -220,7 +220,7 @@ def sre_after_request(response):
 
 
 @app.teardown_request
-def sre_teardown_request(exc):
+def observability_teardown_request(exc):
     if exc is not None and METRICS_OK:
         HTTP_EXCEPTIONS_TOTAL.labels(exc.__class__.__name__).inc()
     if METRICS_OK and getattr(g, "metrics_active_request_tracked", False):
@@ -2716,7 +2716,7 @@ if __name__ == "__main__":
     port = int(os.environ.get("FLASK_PORT", "5000"))
     debug = os.environ.get("FLASK_DEBUG", "1") == "1"
 
-    print("\nTI Control SRE — Flask + Auth + Observabilidade")
+    print("\nTI Control — Flask + Auth + Observabilidade")
     print(f"   DB:    {app.config['SQLALCHEMY_DATABASE_URI']}")
     print(f"   URL:   {app.config['APP_BASE_URL']}")
     print(f"   Host:  {host}")

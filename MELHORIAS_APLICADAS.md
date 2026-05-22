@@ -1,5 +1,13 @@
 # Melhorias aplicadas nesta versão
 
+## Limpeza de identidade pública e observabilidade — 2026-05-21
+
+- Removida a documentação de estudo pessoal de confiabilidade operacional do repositório público.
+- Padronizada a marca exibida para `TI Control`, sem sufixos internos de estudo.
+- Mantidos health checks, métricas, readiness e endpoint operacional por serem úteis para operação real.
+- Renomeado o endpoint autenticado de indicadores para `/api/operational/status`.
+- Atualizados README, instaladores, Docker Compose, Prometheus e templates públicos para a nova nomenclatura.
+
 ## Correções funcionais
 
 - Corrigido o perfil público do ativo para usar `asset.colaborador` em vez de `asset.usuario`.

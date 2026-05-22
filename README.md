@@ -1,6 +1,6 @@
-# TI Control SRE
+# TI Control
 
-Sistema web em Flask para gestão de ativos de TI, colaboradores, alocações, termos, QR Codes, insumos, licenças, manutenção, auditoria e rotinas operacionais. O projeto foi evoluído para um perfil mais próximo de produção, com PostgreSQL, Docker Compose, assistente inicial de configuração, backups pela aplicação, health checks, métricas Prometheus e documentação SRE.
+Sistema web em Flask para gestão de ativos de TI, colaboradores, alocações, termos, QR Codes, insumos, licenças, manutenção, auditoria e rotinas operacionais. O projeto foi evoluído para um perfil mais próximo de produção, com PostgreSQL, Docker Compose, assistente inicial de configuração, backups pela aplicação, health checks e métricas Prometheus.
 
 ## Principais recursos
 
@@ -185,7 +185,7 @@ Os arquivos gerados pela aplicação ficam em `instance/backups`. Para produçã
 
 Backups locais de migração podem ser mantidos em `migration_backups/`, que não deve ser versionado.
 
-## Endpoints SRE
+## Endpoints operacionais
 
 | Endpoint | Finalidade |
 |---|---|
@@ -193,7 +193,7 @@ Backups locais de migração podem ser mantidos em `migration_backups/`, que nã
 | `/health/startup` | Startup check |
 | `/health/ready` | Readiness check com teste de banco |
 | `/metrics` | Métricas Prometheus |
-| `/api/sre/status` | Indicadores operacionais autenticados |
+| `/api/operational/status` | Indicadores operacionais autenticados |
 | `/ping` | Health simples público |
 
 ## Rotas úteis
@@ -223,10 +223,6 @@ BASE_URL=http://servidor:5000 ./scripts/smoke-test.sh
 ## Documentação complementar
 
 - [INSTALL.md](INSTALL.md)
-- [docs/sre/SLO.md](docs/sre/SLO.md)
-- [docs/sre/RUNBOOK.md](docs/sre/RUNBOOK.md)
-- [docs/sre/INCIDENT_RESPONSE.md](docs/sre/INCIDENT_RESPONSE.md)
-- [docs/sre/OBSERVABILITY.md](docs/sre/OBSERVABILITY.md)
 
 ## Recomendações para beta e produção
 
