@@ -131,7 +131,7 @@ def _system_update_status(fetch=False):
     status["currentCommit"] = _git_value("rev-parse", "--short", "HEAD")
     status["branch"] = _git_value("rev-parse", "--abbrev-ref", "HEAD")
     status["remote"] = _git_value("config", "--get", f"branch.{status['branch']}.remote") or "origin"
-    status["dirty"] = bool(_git_value("status", "--porcelain"))
+    status["dirty"] = bool(_git_value("diff", "--ignore-cr-at-eol", "HEAD"))
 
     if fetch:
         result, error = _run_update_command(["git", "fetch", "--prune", status["remote"]], timeout=120)
