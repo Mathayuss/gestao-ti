@@ -360,7 +360,7 @@ def gerar_link_assinatura(aid):
     al.sign_token_expiry = datetime.now() + timedelta(days=7)
     audit("GERAR_LINK_ASSINATURA","alocacoes",aid,f"Link de assinatura gerado para {al.colaborador}")
     db.session.commit()
-    url = f"{app.config['APP_BASE_URL']}/assinar/{token}"
+    url = f"{get_app_base_url()}/assinar/{token}"
     email_enviado = False
     if al.email:
         res = send_email_link_assinatura(al.email, al.colaborador, al.ativo_nome, url)
@@ -381,7 +381,7 @@ def allocation_qrcode_termo(aid):
         al.sign_token = uuid.uuid4().hex + uuid.uuid4().hex
         al.sign_token_expiry = now + timedelta(days=7)
         db.session.commit()
-    url = f"{app.config['APP_BASE_URL']}/assinar/{al.sign_token}"
+    url = f"{get_app_base_url()}/assinar/{al.sign_token}"
     if QR_OK:
         img = qrcode.make(url)
         buf = io.BytesIO()

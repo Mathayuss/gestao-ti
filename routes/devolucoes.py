@@ -159,7 +159,7 @@ def registrar_laudo(did):
     dev.cobranca_valor  = valor_cobranca if tem_cobranca else 0.0
     db.session.commit()
 
-    link_rh = f"{app.config['APP_BASE_URL']}/rh/laudo/{rh_token}"
+    link_rh = f"{get_app_base_url()}/rh/laudo/{rh_token}"
     email_enviado = False
     res = send_email_laudo_rh(rh_email, dev.colaborador, tecnico, link_rh)
     email_enviado = res.get("ok", False)
@@ -284,7 +284,7 @@ def submeter_ciencia_rh(rh_token):
     dev.sign_token_expiry = datetime.now() + timedelta(days=7)
     db.session.commit()
 
-    link_assinatura = f"{app.config['APP_BASE_URL']}/devolver/{sign_token}"
+    link_assinatura = f"{get_app_base_url()}/devolver/{sign_token}"
     email_colab_enviado = False
     colab = db.session.get(Colaborador, dev.colaborador_id) if dev.colaborador_id else None
     if colab and colab.email:
@@ -323,7 +323,7 @@ def gerar_link_devolucao(did):
     dev.sign_token_expiry = datetime.now() + timedelta(days=7)
     audit("GERAR_LINK_DEVOLUCAO", "devolucoes", did, f"Link gerado para {dev.colaborador}")
     db.session.commit()
-    url = f"{app.config['APP_BASE_URL']}/devolver/{token}"
+    url = f"{get_app_base_url()}/devolver/{token}"
     # Envia e-mail se colaborador tiver e-mail
     email_result = None
     c = db.session.get(Colaborador, dev.colaborador_id) if dev.colaborador_id else None

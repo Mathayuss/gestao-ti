@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TI Control - Configuração inicial</title>
+  <style>
+    :root{
+      color-scheme: light;
+      --bg:#f6f7fb;--panel:#ffffff;--panel2:#f8fafc;--text:#111827;--muted:#64748b;
+      --line:#e2e8f0;--blue:#2563eb;--blue2:#1d4ed8;--green:#059669;--red:#dc2626;
+      --focus:rgba(37,99,235,.16);--shadow:0 24px 70px rgba(15,23,42,.12);
+      --r:10px;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;min-height:100vh;background:url('/static/bg.png') center/cover no-repeat fixed;color:var(--text);
+      font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+      font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased;
+    }
+    .shell{min-height:100vh;display:grid;grid-template-columns:300px minmax(0,1fr)}
+    aside{background:#101827;color:#fff;padding:34px 26px;display:flex;flex-direction:column;gap:26px}
+    .brand{display:flex;gap:12px;align-items:center}
+    .brand-mark{width:38px;height:38px;border-radius:10px;background:#2563eb;display:grid;place-items:center;font-weight:800}
+    .brand strong{display:block;font-size:17px}.brand span{color:#cbd5e1;font-size:12px}
+    .steps{display:grid;gap:8px}
+    .step-dot{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;color:#cbd5e1;border:1px solid transparent}
+    .step-dot b{width:24px;height:24px;border-radius:999px;background:#1f2937;display:grid;place-items:center;font-size:12px}
+    .step-dot.active{background:rgba(37,99,235,.18);border-color:rgba(96,165,250,.32);color:#fff}
+    .step-dot.active b{background:#2563eb}
+    .side-note{margin-top:auto;color:#94a3b8;font-size:12px}
+    main{padding:42px;display:flex;align-items:center;justify-content:center}
+    .panel{width:min(920px,100%);background:var(--panel);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);overflow:hidden}
+    .panel-head{padding:28px 30px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;gap:18px;align-items:flex-start}
+    h1{font-size:23px;margin:0 0 4px;font-weight:800;letter-spacing:0}
+    .subtitle{color:var(--muted);font-size:13px}
+    .db-pill{background:var(--panel2);border:1px solid var(--line);border-radius:999px;padding:8px 12px;color:var(--muted);font-size:12px;white-space:nowrap}
+    form{padding:30px}
+    .setup-step{display:none}.setup-step.active{display:block}
+    h2{font-size:17px;margin:0 0 18px}
+    .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+    .span-2{grid-column:span 2}
+    label{display:block;font-size:12px;font-weight:700;color:#475569;margin-bottom:6px}
+    input,select,textarea{
+      width:100%;border:1px solid #cbd5e1;border-radius:8px;background:#fff;color:var(--text);
+      padding:10px 11px;min-height:40px;font:inherit;outline:none;transition:border-color .15s,box-shadow .15s;
+    }
+    textarea{min-height:78px;resize:vertical}
+    input:focus,select:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 0 3px var(--focus)}
+    .hint{color:var(--muted);font-size:12px;margin-top:6px}
+    .readonly-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+    .readonly{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:12px}
+    .readonly span{display:block;color:var(--muted);font-size:11px;text-transform:uppercase;font-weight:800;margin-bottom:3px}
+    .readonly strong{font-size:13px;word-break:break-word}
+    .check-row{display:flex;align-items:center;gap:10px;border:1px solid var(--line);background:var(--panel2);border-radius:8px;padding:11px 12px}
+    .check-row input{width:auto;min-height:auto}
+    .errors{border-left:3px solid var(--red);background:#fef2f2;color:#991b1b;padding:12px 14px;border-radius:8px;margin-bottom:18px}
+    .errors ul{margin:0;padding-left:18px}
+    .actions{display:flex;justify-content:space-between;gap:12px;border-top:1px solid var(--line);padding:18px 30px;background:var(--panel2)}
+    button,.btn{
+      border:1px solid var(--line);background:#fff;color:var(--text);border-radius:8px;padding:10px 16px;
+      min-height:40px;font-weight:750;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;
+    }
+    .primary{background:var(--blue);border-color:var(--blue);color:#fff}.primary:hover{background:var(--blue2)}
+    .ghost:hover{background:#f1f5f9}
+    .token-box{padding:30px}.token-box form{padding:0}.token-row{display:flex;gap:10px;margin-top:14px}
+    .token-row input{flex:1}
+    .success-note{border-left:3px solid var(--green);background:#ecfdf5;color:#065f46;padding:12px 14px;border-radius:8px;margin-top:18px}
+    @media(max-width:780px){
+      .shell{grid-template-columns:1fr}aside{padding:22px}.steps{grid-template-columns:repeat(3,1fr)}
+      .step-dot{font-size:12px;padding:8px}.step-dot b{display:none}main{padding:18px}
+      .panel-head{display:block}.db-pill{display:inline-block;margin-top:12px}
+      .grid,.readonly-grid{grid-template-columns:1fr}.span-2{grid-column:auto}
+    }
+  </style>
+</head>
+<body>
+<div class="shell">
+  <aside>
+    <div class="brand">
+      <div class="brand-mark">TI</div>
+      <div><strong>TI Control</strong><span>Configuração inicial</span></div>
+    </div>
+    <div class="steps" aria-label="Etapas">
+      <div class="step-dot active" data-nav-step="0"><b>1</b><span>Banco</span></div>
+      <div class="step-dot" data-nav-step="1"><b>2</b><span>Empresa</span></div>
+      <div class="step-dot" data-nav-step="2"><b>3</b><span>Admin</span></div>
+      <div class="step-dot" data-nav-step="3"><b>4</b><span>Serviços</span></div>
+      <div class="step-dot" data-nav-step="4"><b>5</b><span>Finalizar</span></div>
+    </div>
+    <div class="side-note">v{{ build_version }}. O setup fica indisponível depois da criação do administrador.</div>
+  </aside>
+
+  <main>
+    <section class="panel">
+      <div class="panel-head">
+        <div>
+          <h1>Primeira configuração</h1>
+          <div class="subtitle">Configure a instalação inicial, crie o administrador e valide a base PostgreSQL.</div>
+        </div>
+        <div class="db-pill">{{ database.engine }} · {{ database.host }}{% if database.port %}:{{ database.port }}{% endif %}</div>
+      </div>
+
+      {% if not authorized %}
+      <div class="token-box">
+        <h2>Token de instalação</h2>
+        <p class="subtitle">Informe o token gerado pelo script de instalação para continuar.</p>
+        <form method="GET" action="/setup">
+          <div class="token-row">
+            <input name="token" value="{{ token|e }}" placeholder="SETUP_TOKEN" autofocus>
+            <button class="primary" type="submit">Continuar</button>
+          </div>
+        </form>
+      </div>
+      {% else %}
+      <form method="POST" action="/setup?token={{ token|urlencode }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="token" value="{{ token|e }}">
+
+        {% if errors %}
+        <div class="errors">
+          <strong>Revise os campos abaixo.</strong>
+          <ul>{% for error in errors %}<li>{{ error }}</li>{% endfor %}</ul>
+        </div>
+        {% endif %}
+
+        <div class="setup-step active">
+          <h2>Banco de dados</h2>
+          <div class="readonly-grid">
+            <div class="readonly"><span>Engine</span><strong>{{ database.engine }}</strong></div>
+            <div class="readonly"><span>Host</span><strong>{{ database.host or '-' }}</strong></div>
+            <div class="readonly"><span>Banco</span><strong>{{ database.database or '-' }}</strong></div>
+            <div class="readonly"><span>Usuário</span><strong>{{ database.user or '-' }}</strong></div>
+          </div>
+          <div class="success-note">A aplicação já iniciou conectada ao banco configurado pelo instalador.</div>
+        </div>
+
+        <div class="setup-step">
+          <h2>Empresa</h2>
+          <div class="grid">
+            <div class="span-2">
+              <label>Nome da empresa</label>
+              <input name="empresa_nome" value="{{ values.empresa_nome|e }}" required maxlength="120">
+            </div>
+            <div>
+              <label>CNPJ</label>
+              <input name="empresa_cnpj" value="{{ values.empresa_cnpj|e }}" maxlength="30">
+            </div>
+            <div>
+              <label>E-mail de TI</label>
+              <input name="empresa_email" value="{{ values.empresa_email|e }}" type="email" maxlength="120">
+            </div>
+            <div>
+              <label>Telefone</label>
+              <input name="empresa_telefone" value="{{ values.empresa_telefone|e }}" maxlength="40">
+            </div>
+            <div>
+              <label>Site</label>
+              <input name="empresa_site" value="{{ values.empresa_site|e }}" maxlength="120">
+            </div>
+            <div class="span-2">
+              <label>Endereço</label>
+              <textarea name="empresa_endereco" maxlength="240">{{ values.empresa_endereco|e }}</textarea>
+            </div>
+          </div>
+        </div>
+
+        <div class="setup-step">
+          <h2>Administrador</h2>
+          <div class="grid">
+            <div>
+              <label>Nome completo</label>
+              <input name="admin_nome" value="{{ values.admin_nome|e }}" required maxlength="120">
+            </div>
+            <div>
+              <label>Username</label>
+              <input name="admin_username" value="{{ values.admin_username|e }}" required maxlength="80" autocomplete="username">
+              <div class="hint">Use letras, números, ponto, hífen ou underline.</div>
+            </div>
+            <div class="span-2">
+              <label>E-mail</label>
+              <input name="admin_email" value="{{ values.admin_email|e }}" type="email" maxlength="120">
+            </div>
+            <div>
+              <label>Senha</label>
+              <input name="admin_password" type="password" required minlength="8" autocomplete="new-password">
+            </div>
+            <div>
+              <label>Confirmar senha</label>
+              <input name="admin_password_confirm" type="password" required minlength="8" autocomplete="new-password">
+            </div>
+          </div>
+        </div>
+
+        <div class="setup-step">
+          <h2>Serviços</h2>
+          <div class="grid">
+            <div class="span-2">
+              <label>URL pública do sistema</label>
+              <input name="app_base_url" value="{{ values.app_base_url|e }}" placeholder="http://localhost:5000">
+            </div>
+            <div class="span-2 check-row">
+              <input id="smtp_enabled" name="smtp_enabled" type="checkbox" onchange="toggleSmtp()" {% if values.smtp_enabled %}checked{% endif %}>
+              <label for="smtp_enabled" style="margin:0">Ativar SMTP pela aplicação</label>
+            </div>
+            <div data-smtp>
+              <label>Servidor SMTP</label>
+              <input name="smtp_host" value="{{ values.smtp_host|e }}" maxlength="160">
+            </div>
+            <div data-smtp>
+              <label>Porta</label>
+              <input name="smtp_port" value="{{ values.smtp_port|e }}" inputmode="numeric">
+            </div>
+            <div data-smtp>
+              <label>Usuário SMTP</label>
+              <input name="smtp_user" value="{{ values.smtp_user|e }}" maxlength="160">
+            </div>
+            <div data-smtp>
+              <label>Senha SMTP</label>
+              <input name="smtp_password" type="password" autocomplete="new-password">
+            </div>
+            <div data-smtp>
+              <label>Nome remetente</label>
+              <input name="smtp_from_name" value="{{ values.smtp_from_name|e }}" maxlength="120">
+            </div>
+            <div data-smtp>
+              <label>E-mail remetente</label>
+              <input name="smtp_from_email" value="{{ values.smtp_from_email|e }}" type="email" maxlength="120">
+            </div>
+            <div data-smtp class="span-2 check-row">
+              <input id="smtp_tls" name="smtp_tls" type="checkbox" {% if values.smtp_tls %}checked{% endif %}>
+              <label for="smtp_tls" style="margin:0">Usar TLS</label>
+            </div>
+          </div>
+        </div>
+
+        <div class="setup-step">
+          <h2>Finalizar</h2>
+          <div class="grid">
+            <div class="span-2 check-row">
+              <input id="backup_enabled" name="backup_enabled" type="checkbox" {% if values.backup_enabled %}checked{% endif %}>
+              <label for="backup_enabled" style="margin:0">Ativar backup automático</label>
+            </div>
+            <div>
+              <label>Frequência</label>
+              <select name="backup_frequency">
+                <option value="daily" {% if values.backup_frequency == 'daily' %}selected{% endif %}>Diário</option>
+                <option value="weekly" {% if values.backup_frequency == 'weekly' %}selected{% endif %}>Semanal</option>
+                <option value="monthly" {% if values.backup_frequency == 'monthly' %}selected{% endif %}>Mensal</option>
+              </select>
+            </div>
+            <div>
+              <label>Retenção</label>
+              <input name="backup_retention" value="{{ values.backup_retention|e }}" inputmode="numeric">
+              <div class="hint">Quantidade de arquivos mantidos.</div>
+            </div>
+          </div>
+          <div class="success-note">Ao concluir, o usuário administrador será criado e o assistente será bloqueado.</div>
+        </div>
+      </form>
+
+      <div class="actions">
+        <button class="ghost" type="button" onclick="prevStep()">Voltar</button>
+        <div style="display:flex;gap:10px">
+          <button class="ghost" type="button" onclick="nextStep()" id="nextBtn">Avançar</button>
+          <button class="primary" type="button" onclick="submitSetup()" id="submitBtn" style="display:none">Concluir instalação</button>
+        </div>
+      </div>
+      {% endif %}
+    </section>
+  </main>
+</div>
+
+<script>
+let step = 0;
+const steps = [...document.querySelectorAll('.setup-step')];
+const dots = [...document.querySelectorAll('[data-nav-step]')];
+function renderStep(){
+  if(!steps.length) return;
+  steps.forEach((el,i)=>el.classList.toggle('active', i===step));
+  dots.forEach((el,i)=>el.classList.toggle('active', i===step));
+  document.getElementById('nextBtn').style.display = step === steps.length - 1 ? 'none' : 'inline-flex';
+  document.getElementById('submitBtn').style.display = step === steps.length - 1 ? 'inline-flex' : 'none';
+}
+function nextStep(){ if(step < steps.length - 1){ step += 1; renderStep(); } }
+function prevStep(){ if(step > 0){ step -= 1; renderStep(); } }
+function submitSetup(){ document.querySelector('form[method="POST"]').submit(); }
+function toggleSmtp(){
+  const enabled = document.getElementById('smtp_enabled')?.checked;
+  document.querySelectorAll('[data-smtp]').forEach(el=>el.style.display = enabled ? '' : 'none');
+}
+dots.forEach((dot,i)=>dot.addEventListener('click',()=>{ step=i; renderStep(); }));
+if(steps.length){ toggleSmtp(); renderStep(); }
+</script>
+</body>
+</html>

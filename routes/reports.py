@@ -4,71 +4,9 @@ Este modulo usa uma ponte temporaria para acessar modelos, helpers e extensoes
 definidos em app.py. Em uma proxima etapa, esses itens podem migrar para
 pacotes dedicados como models, services e extensions.
 """
-import urllib.error
-import urllib.request
 from app import _export_route_globals
 
 globals().update(_export_route_globals())
-
-
-def _version_tuple(value):
-    raw = clean_text(value or "", 60).lstrip("vV")
-    parts = []
-    for part in raw.split("."):
-        digits = "".join(ch for ch in part if ch.isdigit())
-        parts.append(int(digits or 0))
-    while len(parts) < 3:
-        parts.append(0)
-    return tuple(parts[:3])
-
-
-def _update_manifest_from_payload(payload):
-    if not isinstance(payload, dict):
-        return {}
-    version = payload.get("version") or payload.get("latest") or payload.get("tag_name") or payload.get("name")
-    return {
-        "version": clean_text(version, 60),
-        "notes": clean_text(payload.get("notes") or payload.get("body") or "", 500),
-        "url": clean_text(payload.get("html_url") or payload.get("download_url") or payload.get("url") or "", 300),
-    }
-
-
-@app.route("/api/updates/check")
-@requires("Administrador")
-def check_updates():
-    current = app.config.get("BUILD_VERSION", "dev")
-    source_url = app.config.get("UPDATE_CHECK_URL", "")
-    result = {
-        "currentVersion": current,
-        "availableVersion": "",
-        "updateAvailable": False,
-        "sourceUrl": source_url,
-        "releaseUrl": "",
-        "notes": "",
-        "checkedAt": datetime.now().isoformat(),
-    }
-    if not source_url:
-        return jsonify({**result, "error": "URL de verificacao de atualizacao nao configurada."}), 400
-    try:
-        req = urllib.request.Request(source_url, headers={
-            "Accept": "application/json",
-            "User-Agent": f"TI-Control/{current}",
-        })
-        with urllib.request.urlopen(req, timeout=10) as resp:
-            payload = json.loads(resp.read().decode("utf-8"))
-        manifest = _update_manifest_from_payload(payload)
-        available = manifest.get("version") or ""
-        result.update({
-            "availableVersion": available,
-            "releaseUrl": manifest.get("url") or source_url,
-            "notes": manifest.get("notes") or "",
-            "updateAvailable": bool(available and _version_tuple(available) > _version_tuple(current)),
-        })
-        audit("VERIFICAR_ATUALIZACAO", "configuracoes", "", f"Versao atual {current}; disponivel {available or 'indisponivel'}")
-        db.session.commit()
-        return jsonify(result)
-    except (urllib.error.URLError, TimeoutError, json.JSONDecodeError) as exc:
-        return jsonify({**result, "error": f"Falha ao verificar atualizacao: {exc}"}), 502
 
 @app.route("/api/audit-log")
 @requires("Administrador","Técnico TI")
@@ -128,15 +66,16 @@ def get_dashboard():
         "licencas": {
             "total":      db.session.query(func.sum(License.total)).scalar() or 0,
             "atribuidas": db.session.query(func.sum(License.atribuidas)).scalar() or 0,
-            "custoAnual": db.session.query(func.sum(License.custo)).scalar() or 0,
+            "custoMensal": round(sum(l.custo_mensal for l in db.session.execute(db.select(License)).scalars().all()), 2),
+            "custoAnual": round(sum(l.custo_anual for l in db.session.execute(db.select(License)).scalars().all()), 2),
         },
     })
 
 
-@app.route("/api/sre/status")
+@app.route("/api/operational/status")
 @api_auth
-def sre_status():
-    """Resumo operacional para análise de confiabilidade e gestão de SLO."""
+def operational_status():
+    """Resumo operacional para monitoramento da aplicação."""
     db_health = _database_health()
     total_requests = None
     if METRICS_OK:
@@ -156,7 +95,7 @@ def sre_status():
     return jsonify({
         **_service_metadata(),
         "health": {"database": db_health},
-        "sloTargets": {
+        "operationalTargets": {
             "availability": "99.5% mensal",
             "latencyP95": "<= 500ms para rotas principais",
             "errorRate": "< 1% de respostas 5xx",
@@ -266,3 +205,85 @@ def delete_backup_file(filename):
     db.session.commit()
     return jsonify({"ok": True})
 
+
+@app.route("/api/backups/validate", methods=["POST"])
+@requires("Administrador")
+def validate_backup():
+    sha256_actual = None
+    if request.files.get("file"):
+        data = request.files["file"].read()
+        if len(data) > BACKUP_UPLOAD_MAX_BYTES:
+            return jsonify({"error": "Arquivo excede 20 MB."}), 400
+    else:
+        d = json_payload() or {}
+        filename = clean_text(d.get("filename"), 200)
+        if not filename:
+            return jsonify({"error": "Parâmetro 'filename' ou upload obrigatório."}), 400
+        path = _backup_file_path(filename)
+        if not path or not os.path.exists(path):
+            return jsonify({"error": "Backup não encontrado."}), 404
+        with open(path, "rb") as fh:
+            data = fh.read()
+    sha256_actual = hashlib.sha256(data).hexdigest()
+    try:
+        payload = json.loads(data.decode("utf-8"))
+    except Exception:
+        return jsonify({"error": "Arquivo não é um JSON válido.", "valid": False}), 400
+    result = _validate_backup_payload(payload)
+    result["sha256"] = sha256_actual
+    return jsonify(result)
+
+
+@app.route("/api/backups/restore/<filename>", methods=["POST"])
+@requires("Administrador")
+def restore_backup_stored(filename):
+    path = _backup_file_path(filename)
+    if not path or not os.path.exists(path):
+        return jsonify({"error": "Backup não encontrado."}), 404
+    with open(path, "rb") as fh:
+        data = fh.read()
+    try:
+        payload = json.loads(data.decode("utf-8"))
+    except Exception:
+        return jsonify({"error": "Arquivo corrompido — JSON inválido."}), 400
+    validation = _validate_backup_payload(payload)
+    if not validation["valid"]:
+        return jsonify({"error": "Backup inválido.", "details": validation["errors"]}), 422
+    try:
+        stats = _restore_from_payload(payload, restored_by=current_user.username)
+        audit("RESTORE", "sistema", filename, f"Banco restaurado de {filename}")
+        db.session.commit()
+        return jsonify({"ok": True, "stats": stats, "source": filename})
+    except Exception as exc:
+        db.session.rollback()
+        logger.exception("Falha na restauração de backup")
+        return jsonify({"error": f"Falha na restauração: {exc}"}), 500
+
+
+@app.route("/api/backups/restore", methods=["POST"])
+@requires("Administrador")
+def restore_backup_upload():
+    file = request.files.get("file")
+    if not file:
+        return jsonify({"error": "Arquivo obrigatório."}), 400
+    data = file.read()
+    if not data:
+        return jsonify({"error": "Arquivo vazio."}), 400
+    if len(data) > BACKUP_UPLOAD_MAX_BYTES:
+        return jsonify({"error": "Arquivo excede 20 MB."}), 400
+    try:
+        payload = json.loads(data.decode("utf-8"))
+    except Exception:
+        return jsonify({"error": "Arquivo não é um JSON válido."}), 400
+    validation = _validate_backup_payload(payload)
+    if not validation["valid"]:
+        return jsonify({"error": "Backup inválido.", "details": validation["errors"]}), 422
+    try:
+        stats = _restore_from_payload(payload, restored_by=current_user.username)
+        audit("RESTORE", "sistema", file.filename or "upload", f"Banco restaurado via upload")
+        db.session.commit()
+        return jsonify({"ok": True, "stats": stats, "source": file.filename or "upload"})
+    except Exception as exc:
+        db.session.rollback()
+        logger.exception("Falha na restauração de backup via upload")
+        return jsonify({"error": f"Falha na restauração: {exc}"}), 500

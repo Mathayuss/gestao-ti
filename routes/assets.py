@@ -12,8 +12,7 @@ globals().update(_export_route_globals())
 @login_required
 def index():
     return render_template("index.html",
-        app_base_url=app.config["APP_BASE_URL"],
-        build_version=app.config.get("BUILD_VERSION", "1.0"),
+        build_version=app.config.get("BUILD_VERSION", "0.1.1-BETA"),
     )
 
 
@@ -21,7 +20,152 @@ def index():
 def asset_public(aid):
     a = db.session.get(Asset, aid)
     if not a: return "Ativo não encontrado", 404
-    return render_template("asset_public.html", asset=a)
+    return render_template("asset_public.html", asset=a, public_card=_asset_public_card(a))
+
+
+def _asset_public_card(asset):
+    """Monta um resumo seguro e legível para consulta pública via QR Code."""
+    def _join(parts, sep=" "):
+        return sep.join(str(p).strip() for p in parts if str(p or "").strip())
+
+    def _date_label(value):
+        if not value:
+            return "Sem registro"
+        if hasattr(value, "strftime"):
+            return value.strftime("%d/%m/%Y")
+        raw = str(value).strip()
+        if len(raw) >= 10 and raw[4:5] == "-" and raw[7:8] == "-":
+            return f"{raw[8:10]}/{raw[5:7]}/{raw[0:4]}"
+        return raw
+
+    def _date_key(value):
+        if not value:
+            return ""
+        if hasattr(value, "isoformat"):
+            return value.isoformat()
+        return str(value)
+
+    title = asset.hostname or _join([asset.categoria or "Ativo de TI", asset.fabricante, asset.modelo])
+    brand_model = _join([asset.fabricante, asset.modelo]) or "Não informado"
+    location = _join([asset.unidade, asset.setor], " - ") or "Local não informado"
+
+    status_raw = asset.status or "Indefinido"
+    status_map = {
+        "Ativo": ("Ativo", "green"),
+        "Alocado": ("Ativo", "green"),
+        "Disponível": ("Em estoque", "blue"),
+        "Manutenção": ("Em manutenção", "amber"),
+        "Baixado": ("Baixado", "red"),
+        "Inativo": ("Inativo", "gray"),
+        "Descartado": ("Baixado", "gray"),
+        "Vendido": ("Baixado", "gray"),
+        "Extraviado": ("Inativo", "red"),
+    }
+    status_label, status_class = status_map.get(status_raw, (status_raw, "gray"))
+
+    events = []
+    for al in db.session.execute(
+        db.select(
+            Allocation.colaborador,
+            Allocation.setor,
+            Allocation.unidade,
+            Allocation.data_aloc,
+            Allocation.data_encerramento,
+        ).where(Allocation.ativo_id == asset.id)
+    ).all():
+        event_date = al.data_encerramento or al.data_aloc
+        event_label = "Devolução registrada" if al.data_encerramento else "Alocação registrada"
+        if event_date:
+            events.append({
+                "date": event_date,
+                "kind": event_label,
+                "detail": _join([al.colaborador, al.setor or al.unidade], " - ") or "Movimentação do ativo",
+                "sort": _date_key(event_date),
+            })
+
+    for m in db.session.execute(
+        db.select(
+            MaintenanceOrder.tipo,
+            MaintenanceOrder.status,
+            MaintenanceOrder.data_abertura,
+            MaintenanceOrder.data_conclusao,
+        ).where(MaintenanceOrder.asset_id == asset.id)
+    ).all():
+        event_date = m.data_conclusao or m.data_abertura
+        if event_date:
+            events.append({
+                "date": event_date,
+                "kind": "Manutenção",
+                "detail": _join([m.tipo, m.status], " - ") or "Ordem de serviço",
+                "sort": _date_key(event_date),
+            })
+
+    for mov in db.session.execute(
+        db.select(
+            SupplyMovement.data,
+            SupplyMovement.motivo,
+            SupplyMovement.tipo,
+        ).where(SupplyMovement.ativo_id == asset.id)
+    ).all():
+        if mov.data:
+            events.append({
+                "date": mov.data,
+                "kind": "Movimentação",
+                "detail": mov.motivo or mov.tipo or "Movimento de insumo",
+                "sort": _date_key(mov.data),
+            })
+
+    events.sort(key=lambda item: item["sort"])
+    last_event = events[-1] if events else {
+        "date": asset.criado_em,
+        "kind": "Cadastro do ativo",
+        "detail": "Registro inicial no inventário",
+        "sort": _date_key(asset.criado_em),
+    }
+
+    category = (asset.categoria or "").lower()
+    if "note" in category or "laptop" in category:
+        icon = "notebook"
+    elif "servid" in category or "server" in category:
+        icon = "server"
+    elif "switch" in category or "firewall" in category or "roteador" in category:
+        icon = "network"
+    elif "impress" in category:
+        icon = "printer"
+    elif "monitor" in category:
+        icon = "monitor"
+    else:
+        icon = "desktop"
+
+    return {
+        "title": title,
+        "code": asset.patrimonio or asset.id,
+        "type": asset.categoria or "Ativo de TI",
+        "brand_model": brand_model,
+        "serial": asset.service_tag or "Não informado",
+        "status_label": status_label,
+        "status_class": status_class,
+        "location": location,
+        "owner": asset.colaborador or "Sem responsável vinculado",
+        "last_event": f"{last_event['kind']} - {_date_label(last_event['date'])}",
+        "last_event_detail": last_event["detail"],
+        "icon": icon,
+        "public_url": request.base_url,
+        "qr_data_uri": _asset_public_qr_data_uri(),
+    }
+
+
+def _asset_public_qr_data_uri():
+    if not QR_OK:
+        return ""
+    try:
+        img = qrcode.make(request.base_url)
+        buf = io.BytesIO()
+        img.save(buf, format="PNG")
+        return "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode("ascii")
+    except Exception as exc:
+        logger.warning("Falha ao gerar QR público: %s", exc)
+        return ""
 
 
 @app.route("/api/assets", methods=["GET"])
@@ -298,7 +442,7 @@ def get_asset_history(aid):
 @app.route("/api/assets/<aid>/qrcode")
 @api_auth
 def asset_qrcode(aid):
-    base = app.config["APP_BASE_URL"]
+    base = get_app_base_url()
     url  = f"{base}/asset/{aid}"
     if QR_OK:
         img = qrcode.make(url); buf = io.BytesIO(); img.save(buf, format="PNG"); buf.seek(0)

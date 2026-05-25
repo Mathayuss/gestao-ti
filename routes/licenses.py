@@ -4,7 +4,11 @@ from app import _export_route_globals
 globals().update(_export_route_globals())
 
 
-LICENSE_TYPES = ("Assinatura", "Anual", "Perpétua", "Por uso")
+LICENSE_TYPES = ("Assinatura mensal", "Anual", "Perpétua", "Por uso")
+LICENSE_TYPE_ALIASES = {
+    "Assinatura": "Assinatura mensal",
+    "Mensal": "Assinatura mensal",
+}
 
 
 def _license_int(value, default, label, errors):
@@ -40,7 +44,8 @@ def _normalize_license_payload(data, current=None):
     errors = []
     software = clean_text(data.get("software", getattr(current, "software", "")), 120)
     fornecedor = clean_text(data.get("fornecedor", getattr(current, "fornecedor", "")), 80)
-    tipo = clean_text(data.get("tipo", getattr(current, "tipo", "Assinatura")) or "Assinatura", 40)
+    tipo = clean_text(data.get("tipo", getattr(current, "tipo", "Assinatura mensal")) or "Assinatura mensal", 40)
+    tipo = LICENSE_TYPE_ALIASES.get(tipo, tipo)
     vencimento = clean_text(data.get("vencimento", getattr(current, "vencimento", "")), 10) or None
     total = _license_int(data.get("total", getattr(current, "total", 0)), 0, "Total", errors)
     atribuidas = _license_int(data.get("atribuidas", getattr(current, "atribuidas", 0)), 0, "Atribuídas", errors)
