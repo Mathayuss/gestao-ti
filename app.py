@@ -75,6 +75,21 @@ app = Flask(__name__)
 from werkzeug.middleware.proxy_fix import ProxyFix
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
 
+
+def _version_from_file(default="0.1.2-BETA"):
+    version_path = os.path.join(os.path.dirname(__file__), "VERSION")
+    try:
+        with open(version_path, "r", encoding="utf-8") as fh:
+            return fh.read().strip() or default
+    except OSError:
+        return default
+
+
+def _resolved_build_version():
+    file_version = _version_from_file()
+    env_version = (os.environ.get("BUILD_VERSION") or "").strip()
+    return env_version or file_version
+
 _is_production = os.environ.get("ENVIRONMENT", "development") not in ("development", "dev")
 _session_secure = os.environ.get("SESSION_SECURE", "0") == "1"
 
@@ -89,7 +104,7 @@ app.config.update(
     JSON_SORT_KEYS               = False,
     APP_BASE_URL                 = os.environ.get("APP_BASE_URL", "http://localhost").rstrip("/"),
     SERVICE_NAME                 = os.environ.get("SERVICE_NAME", "ti-control"),
-    BUILD_VERSION                = os.environ.get("BUILD_VERSION", "1.0.0"),
+    BUILD_VERSION                = _resolved_build_version(),
     ENVIRONMENT                  = os.environ.get("ENVIRONMENT", "development"),
     # Credenciais de demo: NUNCA mostrar a não ser que explicitamente ativado
     SHOW_DEMO_CREDENTIALS        = os.environ.get("SHOW_DEMO_CREDENTIALS", "0") == "1",

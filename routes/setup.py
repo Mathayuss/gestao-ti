@@ -79,7 +79,7 @@ def _render_setup(token="", errors=None, values=None, authorized=True):
         values=values,
         authorized=authorized,
         database=_database_info(),
-        build_version=app.config.get("BUILD_VERSION", "0.1.1-BETA"),
+        build_version=app.config.get("BUILD_VERSION", "0.1.2-BETA"),
     )
 
 

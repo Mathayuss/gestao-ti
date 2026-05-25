@@ -99,7 +99,7 @@ def _system_update_status(fetch=False):
     has_repo = os.path.isdir(os.path.join(APP_ROOT, ".git"))
     enabled = _self_update_enabled()
     supported = bool(enabled and git_path and has_repo)
-    current = app.config.get("BUILD_VERSION", "1.0.0")
+    current = app.config.get("BUILD_VERSION", "0.1.2-BETA")
     status = {
         "supported": supported,
         "enabled": enabled,
@@ -114,7 +114,8 @@ def _system_update_status(fetch=False):
         "ahead": 0,
         "behind": 0,
         "updateAvailable": False,
-        "canApply": supported,
+        "canApply": False,
+        "blockReason": "",
         "mode": "git" if supported else "manual",
         "lastCheck": None,
         "message": "",
@@ -148,6 +149,13 @@ def _system_update_status(fetch=False):
             status["ahead"] = int(parts[0])
             status["behind"] = int(parts[1])
             status["updateAvailable"] = status["behind"] > 0
+            status["canApply"] = bool(supported and status["updateAvailable"] and not status["dirty"] and not status["ahead"])
+            if not status["updateAvailable"]:
+                status["blockReason"] = "Nenhuma atualizacao disponivel."
+            elif status["dirty"]:
+                status["blockReason"] = "Existem alteracoes locais no servidor."
+            elif status["ahead"]:
+                status["blockReason"] = "O servidor possui commits locais ainda nao enviados."
             status["message"] = "Atualização disponível." if status["updateAvailable"] else "Sistema já está na versão mais recente conhecida."
     else:
         status["message"] = "Branch atual não possui upstream configurado."
@@ -367,6 +375,8 @@ def system_update_apply():
     status = _system_update_status(fetch=True)
     if not status["supported"]:
         return jsonify({"error": status["message"], "status": status}), 409
+    if not status["updateAvailable"]:
+        return jsonify({"error": "Nenhuma atualizacao disponivel no repositorio remoto.", "status": status}), 409
     if status["dirty"]:
         return jsonify({"error": "Existem alterações locais no servidor. Resolva antes de atualizar.", "status": status}), 409
     if status["ahead"]:
@@ -386,7 +396,7 @@ def system_update_apply():
         }), 500
 
     new_commit = _git_value("rev-parse", "--short", "HEAD")
-    new_version = _app_version_from_file(new_commit or "0.1.1-BETA")
+    new_version = _app_version_from_file(new_commit or "0.1.2-BETA")
     env_updated = _set_env_file_value("BUILD_VERSION", new_version) if new_version else False
     audit("ATUALIZAR_SISTEMA", "configuracoes", "", f"Atualização aplicada para {new_version or new_commit or 'versão desconhecida'}")
     db.session.commit()

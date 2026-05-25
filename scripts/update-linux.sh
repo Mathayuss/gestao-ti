@@ -101,7 +101,7 @@ echo
 echo "TI Control - atualizacao"
 echo
 
-previous_version="$(env_value BUILD_VERSION 0.1.1-BETA)"
+previous_version="$(env_value BUILD_VERSION 0.1.2-BETA)"
 echo "Versao atual declarada: ${previous_version}"
 
 app_backup
@@ -111,7 +111,7 @@ if [[ "$NO_PULL" != "1" ]]; then
   git pull --ff-only
 fi
 
-new_version="0.1.1-BETA"
+new_version="0.1.2-BETA"
 if [[ -f VERSION ]]; then
   new_version="$(tr -d '\r\n' < VERSION)"
 elif command -v git >/dev/null 2>&1; then

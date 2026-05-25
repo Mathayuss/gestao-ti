@@ -20,7 +20,7 @@ def login_page():
         show_demo=app.config["SHOW_DEMO_CREDENTIALS"],
         aparencia=aparencia,
         empresa=empresa,
-        build_version=app.config.get("BUILD_VERSION", "0.1.1-BETA"),
+        build_version=app.config.get("BUILD_VERSION", "0.1.2-BETA"),
     )
 
 
