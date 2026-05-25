@@ -379,15 +379,24 @@ def system_update_apply():
         return jsonify({"error": "Nenhuma atualizacao disponivel no repositorio remoto.", "status": status}), 409
     if status["dirty"]:
         return jsonify({"error": "Existem alterações locais no servidor. Resolva antes de atualizar.", "status": status}), 409
-    if status["ahead"]:
-        return jsonify({"error": "O servidor possui commits locais à frente do repositório remoto. Atualização automática bloqueada.", "status": status}), 409
+
+    remote = status.get("remote") or "origin"
+    branch = status.get("branch") or "main"
 
     try:
         backup = _write_backup_file("manual", generated_by=f"pre_update:{current_user.username}")
     except Exception as exc:
         return jsonify({"error": f"Falha ao gerar backup pré-atualização: {exc}", "status": status}), 500
 
-    result, error = _run_update_command(["git", "pull", "--ff-only"], timeout=180)
+    fetch_result, fetch_error = _run_update_command(["git", "fetch", remote], timeout=120)
+    if fetch_error or fetch_result.returncode != 0:
+        return jsonify({
+            "error": fetch_error or (fetch_result.stderr or fetch_result.stdout or "Falha ao buscar atualizações do repositório.").strip(),
+            "backup": backup,
+            "status": status,
+        }), 500
+
+    result, error = _run_update_command(["git", "reset", "--hard", f"{remote}/{branch}"], timeout=60)
     if error or result.returncode != 0:
         return jsonify({
             "error": error or (result.stderr or result.stdout or "Falha ao aplicar atualização.").strip(),

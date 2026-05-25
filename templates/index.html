@@ -3931,11 +3931,12 @@ async function renderConfiguracoes(){
       <div class="info-box blue" style="margin-bottom:14px">
         ${esc(updateState.message || 'Clique em Verificar atualizações para consultar o repositório remoto.')}
         ${updateState.dirty ? '<br><strong>Há alterações locais no servidor; a atualização pela tela fica bloqueada até resolver.</strong>' : ''}
+        ${updateState.ahead ? `<br><span style="font-size:12px;color:var(--text3)">O servidor possui ${updateState.ahead} commit(s) local(is) não enviado(s) ao remoto — serão substituídos pela versão do repositório ao aplicar.</span>` : ''}
       </div>
       <div class="flex-gap" style="flex-wrap:wrap">
         <button class="btn btn-default btn-sm" onclick="checkSystemUpdate()" type="button" ${!updateState.supported ? 'disabled' : ''}>Verificar atualizações</button>
         ${updateState.supported
-          ? `<button class="btn btn-primary btn-sm" onclick="confirmApplySystemUpdate()" type="button" ${(!updateState.updateAvailable || !updateState.canApply || updateState.dirty || updateState.ahead) ? 'disabled' : ''}>Aplicar atualização</button>`
+          ? `<button class="btn btn-primary btn-sm" onclick="confirmApplySystemUpdate()" type="button" ${(!updateState.canApply || updateState.dirty) ? 'disabled' : ''}>Aplicar atualização</button>`
           : `<button class="btn btn-primary btn-sm" onclick="showManualUpdateInstructions()" type="button">Ver instruções</button>`}
       </div>
       <div style="margin-top:14px;font-size:12px;color:var(--text3)">
