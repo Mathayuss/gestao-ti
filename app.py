@@ -89,7 +89,8 @@ app.config.update(
     JSON_SORT_KEYS               = False,
     APP_BASE_URL                 = os.environ.get("APP_BASE_URL", "http://localhost").rstrip("/"),
     SERVICE_NAME                 = os.environ.get("SERVICE_NAME", "ti-control-sre"),
-    BUILD_VERSION                = os.environ.get("BUILD_VERSION", "dev"),
+    BUILD_VERSION                = os.environ.get("BUILD_VERSION", "1.0.0"),
+    UPDATE_CHECK_URL             = os.environ.get("UPDATE_CHECK_URL", "https://api.github.com/repos/Mathayuss/gestao-ti/releases/latest"),
     ENVIRONMENT                  = os.environ.get("ENVIRONMENT", "development"),
     # Credenciais de demo: NUNCA mostrar a não ser que explicitamente ativado
     SHOW_DEMO_CREDENTIALS        = os.environ.get("SHOW_DEMO_CREDENTIALS", "0") == "1",
@@ -1007,6 +1008,7 @@ PERMISSION_MODULE_PREFIXES = (
     ("/api/backups", "configuracoes"),
     ("/api/backup.json", "configuracoes"),
     ("/api/export", "configuracoes"),
+    ("/api/updates", "configuracoes"),
 )
 
 ATTACHMENT_MODULE_BY_ENTITY = {

@@ -3363,6 +3363,7 @@ async function renderConfiguracoes(){
     ['email',     'E-mail'],
     ['termos',    'Termos'],
     ['backup',    'Backup'],
+    ['atualizacao','Atualizacao'],
   ];
   const tabBar = `<div class="cfg-tab-bar" style="display:flex;gap:0;margin-bottom:20px;border-bottom:2px solid var(--border);overflow-x:auto">
     ${CFG_TABS_DEF.map(([id,label])=>`<button id="cfg-tab-${id}" onclick="cfgTab('${id}')"
@@ -3830,14 +3831,40 @@ async function renderConfiguracoes(){
     </div>
   </div>`;
 
-  $('content').innerHTML = tabBar + panelGeral + panelOperacao + panelAparencia + panelPerfis + panelEmail + panelTermos + panelBackup;
+  const panelAtualizacao = `<div id="cfg-panel-atualizacao" style="display:none">
+    <div class="card">
+      <div class="flex-between" style="margin-bottom:14px;gap:14px;align-items:flex-start;flex-wrap:wrap">
+        <div>
+          <div class="section-title" style="margin-bottom:4px">Atualizacao do Sistema</div>
+          <div style="font-size:12px;color:var(--text3)">Verifique se existe uma versao mais recente disponivel para atualizar.</div>
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="checkSystemUpdate()" type="button">Verificar atualizacao</button>
+      </div>
+      <div class="form-grid-2">
+        <div class="form-group">
+          <label>Versao instalada</label>
+          <input id="upd-current-version" value="${escAttr(APP_VERSION)}" readonly>
+        </div>
+        <div class="form-group">
+          <label>Versao disponivel para atualizar</label>
+          <input id="upd-available-version" value="Nao verificada" readonly>
+        </div>
+      </div>
+      <div id="upd-status" class="info-box blue" style="margin-top:6px">
+        Clique em <strong>Verificar atualizacao</strong> para consultar a versao disponivel.
+      </div>
+      <div id="upd-release-link" style="margin-top:12px"></div>
+    </div>
+  </div>`;
+
+  $('content').innerHTML = tabBar + panelGeral + panelOperacao + panelAparencia + panelPerfis + panelEmail + panelTermos + panelBackup + panelAtualizacao;
   cfgTab(_cfgTab);
 }
 
 function cfgTab(tab){
   _cfgTab = tab;
   const panels = {
-    geral: 'grid', operacao: 'grid', aparencia: 'block', perfis: 'block', email: 'block', termos: 'flex', backup: 'block'
+    geral: 'grid', operacao: 'grid', aparencia: 'block', perfis: 'block', email: 'block', termos: 'flex', backup: 'block', atualizacao: 'block'
   };
   Object.keys(panels).forEach(t=>{
     const panel = document.getElementById('cfg-panel-'+t);
@@ -4367,6 +4394,40 @@ async function deleteBackupFile(filename){
     toast('Backup excluído');
     renderConfiguracoes();
   }catch(e){ toast(e.message,'error'); }
+}
+
+async function checkSystemUpdate(){
+  const status = $('upd-status');
+  const available = $('upd-available-version');
+  const link = $('upd-release-link');
+  if(status) {
+    status.className = 'info-box blue';
+    status.innerHTML = 'Verificando versao disponivel...';
+  }
+  if(available) available.value = 'Verificando...';
+  if(link) link.innerHTML = '';
+  try{
+    const r = await api('/updates/check');
+    if(available) available.value = r.availableVersion || 'Indisponivel';
+    if(status){
+      if(r.updateAvailable){
+        status.className = 'info-box amber';
+        status.innerHTML = `<strong>Atualizacao disponivel.</strong><br>Instalada: ${esc(r.currentVersion||APP_VERSION)} · Disponivel: ${esc(r.availableVersion||'')}`;
+      }else{
+        status.className = 'info-box green';
+        status.innerHTML = `<strong>Sistema atualizado.</strong><br>Instalada: ${esc(r.currentVersion||APP_VERSION)} · Disponivel: ${esc(r.availableVersion||'mesma versao')}`;
+      }
+    }
+    if(link && r.releaseUrl){
+      link.innerHTML = `<a class="btn btn-default btn-sm" href="${escAttr(r.releaseUrl)}" target="_blank" rel="noopener">Abrir informacoes da versao</a>`;
+    }
+  }catch(e){
+    if(available) available.value = 'Falha na verificacao';
+    if(status){
+      status.className = 'info-box red';
+      status.innerHTML = `<strong>Nao foi possivel verificar atualizacao.</strong><br>${esc(e.message)}`;
+    }
+  }
 }
 
 async function saveTermoRecebimento(){

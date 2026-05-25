@@ -4,9 +4,71 @@ Este modulo usa uma ponte temporaria para acessar modelos, helpers e extensoes
 definidos em app.py. Em uma proxima etapa, esses itens podem migrar para
 pacotes dedicados como models, services e extensions.
 """
+import urllib.error
+import urllib.request
 from app import _export_route_globals
 
 globals().update(_export_route_globals())
+
+
+def _version_tuple(value):
+    raw = clean_text(value or "", 60).lstrip("vV")
+    parts = []
+    for part in raw.split("."):
+        digits = "".join(ch for ch in part if ch.isdigit())
+        parts.append(int(digits or 0))
+    while len(parts) < 3:
+        parts.append(0)
+    return tuple(parts[:3])
+
+
+def _update_manifest_from_payload(payload):
+    if not isinstance(payload, dict):
+        return {}
+    version = payload.get("version") or payload.get("latest") or payload.get("tag_name") or payload.get("name")
+    return {
+        "version": clean_text(version, 60),
+        "notes": clean_text(payload.get("notes") or payload.get("body") or "", 500),
+        "url": clean_text(payload.get("html_url") or payload.get("download_url") or payload.get("url") or "", 300),
+    }
+
+
+@app.route("/api/updates/check")
+@requires("Administrador")
+def check_updates():
+    current = app.config.get("BUILD_VERSION", "dev")
+    source_url = app.config.get("UPDATE_CHECK_URL", "")
+    result = {
+        "currentVersion": current,
+        "availableVersion": "",
+        "updateAvailable": False,
+        "sourceUrl": source_url,
+        "releaseUrl": "",
+        "notes": "",
+        "checkedAt": datetime.now().isoformat(),
+    }
+    if not source_url:
+        return jsonify({**result, "error": "URL de verificacao de atualizacao nao configurada."}), 400
+    try:
+        req = urllib.request.Request(source_url, headers={
+            "Accept": "application/json",
+            "User-Agent": f"TI-Control/{current}",
+        })
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            payload = json.loads(resp.read().decode("utf-8"))
+        manifest = _update_manifest_from_payload(payload)
+        available = manifest.get("version") or ""
+        result.update({
+            "availableVersion": available,
+            "releaseUrl": manifest.get("url") or source_url,
+            "notes": manifest.get("notes") or "",
+            "updateAvailable": bool(available and _version_tuple(available) > _version_tuple(current)),
+        })
+        audit("VERIFICAR_ATUALIZACAO", "configuracoes", "", f"Versao atual {current}; disponivel {available or 'indisponivel'}")
+        db.session.commit()
+        return jsonify(result)
+    except (urllib.error.URLError, TimeoutError, json.JSONDecodeError) as exc:
+        return jsonify({**result, "error": f"Falha ao verificar atualizacao: {exc}"}), 502
 
 @app.route("/api/audit-log")
 @requires("Administrador","Técnico TI")
