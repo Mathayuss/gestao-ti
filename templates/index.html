@@ -171,6 +171,8 @@ input:focus,select:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 
 .modal-overlay{position:fixed;inset:0;background:rgba(15,23,42,.48);display:flex;align-items:center;justify-content:center;z-index:1000;backdrop-filter:blur(4px);animation:fadeIn .15s ease}
 @keyframes fadeIn{from{opacity:0}to{opacity:1}}
 @keyframes slideUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+@keyframes spin{to{transform:rotate(360deg)}}
+.spinner{width:34px;height:34px;border:3px solid var(--border);border-top-color:var(--blue);border-radius:50%;animation:spin .7s linear infinite;margin:0 auto}
 .modal-box{background:var(--bg2);border-radius:14px;border:1px solid var(--border);width:min(540px,calc(100vw - 24px));max-height:90vh;overflow-y:auto;padding:26px;box-shadow:var(--shadow-lg);animation:slideUp .18s ease}
 .modal-box.wide{width:min(720px,calc(100vw - 24px))}
 .modal-box.narrow{width:min(420px,calc(100vw - 24px))}
@@ -4510,9 +4512,17 @@ Linux:
 }
 
 async function applySystemUpdate(){
+  $('modal-title').textContent = 'Aplicando Atualização...';
+  $('modal-body').innerHTML = `
+    <div style="text-align:center;padding:28px 0 20px">
+      <div class="spinner" style="margin-bottom:18px"></div>
+      <div style="font-size:14px;font-weight:600;color:var(--text);margin-bottom:6px">Aplicando atualização...</div>
+      <div style="font-size:12px;color:var(--text3);line-height:1.6">
+        Gerando backup e aplicando código do repositório.<br>Aguarde, isso pode levar alguns segundos.
+      </div>
+    </div>`;
   try{
     const r = await api('/system/update/apply','POST',{});
-    closeModal();
     toast(r.message || 'Atualização aplicada');
     openModal('Atualização Aplicada',`
       <div class="info-box blue" style="margin-bottom:12px">
@@ -4524,7 +4534,7 @@ async function applySystemUpdate(){
       </div>
       ${r.output?`<pre style="white-space:pre-wrap;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:10px;font-size:11px;margin-top:12px;max-height:180px;overflow:auto">${esc(r.output)}</pre>`:''}
       <div class="modal-footer"><button class="btn btn-default" onclick="closeModal();renderConfiguracoes()">Fechar</button></div>`);
-  }catch(e){ toast(e.message,'error'); }
+  }catch(e){ closeModal(); toast(e.message,'error'); }
 }
 
 async function deleteBackupFile(filename){
