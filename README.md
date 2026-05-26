@@ -183,6 +183,14 @@ A aplicação possui backup lógico em JSON pela tela `Configurações > Backup`
 
 Os arquivos gerados pela aplicação ficam em `instance/backups`. Para produção, esse backup lógico deve complementar snapshots ou dumps do PostgreSQL, não substituir uma política de backup do banco.
 
+Para gerar um dump real do PostgreSQL pelo Docker Compose:
+
+```bash
+python scripts/db-dump.py
+```
+
+O script salva em `db_dumps/` usando `pg_dump` dentro do container `postgres`. Use `--format sql` se preferir dump texto; o padrão é formato customizado (`.dump`).
+
 Backups locais de migração podem ser mantidos em `migration_backups/`, que não deve ser versionado.
 
 ## Endpoints operacionais

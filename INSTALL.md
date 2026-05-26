@@ -151,6 +151,20 @@ ou:
 
 Use `-NoPull` ou `--no-pull` quando a nova versão já tiver sido copiada manualmente para a pasta do projeto. Se houver alterações locais, o atualizador interrompe por segurança; resolva essas alterações antes ou use `-AllowDirty` / `--allow-dirty` conscientemente.
 
+## Dump do banco
+
+Além do backup lógico JSON da aplicação, gere dumps periódicos do PostgreSQL em ambientes importantes:
+
+```bash
+python scripts/db-dump.py
+```
+
+O dump é salvo em `db_dumps/` e usa o `pg_dump` disponível no container `postgres`. Para gerar SQL texto:
+
+```bash
+python scripts/db-dump.py --format sql
+```
+
 ## Solução de problemas
 
 ### `password authentication failed for user "ticontrol"`
