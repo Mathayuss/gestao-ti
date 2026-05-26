@@ -91,6 +91,20 @@ class BackupRestoreTest(unittest.TestCase):
             self.assertEqual(restored_license.custo_anual, 360)
             self.assertEqual(tic._get_setting("empresa", {}).get("nome"), "Empresa Teste")
 
+    def test_login_rate_limit_records_and_marks_success(self):
+        with tic.app.app_context():
+            self.assertTrue(tic._check_login_rate_limit("127.0.0.88"))
+            tic._record_login_success("127.0.0.88")
+
+            attempt = tic.db.session.execute(
+                tic.db.select(tic.LoginAttempt)
+                .where(tic.LoginAttempt.ip == "127.0.0.88")
+                .order_by(tic.LoginAttempt.id.desc())
+                .limit(1)
+            ).scalar_one()
+
+            self.assertTrue(attempt.success)
+
 
 if __name__ == "__main__":
     unittest.main()

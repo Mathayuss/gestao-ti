@@ -997,13 +997,16 @@ def _check_login_rate_limit(ip: str) -> bool:
     now = _time.time()
     cutoff = now - _RATE_WINDOW
     try:
-        db.session.execute(
-            text("DELETE FROM login_attempts WHERE ip = :ip AND timestamp < :cutoff"),
-            {"ip": ip, "cutoff": cutoff}
-        )
+        db.session.execute(db.delete(LoginAttempt).where(
+            LoginAttempt.ip == ip,
+            LoginAttempt.timestamp < cutoff,
+        ))
         count = db.session.execute(
-            text("SELECT COUNT(*) FROM login_attempts WHERE ip = :ip AND success = 0 AND timestamp >= :cutoff"),
-            {"ip": ip, "cutoff": cutoff}
+            db.select(func.count()).select_from(LoginAttempt).where(
+                LoginAttempt.ip == ip,
+                LoginAttempt.success.is_(False),
+                LoginAttempt.timestamp >= cutoff,
+            )
         ).scalar() or 0
         if count >= _RATE_LIMIT:
             db.session.rollback()
@@ -1019,10 +1022,14 @@ def _check_login_rate_limit(ip: str) -> bool:
 def _record_login_success(ip: str):
     """Marca a última tentativa do IP como bem-sucedida."""
     try:
-        db.session.execute(
-            text("UPDATE login_attempts SET success=1 WHERE ip=:ip ORDER BY id DESC LIMIT 1"),
-            {"ip": ip}
-        )
+        attempt = db.session.execute(
+            db.select(LoginAttempt)
+            .where(LoginAttempt.ip == ip)
+            .order_by(LoginAttempt.id.desc())
+            .limit(1)
+        ).scalar_one_or_none()
+        if attempt:
+            attempt.success = True
         db.session.commit()
     except Exception:
         db.session.rollback()
