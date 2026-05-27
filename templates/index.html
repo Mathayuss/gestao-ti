@@ -559,6 +559,18 @@ function catIsUnidade(cat){
 // ─── API ──────────────────────────────────────────────────────────────────
 let _redirectingToLogin = false;
 
+function showSessionExpired(){
+  const content = $('content');
+  if(content){
+    content.innerHTML = `
+      <div class="card" style="padding:20px;max-width:520px;margin:64px auto;text-align:center">
+        <h3 style="margin:0 0 8px">Sessão expirada</h3>
+        <p style="margin:0 0 16px;color:var(--text2)">Entre novamente para carregar os dados do sistema.</p>
+        <button class="btn btn-primary" onclick="window.location.href='/login'">Entrar novamente</button>
+      </div>`;
+  }
+}
+
 async function api(path, method='GET', body=null) {
   const csrf = document.querySelector('meta[name="csrf-token"]')?.content || '';
   const isFormData = body instanceof FormData;
@@ -579,6 +591,7 @@ async function api(path, method='GET', body=null) {
   if (r.status === 401) {
     if (!_redirectingToLogin) {
       _redirectingToLogin = true;
+      showSessionExpired();
       toast('Sessão expirada — redirecionando para login...', 'error');
       setTimeout(() => { window.location.replace('/login'); }, 1200);
     }
@@ -760,6 +773,10 @@ async function render(mod){
     else if(mod==='colaboradores') await renderColaboradores();
     else if(mod==='system_users')  await renderSystemUsers();
     else if(mod==='configuracoes')  await renderConfiguracoes();
+    const content = $('content');
+    if(content && content.querySelector('.loading') && !_redirectingToLogin){
+      content.innerHTML='<div class="card" style="padding:20px;color:var(--text2)">Não foi possível carregar esta tela. Atualize a página e tente novamente.</div>';
+    }
   }catch(e){
     if(_redirectingToLogin) return;  // ignore errors during logout redirect
     $('content').innerHTML=`<div class="card" style="color:var(--red-text);padding:20px">Atenção ${esc(e.message)}</div>`;
@@ -4664,6 +4681,7 @@ async function confirmRestoreBackupUpload(){
       }catch(e){ toast(e.message,'error'); }
     });
   }catch(e){ toast(e.message,'error'); }
+}
 
 async function saveTermoRecebimento(){
   const clausulas = ($('tr-clausulas').value||'').split('\n').map(s=>s.trim()).filter(Boolean);
