@@ -149,13 +149,11 @@ def _system_update_status(fetch=False):
             status["ahead"] = int(parts[0])
             status["behind"] = int(parts[1])
             status["updateAvailable"] = status["behind"] > 0
-            status["canApply"] = bool(supported and status["updateAvailable"] and not status["dirty"] and not status["ahead"])
+            status["canApply"] = bool(supported and status["updateAvailable"] and not status["dirty"])
             if not status["updateAvailable"]:
                 status["blockReason"] = "Nenhuma atualizacao disponivel."
             elif status["dirty"]:
                 status["blockReason"] = "Existem alteracoes locais no servidor."
-            elif status["ahead"]:
-                status["blockReason"] = "O servidor possui commits locais ainda nao enviados."
             status["message"] = "Atualização disponível." if status["updateAvailable"] else "Sistema já está na versão mais recente conhecida."
     else:
         status["message"] = "Branch atual não possui upstream configurado."
