@@ -79,6 +79,7 @@ body{font-family:Inter,ui-sans-serif,system-ui,-apple-system,'Segoe UI',Roboto,s
 .nav-item:hover .icon{background:var(--sb2)}
 .nav-item.active .icon{background:var(--blue);color:#fff}
 .nav-item .lbl{flex:1}
+.nav-item[hidden],.sb-section[hidden]{display:none!important}
 .sb-footer{padding:14px 16px;border-top:1px solid var(--sb-border);display:flex;align-items:center;gap:9px;background:var(--sb2)}
 .avatar{width:32px;height:32px;border-radius:99px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;flex-shrink:0}
 .sb-user-name{font-size:12px;font-weight:600;color:var(--sb-text-act);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -709,19 +710,56 @@ const PAGE_TITLES = {dashboard:'Dashboard',alertas:'Central de Alertas',insumos:
   manutencao:'Manutenção de Ativos',
   licencas:'Controle de Licenças',colaboradores:'Colaboradores',system_users:'Usuários do Sistema',configuracoes:'Configurações'};
 const NAV_STORAGE_KEY = 'ticontrol-current-module';
+let _currentUser = null;
+let _allowedModules = null;
 
 function isValidModule(mod){
   return Object.prototype.hasOwnProperty.call(PAGE_TITLES, mod);
 }
 
+function isAllowedModule(mod){
+  return isValidModule(mod) && (!_allowedModules || _allowedModules.has(mod));
+}
+
+function firstAllowedModule(){
+  if(isAllowedModule('dashboard')) return 'dashboard';
+  return Array.from(_allowedModules || []).find(isValidModule) || 'dashboard';
+}
+
 function moduleFromHash(){
   const mod = decodeURIComponent((window.location.hash || '').replace(/^#/, ''));
-  return isValidModule(mod) ? mod : null;
+  return isAllowedModule(mod) ? mod : null;
 }
 
 function moduleFromStorage(){
   const mod = localStorage.getItem(NAV_STORAGE_KEY);
-  return isValidModule(mod) ? mod : null;
+  return isAllowedModule(mod) ? mod : null;
+}
+
+function applyProfileNavigation(me){
+  _currentUser = me || null;
+  const modules = Array.isArray(me?.uiModules) ? me.uiModules.filter(isValidModule) : Object.keys(PAGE_TITLES);
+  _allowedModules = new Set(modules.length ? modules : ['dashboard']);
+  document.body.dataset.perfil = me?.perfil || '';
+
+  document.querySelectorAll('.nav-item').forEach(btn=>{
+    btn.hidden = !isAllowedModule(btn.dataset.module);
+  });
+
+  document.querySelectorAll('.sb-section').forEach(section=>{
+    let node = section.nextElementSibling;
+    let hasVisibleItem = false;
+    while(node && !node.classList.contains('sb-section')){
+      if(node.classList.contains('nav-item') && !node.hidden){
+        hasVisibleItem = true;
+        break;
+      }
+      node = node.nextElementSibling;
+    }
+    section.hidden = !hasVisibleItem;
+  });
+
+  if(!moduleFromStorage()) localStorage.removeItem(NAV_STORAGE_KEY);
 }
 
 function setActiveModule(mod){
@@ -732,7 +770,7 @@ function setActiveModule(mod){
 }
 
 async function navigateTo(mod, {updateHash=true}={}){
-  const next = isValidModule(mod) ? mod : 'dashboard';
+  const next = isAllowedModule(mod) ? mod : firstAllowedModule();
   setActiveModule(next);
   localStorage.setItem(NAV_STORAGE_KEY, next);
   if(updateHash && window.location.hash !== '#'+encodeURIComponent(next)){
@@ -791,6 +829,8 @@ async function renderDashboard(){
   if(!d) return;
   const {totais,colaboradores,devolucoes,categorias,alertas,ultimasAlocacoes,licencas}=d;
   state.alertCount=alertas.length; updateAlertBadge();
+  // Busca empréstimos vencidos de forma silenciosa
+  const emprestimosVencidos = await api('/emprestimos/vencidos').catch(()=>[]);
 
   const devPend = (devolucoes?.aguardandoLaudo||0)+(devolucoes?.aguardandoRH||0);
   const devPendentes = devolucoes?.pendentes||[];
@@ -870,6 +910,30 @@ async function renderDashboard(){
   </div>
 
   ${secDevPend}
+
+  ${emprestimosVencidos.length>0?`
+  <div class="card mb-16" style="border-left:3px solid var(--red)">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+      <div style="display:flex;align-items:center;gap:8px">
+        ${svgIco('alocacoes','red')}
+        <span style="font-size:14px;font-weight:700">Empréstimos com Devolução Vencida</span>
+        <span style="display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:800;background:var(--red-bg);color:var(--red-text)">${emprestimosVencidos.length}</span>
+      </div>
+      <button class="btn btn-default btn-sm" onclick="navigateTo('alocacoes')">Ver Alocações</button>
+    </div>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Colaborador</th><th>Ativo</th><th>Devolução Prevista</th><th>Dias de Atraso</th></tr></thead>
+      <tbody>${emprestimosVencidos.map(a=>{
+        const dias = Math.floor((new Date()-new Date(a.dataDevolucaoPrevista))/(1000*60*60*24));
+        return `<tr>
+          <td style="font-weight:600">${esc(a.colaborador)}</td>
+          <td style="font-size:12px;font-family:var(--mono)">${esc((a.ativoNome||'').split(' ')[0])}</td>
+          <td style="font-size:12px;color:var(--red-text);font-weight:600">${esc(a.dataDevolucaoPrevista)}</td>
+          <td><span style="display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700;background:var(--red-bg);color:var(--red-text);border:1px solid var(--red-border)">${dias}d atraso</span></td>
+        </tr>`;
+      }).join('')}</tbody>
+    </table></div>
+  </div>`:''}
 
   <div class="grid-2 mb-16">
     <div class="card">
@@ -1530,9 +1594,23 @@ async function renderAlocacoes(q=''){
     return `<div class="flex-gap">${btns.join('')}</div>`;
   };
 
+  const tipoBadge = a => {
+    if((a.tipo||'Responsabilidade')==='Empréstimo'){
+      const hoje = new Date().toISOString().slice(0,10);
+      const venc = a.dataDevolucaoPrevista||'';
+      const atrasado = venc && venc < hoje;
+      return `<span style="display:inline-block;padding:2px 7px;border-radius:20px;font-size:10px;font-weight:700;
+        background:${atrasado?'var(--red-bg)':'var(--amber-bg)'};
+        color:${atrasado?'var(--red-text)':'var(--amber-text)'};
+        border:1px solid ${atrasado?'var(--red-border)':'var(--amber-border)'}">
+        ${atrasado?'⚠ ':''}Empréstimo${venc?' · '+venc:''}</span>`;
+    }
+    return '';
+  };
+
   const rowPend = a=>`<tr>
     <td class="mono" style="color:var(--text3);font-size:11px">${esc(a.id)}</td>
-    <td style="font-weight:600">${esc(a.colaborador)}</td>
+    <td style="font-weight:600">${esc(a.colaborador)}${tipoBadge(a)?'<br>'+tipoBadge(a):''}</td>
     <td class="mono" style="font-size:12px">${esc((a.ativoNome||'').split(' ')[0])}</td>
     <td style="font-size:12px">${esc(a.setor)}</td>
     <td style="font-size:12px">${esc(a.unidade)}</td>
@@ -1546,7 +1624,7 @@ async function renderAlocacoes(q=''){
 
   const rowSign = a=>`<tr>
     <td class="mono" style="color:var(--text3);font-size:11px">${esc(a.id)}</td>
-    <td style="font-weight:600">${esc(a.colaborador)}</td>
+    <td style="font-weight:600">${esc(a.colaborador)}${tipoBadge(a)?'<br>'+tipoBadge(a):''}</td>
     <td class="mono" style="font-size:12px">${esc((a.ativoNome||'').split(' ')[0])}</td>
     <td style="font-size:12px">${esc(a.setor)}</td>
     <td style="font-size:12px">${esc(a.unidade)}</td>
@@ -1590,6 +1668,7 @@ async function renderAlocacoes(q=''){
     ${tabBtn('pend','Pendentes',pendentes.length)}
     ${tabBtn('sign','Assinados',assinados.length)}
     ${tabBtn('devol',devAguardando>0?`Devoluções ⚠`:'Devoluções',devs.length)}
+    ${tabBtn('avulso','Termos Avulsos',0)}
   </div>
 
   <div id="panel-alloc-pend">
@@ -1621,6 +1700,12 @@ async function renderAlocacoes(q=''){
            <thead><tr><th>ID</th><th>Colaborador</th><th>Setor</th><th>Data</th><th>Laudo</th><th>Assinatura</th><th>Assinado em</th><th>Ações</th></tr></thead>
            <tbody>${devs.map(rowDev).join('')}</tbody>
          </table></div></div>`}
+  </div>
+
+  <div id="panel-alloc-avulso" style="display:none">
+    <div id="termos-avulsos-content">
+      <div style="text-align:center;padding:28px;color:var(--text3);font-size:13px">Carregando...</div>
+    </div>
   </div>`;
 
   allocTab(_allocTab);
@@ -1628,7 +1713,7 @@ async function renderAlocacoes(q=''){
 
 function allocTab(tab){
   _allocTab = tab;
-  ['pend','sign','devol'].forEach(t=>{
+  ['pend','sign','devol','avulso'].forEach(t=>{
     const btn = document.getElementById('tab-alloc-'+t);
     const panel = document.getElementById('panel-alloc-'+t);
     if(!btn||!panel) return;
@@ -1638,7 +1723,156 @@ function allocTab(tab){
     btn.style.borderBottomColor = active ? 'var(--blue)' : 'transparent';
     btn.style.fontWeight = active ? '700' : '600';
   });
+  if(tab==='avulso') renderTermosAvulsos();
 }
+
+// ── Termos Avulsos ────────────────────────────────────────────────────────
+
+async function renderTermosAvulsos(q=''){
+  const wrap = $('termos-avulsos-content');
+  if(!wrap) return;
+  try {
+    const data = await api('/termos-avulsos' + (q?'?q='+encodeURIComponent(q):''));
+    const tipoBadgeAv = t => {
+      const colors = {VPN:'blue',BYOD:'purple',Confidencialidade:'amber',Outro:'gray'};
+      const c = colors[t.tipo] || 'gray';
+      return `<span style="display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700;background:var(--${c==='gray'?'bg3':''+c+'-bg'});color:var(--${c==='gray'?'text2':c+'-text'});border:1px solid var(--${c==='gray'?'border':c+'-border'})">${esc(t.tipo)}</span>`;
+    };
+    const statusBadgeAv = t => t.status==='Assinado'
+      ? `<span style="display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700;background:var(--green-bg);color:var(--green-text);border:1px solid var(--green-border)">Assinado</span>`
+      : `<span style="display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700;background:var(--amber-bg);color:var(--amber-text);border:1px solid var(--amber-border)">Pendente</span>`;
+
+    // Update tab count
+    const tabBtn = document.getElementById('tab-alloc-avulso');
+    if(tabBtn){ const m = tabBtn.innerHTML.match(/^(.*)\s*\((\d+)\)$/s); if(m) tabBtn.innerHTML = tabBtn.innerHTML.replace(/\(\d+\)/,'('+data.length+')'); }
+
+    wrap.innerHTML = `
+    <div class="flex-between mb-16">
+      <div class="search-wrap"><span class="search-icon">${inlineIcon('search')}</span>
+        <input placeholder="Colaborador, tipo..." value="${esc(q)}" onkeyup="debounce(()=>renderTermosAvulsos(this.value))">
+      </div>
+      <button class="btn btn-primary" onclick="openNewTermoAvulso()">Novo Termo Avulso</button>
+    </div>
+    ${data.length===0
+      ? `<div class="card" style="text-align:center;padding:28px;color:var(--text3);font-size:13px">Nenhum termo avulso cadastrado.</div>`
+      : `<div class="card"><div class="table-wrap"><table>
+           <thead><tr><th>ID</th><th>Tipo</th><th>Colaborador</th><th>Setor</th><th>Validade</th><th>Status</th><th>Criado em</th><th>Ações</th></tr></thead>
+           <tbody>${data.map(t=>`<tr>
+             <td class="mono" style="color:var(--text3);font-size:11px">${esc(t.id)}</td>
+             <td>${tipoBadgeAv(t)}</td>
+             <td style="font-weight:600">${esc(t.colaborador)}</td>
+             <td style="font-size:12px">${esc(t.setor||'—')}</td>
+             <td style="font-size:12px">${esc(t.validade||'—')}</td>
+             <td>${statusBadgeAv(t)}</td>
+             <td style="font-size:11px;color:var(--text3)">${fmtDate(t.createdAt?.slice(0,10))}</td>
+             <td><div class="flex-gap">
+               ${t.status!=='Assinado'?`<button class="btn btn-default btn-sm" onclick="gerarLinkTermoAvulso('${t.id}')">Link Assinatura</button>`:''}
+               <a class="btn btn-default btn-sm" href="/api/termos-avulsos/${t.id}/termo.pdf" target="_blank">PDF</a>
+               <button class="btn btn-danger btn-sm" onclick="deleteTermoAvulso('${t.id}','${escAttr(t.colaborador)}')">Excluir</button>
+             </div></td>
+           </tr>`).join('')}</tbody>
+         </table></div></div>`}`;
+  } catch(e) {
+    wrap.innerHTML = `<div class="card" style="color:var(--red-text);padding:20px">Erro ao carregar termos avulsos.</div>`;
+  }
+}
+
+async function openNewTermoAvulso(){
+  if(!_colab_cache.length){ try{ _colab_cache=await api('/colaboradores'); }catch(e){} }
+  const colabOpts = _colab_cache.filter(c=>c.status==='Ativo'||c.status==='Férias');
+  openModal('Novo Termo Avulso', `
+  <div class="form-grid-2">
+    <div class="form-group"><label>Tipo de Termo</label>
+      <select id="tav-tipo">
+        <option value="VPN">VPN</option>
+        <option value="BYOD">BYOD</option>
+        <option value="Confidencialidade">Confidencialidade</option>
+        <option value="Outro">Outro</option>
+      </select>
+    </div>
+    <div class="form-group"><label>Validade (opcional)</label>
+      <input id="tav-validade" type="date">
+    </div>
+  </div>
+  <div class="form-group"><label>Colaborador</label>
+    <select id="tav-colab-sel" onchange="preencheColabAvulso(this.value)">
+      <option value="">Selecione o colaborador...</option>
+      ${colabOpts.map(c=>`<option value="${c.id}" data-nome="${escAttr(c.nome)}" data-setor="${escAttr(c.setor)}" data-uni="${escAttr(c.unidade)}" data-email="${escAttr(c.email)}">${esc(c.nome)} — ${esc(c.setor)}</option>`).join('')}
+    </select>
+  </div>
+  <div class="form-grid-2">
+    <div class="form-group"><label>Nome (confirmação)</label><input id="tav-colab" placeholder="Preenchido ao selecionar"></div>
+    <div class="form-group"><label>Setor</label><input id="tav-setor"></div>
+  </div>
+  <div class="form-grid-2">
+    <div class="form-group"><label>Unidade</label><input id="tav-uni"></div>
+    <div class="form-group"><label>E-mail</label><input id="tav-email" type="email"></div>
+  </div>
+  <div class="modal-footer">
+    <button class="btn btn-default" onclick="closeModal()">Cancelar</button>
+    <button class="btn btn-primary" onclick="saveNewTermoAvulso()">Criar Termo</button>
+  </div>`);
+}
+
+function preencheColabAvulso(id){
+  const sel = $('tav-colab-sel');
+  const opt = sel.options[sel.selectedIndex];
+  if(!id) return;
+  $('tav-colab').value = opt.dataset.nome||'';
+  $('tav-setor').value = opt.dataset.setor||'';
+  $('tav-uni').value   = opt.dataset.uni||'';
+  $('tav-email').value = opt.dataset.email||'';
+}
+
+async function saveNewTermoAvulso(){
+  const colab = $('tav-colab')?.value?.trim();
+  if(!colab){ toast('Informe o colaborador','error'); return; }
+  try {
+    await api('/termos-avulsos','POST',{
+      tipo: $('tav-tipo').value,
+      colaborador: colab,
+      setor: $('tav-setor').value,
+      unidade: $('tav-uni').value,
+      email: $('tav-email').value,
+      validade: $('tav-validade').value || null,
+    });
+    closeModal();
+    toast('Termo avulso criado');
+    renderTermosAvulsos();
+  } catch(e){ toast(e.message,'error'); }
+}
+
+async function deleteTermoAvulso(id, nome){
+  if(!confirm(`Excluir termo avulso de ${nome}?`)) return;
+  try {
+    await api(`/termos-avulsos/${id}`,'DELETE',{});
+    toast('Termo excluído');
+    renderTermosAvulsos();
+  } catch(e){ toast(e.message,'error'); }
+}
+
+async function gerarLinkTermoAvulso(id){
+  try {
+    const r = await api(`/termos-avulsos/${id}/sign-link`,'POST',{});
+    openModal('Link de Assinatura — Termo Avulso', `
+    <div style="display:flex;flex-direction:column;gap:14px;align-items:center;padding:8px 0">
+      <div style="font-size:13px;color:var(--text2)">Envie este link para o colaborador assinar:</div>
+      <div style="width:100%;display:flex;gap:8px;align-items:center">
+        <input id="tav-link-url" value="${esc(r.url)}" readonly
+          style="flex:1;padding:9px 12px;border:1px solid var(--border);border-radius:var(--r);
+                 font-size:11px;font-family:var(--mono);color:var(--text);background:var(--bg3)">
+        <button class="btn btn-primary btn-sm" onclick="navigator.clipboard.writeText($('tav-link-url').value).then(()=>toast('Link copiado'))">Copiar</button>
+      </div>
+      <div style="font-size:11px;color:var(--text3)">Expira em: ${r.expiry?.slice(0,10)||'7 dias'}</div>
+      ${r.emailEnviado?`<div style="font-size:12px;color:var(--green-text)">Link também enviado por e-mail ao colaborador.</div>`:''}
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-default" onclick="closeModal()">Fechar</button>
+    </div>`, false, true);
+  } catch(e){ toast(e.message,'error'); }
+}
+
+// ── End Termos Avulsos ────────────────────────────────────────────────────
 
 async function abrirLaudoPorId(devId){
   let d = _devCache[devId];
@@ -1800,6 +2034,17 @@ async function openNewAlloc(avail){
         <div class="form-group"><label>Unidade</label><input id="al-uni" value="Sede SP"></div>
       </div>
       <div class="form-group"><label>E-mail</label><input id="al-email" type="email"></div>
+      <div class="form-group"><label>Tipo de Termo</label>
+        <select id="al-tipo" onchange="onAllocTipoChange()">
+          <option value="Responsabilidade">Responsabilidade (uso contínuo)</option>
+          <option value="Empréstimo">Empréstimo (temporário)</option>
+        </select>
+      </div>
+      <div class="form-group" id="al-devol-wrap" style="display:none">
+        <label>Data de Devolução Prevista</label>
+        <input id="al-devol-data" type="date">
+        <div style="font-size:11px;color:var(--text3);margin-top:3px">Obrigatória para termos de empréstimo</div>
+      </div>
     </div>
 
     <!-- Coluna direita: insumos compatíveis -->
@@ -1855,9 +2100,21 @@ function changeQty(id, delta, max=99){
   $('perf-qty-'+id).textContent = p.quantidade;
 }
 
+function onAllocTipoChange(){
+  const tipo = $('al-tipo')?.value;
+  const wrap = $('al-devol-wrap');
+  if(wrap) wrap.style.display = tipo==='Empréstimo' ? '' : 'none';
+}
+
 async function saveNewAlloc(){
   if(!$('al-ativo').value){toast('Selecione um ativo','error');return;}
   if(!$('al-colab').value){toast('Informe o colaborador','error');return;}
+  const tipo = $('al-tipo')?.value || 'Responsabilidade';
+  const dataDev = $('al-devol-data')?.value || '';
+  if(tipo==='Empréstimo' && !dataDev){
+    toast('Informe a data de devolução prevista para empréstimos','error');
+    return;
+  }
   try{
     const ativoId = $('al-ativo').value;
     const ativoNome = $('al-ativo').options[$('al-ativo').selectedIndex]?.text || '';
@@ -1865,6 +2122,7 @@ async function saveNewAlloc(){
       ativo:ativoId, colaborador:$('al-colab').value,
       setor:$('al-setor').value, unidade:$('al-uni').value,
       email:$('al-email').value, perifericos:_allocPerifs,
+      tipo, dataDevolucaoPrevista: dataDev || null,
     });
     const nPerifs = (r.perifericosAlocados||[]).length;
     closeModal();
@@ -2717,27 +2975,31 @@ async function saveLicense(){
 // ALERTAS
 // ══════════════════════════════════════════════════════════════════════════
 async function renderAlertas(){
-  const [assets,supplies,licenses]=await Promise.all([api('/assets'),api('/supplies'),api('/licenses')]);
-  const gA=assets.filter(a=>{const d=daysUntil(a.garantia);return d>=0&&d<=90}).sort((a,b)=>daysUntil(a.garantia)-daysUntil(b.garantia));
-  const sA=supplies.filter(s=>s.estoque<=s.minimo).sort((a,b)=>a.estoque-b.estoque);
-  const lA=licenses.filter(l=>{const d=daysUntil(l.vencimento);return d>=0&&d<=90}).sort((a,b)=>daysUntil(a.vencimento)-daysUntil(b.vencimento));
-  const sec=(title,ic,arr,html)=>`<div class="card mb-16">
-    <div class="section-title">${ic} ${title} ${badge(arr.length,arr.length>0?'red':'green')}</div>
-    ${arr.length===0?'<p style="color:var(--text3);font-size:13px">Sem alertas nesta categoria.</p>':html}
+  const alerts = await api('/alerts');
+  if(!alerts) return;
+  const groups = {
+    garantia: alerts.filter(a=>a.tipo==='garantia'),
+    estoque: alerts.filter(a=>a.tipo==='estoque'),
+    licenca: alerts.filter(a=>a.tipo==='licenca'),
+  };
+  const alertRow = a=>`<tr>
+    <td>${badge({garantia:'Garantia',estoque:'Estoque',licenca:'Licença'}[a.tipo]||a.tipo,a.nivel==='danger'?'red':'amber')}</td>
+    <td style="font-weight:600">${esc(a.titulo||'')}</td>
+    <td style="font-size:12px;color:var(--text2)">${esc(a.detalhe||'')}</td>
+    <td class="mono" style="font-size:11px;color:var(--text3)">${esc(a.ref||'')}</td>
+  </tr>`;
+  const sec=(title,arr)=>`<div class="card mb-16">
+    <div class="section-title">${title} ${badge(arr.length,arr.length>0?'red':'green')}</div>
+    ${arr.length===0?'<p style="color:var(--text3);font-size:13px">Sem alertas nesta categoria.</p>':`
+      <div class="table-wrap"><table>
+        <thead><tr><th>Tipo</th><th>Alerta</th><th>Detalhe</th><th>Referência</th></tr></thead>
+        <tbody>${arr.map(alertRow).join('')}</tbody>
+      </table></div>`}
   </div>`;
-  $('content').innerHTML=
-    sec('Garantias Vencendo (90 dias)','',gA,`<div class="table-wrap"><table>
-      <thead><tr><th>Hostname</th><th>Fabricante / Modelo</th><th>Colaborador</th><th>Vencimento</th><th>Dias</th></tr></thead>
-      <tbody>${gA.map(a=>{const d=daysUntil(a.garantia);return `<tr><td class="mono" style="font-weight:700">${esc(a.hostname)}</td><td>${esc(a.fabricante)} ${esc(a.modelo)}</td><td>${a.colaborador||'—'}</td><td>${fmtDate(a.garantia)}</td><td>${badge(d+'d',d<=30?'red':'amber')}</td></tr>`;}).join('')}
-      </tbody></table></div>`) +
-    sec('Estoque Mínimo Atingido','',sA,`<div class="table-wrap"><table>
-      <thead><tr><th>Item</th><th>Categoria</th><th>Unidade</th><th>Estoque</th><th>Mínimo</th><th>Situação</th></tr></thead>
-      <tbody>${sA.map(s=>`<tr><td style="font-weight:600">${esc(s.nome)}</td><td>${esc(s.categoria)}</td><td>${esc(s.unidade)}</td><td style="font-weight:700;color:${s.estoque===0?'var(--red)':'var(--amber)'}">${s.estoque}</td><td>${s.minimo}</td><td>${badge(s.estoque===0?'Esgotado':'Baixo',s.estoque===0?'red':'amber')}</td></tr>`).join('')}
-      </tbody></table></div>`) +
-    sec('Licenças Vencendo (90 dias)','',lA,`<div class="table-wrap"><table>
-      <thead><tr><th>Software</th><th>Fornecedor</th><th>Vencimento</th><th>Dias</th><th>Ação</th></tr></thead>
-      <tbody>${lA.map(l=>{const d=daysUntil(l.vencimento);return `<tr><td style="font-weight:600">${esc(l.software)}</td><td>${esc(l.fornecedor)}</td><td>${fmtDate(l.vencimento)}</td><td>${badge(d+'d',d<=30?'red':'amber')}</td><td style="font-size:12px;color:var(--text2)">${d<=30?'Renovar imediatamente':'Iniciar renovação'}</td></tr>`;}).join('')}
-      </tbody></table></div>`);
+  $('content').innerHTML =
+    sec('Garantias Vencendo', groups.garantia) +
+    sec('Estoque Mínimo Atingido', groups.estoque) +
+    sec('Licenças', groups.licenca);
 }
 
 // ══════════════════════════════════════════════════════════════════════════
@@ -3354,6 +3616,8 @@ async function renderConfiguracoes(){
   const cfg_tpl    = cfg.email_templates      || {};
   const cfg_tr     = cfg.termo_recebimento    || {};
   const cfg_td     = cfg.termo_devolucao      || {};
+  const cfg_te     = cfg.termo_emprestimo     || {};
+  const cfg_tv     = cfg.termo_vpn            || {};
   const cfg_backup = backupState.config || cfg.backup || {};
   const cfg_ap     = cfg.aparencia            || {};
   const cfg_pat_prefixo = cfg.patrimonio_prefixo || 'TI';
@@ -3843,6 +4107,50 @@ async function renderConfiguracoes(){
         <button class="btn btn-primary btn-sm" onclick="saveTermoDevolucao()">Salvar Termo de Devolução</button>
         <button class="btn btn-default btn-sm" onclick="carregarExemploTD()">Carregar Exemplo</button>
       </div>
+    </div>
+
+    <div class="card">
+      <div class="section-title">Personalização — Termo de Empréstimo</div>
+      <div class="info-box blue" style="margin-bottom:14px">
+        <strong>Variáveis:</strong> <code>{colaborador}</code> <code>{setor}</code> <code>{unidade}</code> <code>{ativo}</code> <code>{data}</code> <code>{empresa}</code> <code>{dataDevolucao}</code>
+      </div>
+      <div class="form-grid-2">
+        <div class="form-group" style="grid-column:span 2"><label>Título</label>
+          <input id="te-titulo" value="${esc(cfg_te.titulo||'TERMO DE EMPRÉSTIMO DE EQUIPAMENTO')}">
+        </div>
+        <div class="form-group" style="grid-column:span 2"><label>Preâmbulo</label>
+          <textarea id="te-preambulo" style="width:100%;min-height:80px;resize:vertical;padding:8px;border:1px solid var(--border);border-radius:var(--r);font-family:inherit;background:var(--bg2);color:var(--text)">${esc(cfg_te.preambulo||'')}</textarea>
+        </div>
+        <div class="form-group" style="grid-column:span 2"><label>Cláusulas (uma por linha)</label>
+          <textarea id="te-clausulas" style="width:100%;min-height:120px;resize:vertical;padding:8px;border:1px solid var(--border);border-radius:var(--r);font-family:inherit;background:var(--bg2);color:var(--text)">${(cfg_te.clausulas||[]).join('\n')}</textarea>
+        </div>
+        <div class="form-group" style="grid-column:span 2"><label>Rodapé do PDF</label>
+          <input id="te-rodape" value="${esc(cfg_te.rodape||'')}">
+        </div>
+      </div>
+      <button class="btn btn-primary btn-sm" onclick="saveTermoEmprestimo()">Salvar Termo de Empréstimo</button>
+    </div>
+
+    <div class="card">
+      <div class="section-title">Personalização — Termo VPN / Avulso</div>
+      <div class="info-box blue" style="margin-bottom:14px">
+        <strong>Variáveis:</strong> <code>{colaborador}</code> <code>{setor}</code> <code>{unidade}</code> <code>{empresa}</code> <code>{tipo}</code> <code>{validade}</code> <code>{data}</code>
+      </div>
+      <div class="form-grid-2">
+        <div class="form-group" style="grid-column:span 2"><label>Título</label>
+          <input id="tv-titulo" value="${esc(cfg_tv.titulo||'TERMO DE ACESSO VPN / USO REMOTO')}">
+        </div>
+        <div class="form-group" style="grid-column:span 2"><label>Preâmbulo</label>
+          <textarea id="tv-preambulo" style="width:100%;min-height:80px;resize:vertical;padding:8px;border:1px solid var(--border);border-radius:var(--r);font-family:inherit;background:var(--bg2);color:var(--text)">${esc(cfg_tv.preambulo||'')}</textarea>
+        </div>
+        <div class="form-group" style="grid-column:span 2"><label>Cláusulas (uma por linha)</label>
+          <textarea id="tv-clausulas" style="width:100%;min-height:120px;resize:vertical;padding:8px;border:1px solid var(--border);border-radius:var(--r);font-family:inherit;background:var(--bg2);color:var(--text)">${(cfg_tv.clausulas||[]).join('\n')}</textarea>
+        </div>
+        <div class="form-group" style="grid-column:span 2"><label>Rodapé do PDF</label>
+          <input id="tv-rodape" value="${esc(cfg_tv.rodape||'')}">
+        </div>
+      </div>
+      <button class="btn btn-primary btn-sm" onclick="saveTermoVpn()">Salvar Termo VPN / Avulso</button>
     </div>
   </div>`;
 
@@ -4747,6 +5055,28 @@ function carregarExemploTD(){
   toast('Modelo de exemplo carregado — edite conforme necessário e salve.');
 }
 
+async function saveTermoEmprestimo(){
+  const clausulas = ($('te-clausulas').value||'').split('\n').map(s=>s.trim()).filter(Boolean);
+  await api('/settings/termos','PUT',{termo_emprestimo:{
+    titulo:    $('te-titulo').value,
+    preambulo: $('te-preambulo').value,
+    clausulas,
+    rodape:    $('te-rodape').value,
+  }});
+  toast('Termo de empréstimo salvo');
+}
+
+async function saveTermoVpn(){
+  const clausulas = ($('tv-clausulas').value||'').split('\n').map(s=>s.trim()).filter(Boolean);
+  await api('/settings/termos','PUT',{termo_vpn:{
+    titulo:    $('tv-titulo').value,
+    preambulo: $('tv-preambulo').value,
+    clausulas,
+    rodape:    $('tv-rodape').value,
+  }});
+  toast('Termo VPN / Avulso salvo');
+}
+
 // ══════════════════════════════════════════════════════════════════════════
 // HISTÓRICO DO ATIVO
 // ══════════════════════════════════════════════════════════════════════════
@@ -5223,6 +5553,7 @@ async function updateAlertBadge(){
   if(avatarEl)  avatarEl.textContent  = initials;
   if(nomeEl)    nomeEl.textContent    = me.nome;
   if(perfilEl)  perfilEl.textContent  = me.perfil;
+  applyProfileNavigation(me);
 
   // Carrega settings e colaboradores em paralelo
   try {

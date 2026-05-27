@@ -401,6 +401,8 @@ class Allocation(db.Model):
     assinatura_ti_img   = db.Column(db.Text)       # PNG base64 da assinatura do responsável TI
     assinatura_ti_nome  = db.Column(db.String(120))
     data_assinatura_ti  = db.Column(db.DateTime)
+    tipo                = db.Column(db.String(30), default="Responsabilidade")   # "Responsabilidade" | "Empréstimo"
+    data_devolucao_prevista = db.Column(db.String(10))  # YYYY-MM-DD; preenchido quando tipo=Empréstimo
     items           = db.relationship("AllocationItem", backref="allocation",
                                      cascade="all, delete-orphan", lazy=True)
 
@@ -409,6 +411,8 @@ class Allocation(db.Model):
              "colaborador":self.colaborador,"setor":self.setor,"unidade":self.unidade,
              "email":self.email,"dataAloc":self.data_aloc,"motivo":self.motivo,
              "dataEncerramento":self.data_encerramento,
+             "tipo": self.tipo or "Responsabilidade",
+             "dataDevolucaoPrevista": self.data_devolucao_prevista,
              "status":self.status,"termo":self.termo,"termoStatus":self.termo_status,
              "dataAssinatura":self.data_assinatura.isoformat() if self.data_assinatura else None,
              "assinaturaIp": self.assinatura_ip or None,
@@ -764,6 +768,46 @@ class LaudoTecnico(db.Model):
         }
 
 
+class TermoAvulso(db.Model):
+    """Termo avulso não vinculado a ativo físico — VPN, BYOD, Confidencialidade, etc."""
+    __tablename__ = "termos_avulsos"
+    id                = db.Column(db.String(16), primary_key=True)
+    tipo              = db.Column(db.String(40))        # "VPN" | "BYOD" | "Confidencialidade" | ...
+    colaborador       = db.Column(db.String(120))
+    setor             = db.Column(db.String(80))
+    unidade           = db.Column(db.String(80))
+    email             = db.Column(db.String(120))
+    detalhes          = db.Column(db.Text)              # JSON livre para campos extras por tipo
+    validade          = db.Column(db.String(10))        # YYYY-MM-DD — expiração do acesso/vigência
+    status            = db.Column(db.String(20), default="Pendente")  # "Pendente" | "Assinado"
+    sign_token        = db.Column(db.String(64), unique=True)
+    sign_token_expiry = db.Column(db.DateTime)
+    assinatura_img    = db.Column(db.Text)
+    assinatura_ip     = db.Column(db.String(50))
+    data_assinatura   = db.Column(db.DateTime)
+    created_at        = db.Column(db.DateTime, default=datetime.now)
+    created_by        = db.Column(db.String(120))
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "tipo": self.tipo,
+            "colaborador": self.colaborador,
+            "setor": self.setor,
+            "unidade": self.unidade,
+            "email": self.email,
+            "detalhes": json.loads(self.detalhes or "{}") if self.detalhes else {},
+            "validade": self.validade,
+            "status": self.status,
+            "signTokenExpiry": self.sign_token_expiry.isoformat() if self.sign_token_expiry else None,
+            "hasSignImg": bool(self.assinatura_img),
+            "assinaturaIp": self.assinatura_ip,
+            "dataAssinatura": self.data_assinatura.isoformat() if self.data_assinatura else None,
+            "createdAt": self.created_at.isoformat() if self.created_at else None,
+            "createdBy": self.created_by,
+        }
+
+
 # ═══════════════════════════════════════════════════════════════════════════
 # PERMISSION PROFILES
 # ═══════════════════════════════════════════════════════════════════════════
@@ -1056,6 +1100,8 @@ PERMISSION_MODULE_PREFIXES = (
     ("/api/backups", "configuracoes"),
     ("/api/backup.json", "configuracoes"),
     ("/api/export", "configuracoes"),
+    ("/api/termos-avulsos", "alocacoes"),
+    ("/api/emprestimos", "alocacoes"),
 )
 
 ATTACHMENT_MODULE_BY_ENTITY = {
@@ -1785,6 +1831,8 @@ SETTING_NORMALIZERS = {
     "categorias_compat": _normalize_categorias_compat_setting,
     "aparencia": _normalize_aparencia_setting,
     "patrimonio.prefixo": _normalize_patrimonio_prefixo,
+    "termo_emprestimo": lambda v: _normalize_termo_setting("termo_emprestimo", v),
+    "termo_vpn": lambda v: _normalize_termo_setting("termo_vpn", v),
 }
 
 
@@ -1863,6 +1911,30 @@ def _initial_settings_defaults(empresa=None):
             "preambulo": "Atestamos a devolução dos equipamentos abaixo pelo(a) colaborador(a) {colaborador},\ndo setor {setor}, unidade {unidade}:",
             "clausulas": [],
             "declaracao": "Declaro ter devolvido todos os equipamentos listados acima em plenas condições.",
+            "rodape": "{empresa} — Termo gerado automaticamente pelo sistema de gestão de TI",
+        },
+        "termo_emprestimo": {
+            "titulo": "TERMO DE EMPRÉSTIMO DE EQUIPAMENTO",
+            "preambulo": "Eu, {colaborador}, lotado(a) no setor de {setor}, unidade {unidade},\ndeclaro ter recebido em caráter de EMPRÉSTIMO TEMPORÁRIO o equipamento abaixo:",
+            "clausulas": [
+                "Comprometo-me a:",
+                "  1. Utilizar exclusivamente para fins profissionais durante o período de empréstimo;",
+                "  2. Zelar pela conservação do equipamento;",
+                "  3. Devolver o equipamento na data prevista ou quando solicitado pelo setor de TI;",
+                "  4. Comunicar imediatamente ao TI qualquer dano, perda ou furto.",
+            ],
+            "rodape": "{empresa} — Termo gerado automaticamente pelo sistema de gestão de TI",
+        },
+        "termo_vpn": {
+            "titulo": "TERMO DE ACESSO VPN / USO REMOTO",
+            "preambulo": "Eu, {colaborador}, lotado(a) no setor de {setor}, unidade {unidade},\ndeclaro estar ciente das regras de acesso à VPN corporativa:",
+            "clausulas": [
+                "1. O acesso VPN é pessoal e intransferível;",
+                "2. É proibido compartilhar credenciais com terceiros;",
+                "3. O colaborador é responsável por todos os acessos realizados com suas credenciais;",
+                "4. O uso deve ser restrito a atividades profissionais autorizadas;",
+                "5. O descumprimento sujeita o colaborador a medidas disciplinares.",
+            ],
             "rodape": "{empresa} — Termo gerado automaticamente pelo sistema de gestão de TI",
         },
         "email_templates": DEFAULT_EMAIL_TEMPLATES,
@@ -1983,15 +2055,57 @@ def _build_backup_payload(generated_by="sistema", include_audit=False):
         "colaboradores": [c.to_dict() for c in db.session.execute(db.select(Colaborador)).scalars().all()],
         "supplies": [s.to_dict() for s in db.session.execute(db.select(Supply)).scalars().all()],
         "supplyMovements": [m.to_dict() for m in db.session.execute(db.select(SupplyMovement)).scalars().all()],
-        "allocations": [a.to_dict(include_items=True) for a in db.session.execute(db.select(Allocation)).scalars().all()],
+        "allocations": [_allocation_backup_dict(a) for a in db.session.execute(db.select(Allocation)).scalars().all()],
         "licenses": [l.to_dict() for l in db.session.execute(db.select(License)).scalars().all()],
         "incidents": [i.to_dict() for i in db.session.execute(db.select(Incident)).scalars().all()],
         "maintenance": [m.to_dict(include_parts=True) for m in db.session.execute(db.select(MaintenanceOrder)).scalars().all()],
-        "devolucoes": [d.to_dict() for d in db.session.execute(db.select(Devolucao)).scalars().all()],
-        "attachments": [a.to_dict() for a in db.session.execute(db.select(Attachment)).scalars().all()],
+        "devolucoes": [_devolucao_backup_dict(d) for d in db.session.execute(db.select(Devolucao)).scalars().all()],
+        "laudosTecnicos": [l.to_dict() for l in db.session.execute(db.select(LaudoTecnico)).scalars().all()],
+        "auditCampaigns": [c.to_dict(include_items=True) for c in db.session.execute(db.select(AuditCampaign)).scalars().all()],
+        "termosAvulsos": [_termo_avulso_backup_dict(t) for t in db.session.execute(db.select(TermoAvulso)).scalars().all()],
+        "attachments": [_attachment_backup_dict(a) for a in db.session.execute(db.select(Attachment)).scalars().all()],
         "settings": _safe_settings_payload(),
         "auditLogs": [a.to_dict() for a in db.session.execute(db.select(AuditLog).order_by(AuditLog.data.desc()).limit(1000)).scalars().all()] if include_audit else [],
     }
+
+
+def _allocation_backup_dict(allocation):
+    data = allocation.to_dict(include_items=True)
+    data.update({
+        "assinaturaImg": allocation.assinatura_img,
+        "signToken": allocation.sign_token,
+        "assinaturaTiImg": allocation.assinatura_ti_img,
+        "assinaturaTiNome": allocation.assinatura_ti_nome,
+    })
+    return data
+
+
+def _devolucao_backup_dict(devolucao):
+    data = devolucao.to_dict()
+    data.update({
+        "assinaturaImg": devolucao.assinatura_img,
+        "signToken": devolucao.sign_token,
+        "rhToken": devolucao.rh_token,
+        "rhTokenExpiry": devolucao.rh_token_expiry.isoformat() if devolucao.rh_token_expiry else None,
+        "rhCienciaIp": devolucao.rh_ciencia_ip,
+    })
+    return data
+
+
+def _attachment_backup_dict(attachment):
+    data = attachment.to_dict()
+    data["storedName"] = attachment.stored_name
+    return data
+
+
+def _termo_avulso_backup_dict(termo):
+    data = termo.to_dict()
+    data.update({
+        "detalhesRaw": termo.detalhes,
+        "signToken": termo.sign_token,
+        "assinaturaImg": termo.assinatura_img,
+    })
+    return data
 
 
 def _backup_bytes(generated_by="sistema", include_audit=False):
@@ -2100,6 +2214,8 @@ _BACKUP_REQUIRED_LISTS = (
     "devolucoes", "attachments",
 )
 
+_BACKUP_OPTIONAL_LISTS = ("laudosTecnicos", "auditCampaigns", "termosAvulsos", "auditLogs")
+
 
 def _parse_backup_dt(val):
     if not val:
@@ -2122,6 +2238,12 @@ def _validate_backup_payload(payload):
         elif not isinstance(val, list):
             errors.append(f"'{key}' deve ser uma lista.")
         else:
+            summary[key] = len(val)
+    for key in _BACKUP_OPTIONAL_LISTS:
+        val = payload.get(key, [])
+        if val is not None and not isinstance(val, list):
+            errors.append(f"'{key}' deve ser uma lista.")
+        elif isinstance(val, list):
             summary[key] = len(val)
     settings_val = payload.get("settings")
     if settings_val is None:
@@ -2177,7 +2299,7 @@ def _restore_from_payload(payload, restored_by="sistema"):
         logger.warning("Backup pré-restauração falhou: %s", exc)
 
     # Deleção em ordem segura de FK
-    for model in (AuditCampaignItem, AuditCampaign, LaudoTecnico, MaintenancePart,
+    for model in (AuditCampaignItem, AuditCampaign, LaudoTecnico, TermoAvulso, MaintenancePart,
                   AllocationItem, Devolucao, Allocation, Incident, MaintenanceOrder,
                   Attachment, SupplyMovement, Supply, License, Asset, Colaborador):
         db.session.execute(db.delete(model))
@@ -2277,9 +2399,17 @@ def _restore_from_payload(payload, restored_by="sistema"):
             unidade=al.get("unidade"), email=al.get("email"),
             data_aloc=al.get("dataAloc"), data_encerramento=al.get("dataEncerramento"),
             motivo=al.get("motivo", "Uso contínuo"), status=al.get("status", "Ativo"),
+            tipo=al.get("tipo", "Responsabilidade"),
+            data_devolucao_prevista=al.get("dataDevolucaoPrevista"),
             termo=al.get("termo"), termo_status=al.get("termoStatus", "Pendente"),
             data_assinatura=_parse_backup_dt(al.get("dataAssinatura")),
             assinatura_ip=al.get("assinaturaIp"),
+            assinatura_img=al.get("assinaturaImg"),
+            sign_token=al.get("signToken"),
+            sign_token_expiry=_parse_backup_dt(al.get("signTokenExpiry")),
+            assinatura_ti_img=al.get("assinaturaTiImg"),
+            assinatura_ti_nome=al.get("assinaturaTiNome"),
+            data_assinatura_ti=_parse_backup_dt(al.get("dataAssinaturaTi")),
         ))
         for item in (al.get("perifericos") or []):
             if not isinstance(item, dict) or not item.get("id"):
@@ -2300,23 +2430,101 @@ def _restore_from_payload(payload, restored_by="sistema"):
             colaborador=d.get("colaborador", ""), setor=d.get("setor", ""),
             unidade=d.get("unidade", ""), data_devolucao=d.get("dataDevolucao"),
             data_assinatura=_parse_backup_dt(d.get("dataAssinatura")),
+            assinatura_img=d.get("assinaturaImg"),
             assinatura_ip=d.get("assinaturaIp"),
+            sign_token=d.get("signToken"),
+            sign_token_expiry=_parse_backup_dt(d.get("signTokenExpiry")),
             status=d.get("status", "Pendente"),
             ativos_devolvidos=json.dumps(ativos if isinstance(ativos, list) else []),
             perifericos_devolvidos=json.dumps(peris if isinstance(peris, list) else []),
             laudo_status=d.get("laudoStatus", "Aguardando Laudo"),
+            rh_token=d.get("rhToken"),
+            rh_token_expiry=_parse_backup_dt(d.get("rhTokenExpiry")),
             rh_email=d.get("rhEmail"),
+            rh_ciencia_ip=d.get("rhCienciaIp"),
             rh_data_ciencia=_parse_backup_dt(d.get("rhDataCiencia")),
             cobranca_valor=d.get("cobrancaValor", 0.0),
             cobranca_obs=d.get("cobrancaObs", ""),
         ))
     stats["devolucoes"] = len(devolucoes)
 
+    laudos = [l for l in payload.get("laudosTecnicos", []) if isinstance(l, dict) and l.get("id")]
+    for l in laudos:
+        avaliacao = l.get("avaliacaoItens", [])
+        db.session.add(LaudoTecnico(
+            id=l["id"], devolucao_id=l.get("devolucaoId"),
+            tecnico=l.get("tecnico", ""),
+            avaliacao_itens=json.dumps(avaliacao if isinstance(avaliacao, list) else []),
+            observacao_geral=l.get("observacaoGeral", ""),
+            tem_cobranca=bool(l.get("temCobranca")),
+            valor_cobranca=l.get("valorCobranca", 0.0),
+            data_avaliacao=_parse_backup_dt(l.get("dataAvaliacao")),
+            editado_em=_parse_backup_dt(l.get("editadoEm")),
+            editado_por=l.get("editadoPor"),
+            motivo_edicao=l.get("motivoEdicao"),
+        ))
+    stats["laudosTecnicos"] = len(laudos)
+
+    campaigns = [c for c in payload.get("auditCampaigns", []) if isinstance(c, dict) and c.get("id")]
+    for campaign in campaigns:
+        db.session.add(AuditCampaign(
+            id=campaign["id"], nome=campaign.get("nome", ""),
+            unidade=campaign.get("unidade", ""), setor=campaign.get("setor", ""),
+            status=campaign.get("status", "Aberta"),
+            data_inicio=campaign.get("dataInicio"),
+            data_fim=campaign.get("dataFim"),
+            criado_por=campaign.get("criadoPor", ""),
+            criado_em=_parse_backup_dt(campaign.get("criadoEm")),
+            observacao=campaign.get("observacao", ""),
+        ))
+        for item in (campaign.get("items") or []):
+            if not isinstance(item, dict) or not item.get("id"):
+                continue
+            db.session.add(AuditCampaignItem(
+                id=item["id"], campaign_id=campaign["id"],
+                asset_id=item.get("assetId"), asset_nome=item.get("assetNome"),
+                patrimonio=item.get("patrimonio"), service_tag=item.get("serviceTag"),
+                expected_unidade=item.get("expectedUnidade", ""),
+                expected_setor=item.get("expectedSetor", ""),
+                expected_colaborador=item.get("expectedColaborador", ""),
+                observed_unidade=item.get("observedUnidade", ""),
+                observed_setor=item.get("observedSetor", ""),
+                observed_local=item.get("observedLocal", ""),
+                observed_responsavel=item.get("observedResponsavel", ""),
+                status=item.get("status", "Pendente"),
+                divergencia=item.get("divergencia", ""),
+                observacao=item.get("observacao", ""),
+                auditado_por=item.get("auditadoPor", ""),
+                auditado_em=_parse_backup_dt(item.get("auditadoEm")),
+            ))
+    stats["auditCampaigns"] = len(campaigns)
+
+    termos_avulsos = [t for t in payload.get("termosAvulsos", []) if isinstance(t, dict) and t.get("id")]
+    for t in termos_avulsos:
+        detalhes = t.get("detalhesRaw")
+        if detalhes is None:
+            raw_detalhes = t.get("detalhes", {})
+            detalhes = json.dumps(raw_detalhes if isinstance(raw_detalhes, dict) else {})
+        db.session.add(TermoAvulso(
+            id=t["id"], tipo=t.get("tipo"), colaborador=t.get("colaborador"),
+            setor=t.get("setor"), unidade=t.get("unidade"), email=t.get("email"),
+            detalhes=detalhes, validade=t.get("validade"),
+            status=t.get("status", "Pendente"),
+            sign_token=t.get("signToken"),
+            sign_token_expiry=_parse_backup_dt(t.get("signTokenExpiry")),
+            assinatura_img=t.get("assinaturaImg"),
+            assinatura_ip=t.get("assinaturaIp"),
+            data_assinatura=_parse_backup_dt(t.get("dataAssinatura")),
+            created_at=_parse_backup_dt(t.get("createdAt")),
+            created_by=t.get("createdBy"),
+        ))
+    stats["termosAvulsos"] = len(termos_avulsos)
+
     att_list = [a for a in payload.get("attachments", []) if isinstance(a, dict) and a.get("id")]
     for a in att_list:
         db.session.add(Attachment(
             id=a["id"], entity_type=a.get("entityType", ""), entity_id=a.get("entityId", ""),
-            original_name=a.get("originalName", "arquivo"), stored_name=a.get("id", a.get("originalName", "arquivo")),
+            original_name=a.get("originalName", "arquivo"), stored_name=a.get("storedName") or a.get("id", a.get("originalName", "arquivo")),
             content_type=a.get("contentType", "application/octet-stream"),
             size=a.get("size", 0), category=a.get("category", "Documento"),
             description=a.get("description", ""), uploaded_by=a.get("uploadedBy", ""),
@@ -2650,6 +2858,16 @@ def _migrate_db():
             ("observed_unidade", "VARCHAR(80)"),
             ("observed_setor", "VARCHAR(80)"),
         ],
+        "allocations": [
+            ("assinatura_img",          "TEXT"),
+            ("sign_token",              "TEXT"),
+            ("sign_token_expiry",       "TEXT"),
+            ("assinatura_ti_img",       "TEXT"),
+            ("assinatura_ti_nome",      "VARCHAR(120)"),
+            ("data_assinatura_ti",      "TEXT"),
+            ("tipo",                    "VARCHAR(30)"),
+            ("data_devolucao_prevista", "VARCHAR(10)"),
+        ],
     }
     is_sqlite = "sqlite" in app.config["SQLALCHEMY_DATABASE_URI"]
     with db.engine.connect() as conn:
@@ -2665,8 +2883,72 @@ def _migrate_db():
                         conn.execute(_text(f"ALTER TABLE {tbl} ADD COLUMN {col} {typ}"))
                     except Exception:
                         pass
+        # Create termos_avulsos if missing
+        if "termos_avulsos" not in existing_tables:
+            try:
+                conn.execute(_text("""
+                    CREATE TABLE termos_avulsos (
+                        id VARCHAR(16) PRIMARY KEY,
+                        tipo VARCHAR(40),
+                        colaborador VARCHAR(120),
+                        setor VARCHAR(80),
+                        unidade VARCHAR(80),
+                        email VARCHAR(120),
+                        detalhes TEXT,
+                        validade VARCHAR(10),
+                        status VARCHAR(20) DEFAULT 'Pendente',
+                        sign_token VARCHAR(64) UNIQUE,
+                        sign_token_expiry TEXT,
+                        assinatura_img TEXT,
+                        assinatura_ip VARCHAR(50),
+                        data_assinatura TEXT,
+                        created_at TEXT,
+                        created_by VARCHAR(120)
+                    )
+                """))
+            except Exception:
+                pass
         conn.commit()
 
+    # Inicializa settings de termos novos (para instalações existentes que nunca passaram pelo /setup)
+    try:
+        new_setting_defaults = {
+            "termo_emprestimo": {
+                "titulo": "TERMO DE EMPRÉSTIMO DE EQUIPAMENTO",
+                "preambulo": "Eu, {colaborador}, lotado(a) no setor de {setor}, unidade {unidade},\ndeclaro ter recebido em caráter de EMPRÉSTIMO TEMPORÁRIO o equipamento abaixo:",
+                "clausulas": [
+                    "Comprometo-me a:",
+                    "  1. Utilizar exclusivamente para fins profissionais durante o período de empréstimo;",
+                    "  2. Zelar pela conservação do equipamento;",
+                    "  3. Devolver o equipamento na data prevista ou quando solicitado pelo setor de TI;",
+                    "  4. Comunicar imediatamente ao TI qualquer dano, perda ou furto.",
+                ],
+                "rodape": "{empresa} — Termo gerado automaticamente pelo sistema de gestão de TI",
+            },
+            "termo_vpn": {
+                "titulo": "TERMO DE ACESSO VPN / USO REMOTO",
+                "preambulo": "Eu, {colaborador}, lotado(a) no setor de {setor}, unidade {unidade},\ndeclaro estar ciente das regras de acesso à VPN corporativa:",
+                "clausulas": [
+                    "1. O acesso VPN é pessoal e intransferível;",
+                    "2. É proibido compartilhar credenciais com terceiros;",
+                    "3. O colaborador é responsável por todos os acessos realizados com suas credenciais;",
+                    "4. O uso deve ser restrito a atividades profissionais autorizadas;",
+                    "5. O descumprimento sujeita o colaborador a medidas disciplinares.",
+                ],
+                "rodape": "{empresa} — Termo gerado automaticamente pelo sistema de gestão de TI",
+            },
+        }
+        with db.engine.connect() as _c2:
+            for _key, _val in new_setting_defaults.items():
+                _row = _c2.execute(_text("SELECT 1 FROM settings WHERE key = :k"), {"k": _key}).fetchone()
+                if _row is None:
+                    _c2.execute(
+                        _text("INSERT INTO settings (key, value) VALUES (:k, :v)"),
+                        {"k": _key, "v": json.dumps(_val, ensure_ascii=False)}
+                    )
+            _c2.commit()
+    except Exception:
+        pass
 
 
 def _export_route_globals():
@@ -2679,8 +2961,9 @@ def register_route_modules():
     from routes import (
         setup, auth, assets, supplies, colaboradores, allocations,
         licenses, operations, users, settings, devolucoes, reports, audit_campaigns, attachments,
+        termos_avulsos,
     )
-    return (setup, auth, assets, supplies, colaboradores, allocations, licenses, operations, users, settings, devolucoes, reports, audit_campaigns, attachments)
+    return (setup, auth, assets, supplies, colaboradores, allocations, licenses, operations, users, settings, devolucoes, reports, audit_campaigns, attachments, termos_avulsos)
 
 register_route_modules()
 

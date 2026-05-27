@@ -79,6 +79,10 @@ def create_allocation():
     # ── Tudo OK — executa transação ──────────────────────────────────────
     try:
         aid = new_id("AL")
+        tipo_aloc = clean_text(d.get("tipo") or "Responsabilidade", 30)
+        if tipo_aloc not in ("Responsabilidade", "Empréstimo"):
+            tipo_aloc = "Responsabilidade"
+        data_dev = clean_text(d.get("dataDevolucaoPrevista") or "", 10) or None
         alloc = Allocation(
             id=aid, ativo_id=asset.id,
             ativo_nome=f"{asset.hostname} ({asset.fabricante} {asset.modelo})",
@@ -86,6 +90,7 @@ def create_allocation():
             unidade=clean_text(d.get("unidade") or colab.unidade, 80), email=clean_text(d.get("email") or colab.email, 120),
             data_aloc=str(date.today()), motivo=clean_text(d.get("motivo") or "Uso contínuo", 80),
             status="Ativo", termo=f"TERMO-{aid}", termo_status="Pendente",
+            tipo=tipo_aloc, data_devolucao_prevista=data_dev,
         )
         db.session.add(alloc)
 
@@ -215,25 +220,41 @@ def gerar_termo(aid):
         return jsonify({"error": "Geração de PDF indisponível. Instale: pip install reportlab"}), 503
 
     empresa   = _get_setting("empresa", {}) or {}
-    tr_cfg    = _get_setting("termo_recebimento", {}) or {}
+    # Seleciona template conforme tipo da alocação
+    tipo_aloc = (al.tipo or "Responsabilidade")
+    if tipo_aloc == "Empréstimo":
+        tr_cfg = _get_setting("termo_emprestimo", {}) or {}
+        titulo_default = "TERMO DE EMPRÉSTIMO DE EQUIPAMENTO"
+        preambulo_default = ("Eu, {colaborador}, lotado(a) no setor de {setor}, unidade {unidade},\n"
+                             "declaro ter recebido em caráter de EMPRÉSTIMO TEMPORÁRIO o equipamento abaixo:")
+        clausulas_padrao = [
+            "Comprometo-me a:",
+            "  1. Utilizar exclusivamente para fins profissionais durante o período de empréstimo;",
+            "  2. Zelar pela conservação do equipamento;",
+            "  3. Devolver o equipamento na data prevista ou quando solicitado pelo setor de TI;",
+            "  4. Comunicar imediatamente ao TI qualquer dano, perda ou furto.",
+        ]
+    else:
+        tr_cfg = _get_setting("termo_recebimento", {}) or {}
+        titulo_default = "TERMO DE RESPONSABILIDADE DE EQUIPAMENTO"
+        preambulo_default = ("Eu, {colaborador}, lotado(a) no setor de {setor}, unidade {unidade},\n"
+                             "declaro ter recebido os seguintes equipamentos de propriedade da empresa:")
+        clausulas_padrao = [
+            "Comprometo-me a:",
+            "  1. Utilizar exclusivamente para fins profissionais;",
+            "  2. Zelar pela conservação de todos os itens;",
+            "  3. Comunicar ao TI qualquer dano, perda ou furto;",
+            "  4. Devolver os equipamentos ao encerramento do vínculo.",
+        ]
     logo_b64  = empresa.get("logo_base64", "") if isinstance(empresa, dict) else ""
 
     ctx = {"colaborador": al.colaborador, "setor": al.setor, "unidade": al.unidade,
            "ativo": al.ativo_nome, "data": al.data_aloc, "termo": al.termo or aid,
-           "empresa": empresa.get("nome", "") if isinstance(empresa, dict) else ""}
+           "empresa": empresa.get("nome", "") if isinstance(empresa, dict) else "",
+           "dataDevolucao": al.data_devolucao_prevista or ""}
 
-    titulo    = _render_termo_text(tr_cfg.get("titulo", "TERMO DE RESPONSABILIDADE DE EQUIPAMENTO"), ctx)
-    preambulo = _render_termo_text(
-        tr_cfg.get("preambulo",
-                   "Eu, {colaborador}, lotado(a) no setor de {setor}, unidade {unidade},\n"
-                   "declaro ter recebido os seguintes equipamentos de propriedade da empresa:"), ctx)
-    clausulas_padrao = [
-        "Comprometo-me a:",
-        "  1. Utilizar exclusivamente para fins profissionais;",
-        "  2. Zelar pela conservação de todos os itens;",
-        "  3. Comunicar ao TI qualquer dano, perda ou furto;",
-        "  4. Devolver os equipamentos ao encerramento do vínculo.",
-    ]
+    titulo    = _render_termo_text(tr_cfg.get("titulo", titulo_default), ctx)
+    preambulo = _render_termo_text(tr_cfg.get("preambulo", preambulo_default), ctx)
     clausulas = tr_cfg.get("clausulas", clausulas_padrao)
     rodape_txt= _render_termo_text(tr_cfg.get("rodape", ""), ctx)
 
@@ -258,6 +279,12 @@ def gerar_termo(aid):
         c.setFillColorRGB(0.93, 0.93, 0.93); c.rect(2*cm, y-0.5*cm, w-4*cm, 1*cm, fill=True, stroke=False)
         c.setFillColorRGB(0,0,0); c.setFont("Courier-Bold", 11)
         c.drawString(2.5*cm, y, f"[ATIVO]  {al.ativo_nome}"); y -= 1.5*cm
+        if (al.tipo or "Responsabilidade") == "Empréstimo" and al.data_devolucao_prevista:
+            c.setFont("Helvetica-Bold", 10)
+            c.setFillColorRGB(0.8, 0.2, 0.0)
+            c.drawString(2*cm, y, f"⚠  Devolução prevista: {al.data_devolucao_prevista}")
+            c.setFillColorRGB(0, 0, 0)
+            y -= 0.8*cm
         items = al.items
         if items:
             c.setFont("Helvetica-Bold", 11)
@@ -452,4 +479,20 @@ def submeter_assinatura(token):
     db.session.commit()
     return render_template("assinar.html", al=al, token=token,
                            sucesso=True, perifericos=al.items)
+
+
+@app.route("/api/emprestimos/vencidos")
+@api_auth
+def emprestimos_vencidos():
+    """Retorna alocações do tipo Empréstimo com data de devolução vencida."""
+    hoje = str(date.today())
+    vencidos = db.session.execute(
+        db.select(Allocation).where(
+            Allocation.tipo == "Empréstimo",
+            Allocation.status == "Ativo",
+            Allocation.data_devolucao_prevista.isnot(None),
+            Allocation.data_devolucao_prevista < hoje,
+        )
+    ).scalars().all()
+    return jsonify([a.to_dict() for a in vencidos])
 

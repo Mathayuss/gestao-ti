@@ -61,9 +61,23 @@ def do_logout():
 @app.route("/api/me")
 @login_required
 def me():
+    permissions = _profile_permissions(current_user.perfil)
+    ui_modules = list(permissions.get("modulos") or [])
+    if current_user.perfil == "Administrador":
+        ui_modules = [
+            "dashboard", "alertas", "manutencao", "entrada", "ativos",
+            "alocacoes", "insumos", "licencas", "auditorias", "qrcode",
+            "colaboradores", "system_users", "configuracoes",
+        ]
+    elif "insumos" in ui_modules and "entrada" not in ui_modules:
+        ui_modules.insert(ui_modules.index("insumos"), "entrada")
+    if "dashboard" not in ui_modules:
+        ui_modules.insert(0, "dashboard")
     return jsonify({"id":current_user.id,"username":current_user.username,
                     "nome":current_user.nome,"perfil":current_user.perfil,
-                    "email":current_user.email})
+                    "email":current_user.email,
+                    "permissions": permissions,
+                    "uiModules": ui_modules})
 
 
 @app.route("/ping")

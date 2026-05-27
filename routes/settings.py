@@ -428,7 +428,7 @@ def update_termos_settings():
     d = json_payload()
     if not d:
         return jsonify({"error": "Payload JSON obrigatório."}), 400
-    for key in ("termo_recebimento", "termo_devolucao"):
+    for key in ("termo_recebimento", "termo_devolucao", "termo_emprestimo", "termo_vpn"):
         if key in d:
             normalized, error = _normalize_termo_setting(key, d[key])
             if error:

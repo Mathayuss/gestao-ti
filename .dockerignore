@@ -6,7 +6,6 @@ instance/*.sqlite
 *.zip
 .env
 .env.*
-.git
 .github
 .claude
 .agents
