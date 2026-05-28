@@ -15,7 +15,7 @@ from datetime import date, datetime, timedelta
 # Suppress Flask-Login's internal datetime.utcnow() deprecation (Python 3.12)
 warnings.filterwarnings('ignore', message='.*utcnow.*', category=DeprecationWarning)
 from functools import wraps
-from flask import (Flask, jsonify, request, render_template,
+from flask import (Flask, jsonify, request, render_template, render_template_string,
                    send_file, redirect, url_for, session, Response, g)
 from werkzeug.utils import secure_filename
 from flask_sqlalchemy import SQLAlchemy
@@ -23,7 +23,7 @@ from sqlalchemy import func, text
 from urllib.parse import urlsplit
 from flask_login import (LoginManager, UserMixin, login_user,
                          logout_user, login_required, current_user)
-from flask_wtf.csrf import CSRFProtect
+from flask_wtf.csrf import CSRFError, CSRFProtect
 from werkzeug.security import generate_password_hash, check_password_hash
 from dotenv import load_dotenv
 
@@ -1262,6 +1262,28 @@ def unauthorized():
     if request.is_json or request.path.startswith('/api/'):
         return jsonify({"error": "Não autenticado", "redirect": "/login"}), 401
     return redirect(url_for("login_page", next=request.url))
+
+
+@app.errorhandler(CSRFError)
+def handle_csrf_error(err):
+    message = "Sua sessão de segurança expirou. Recarregue a página e tente novamente."
+    if request.path.startswith("/api/") or wants_json_response():
+        return jsonify({"error": message, "code": "csrf_expired", "refresh": True}), 400
+    if request.endpoint == "do_login":
+        return redirect(url_for("login_page", error=message))
+    return render_template_string(
+        """<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">
+        <meta name="viewport" content="width=device-width,initial-scale=1">
+        <title>Sessão expirada</title></head>
+        <body style="font-family:system-ui,-apple-system,Segoe UI,sans-serif;background:#0f1117;color:#f8fafc;display:grid;place-items:center;min-height:100vh;margin:0">
+          <main style="max-width:520px;padding:28px;border:1px solid #334155;border-radius:12px;background:#171b24">
+            <h1 style="font-size:22px;margin:0 0 10px">Sessão expirada</h1>
+            <p style="line-height:1.5;color:#cbd5e1">Sua sessão de segurança expirou. Recarregue a página e tente novamente.</p>
+            <a href="/" style="display:inline-block;margin-top:12px;color:#fff;background:#2563eb;padding:10px 14px;border-radius:8px;text-decoration:none">Voltar ao sistema</a>
+          </main>
+        </body></html>"""
+    ), 400
+
 
 @app.errorhandler(404)
 def not_found(err):
