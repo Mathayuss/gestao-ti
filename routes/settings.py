@@ -149,11 +149,9 @@ def _system_update_status(fetch=False):
             status["ahead"] = int(parts[0])
             status["behind"] = int(parts[1])
             status["updateAvailable"] = status["behind"] > 0
-            status["canApply"] = bool(supported and status["updateAvailable"] and not status["dirty"])
+            status["canApply"] = bool(supported and status["updateAvailable"])
             if not status["updateAvailable"]:
                 status["blockReason"] = "Nenhuma atualizacao disponivel."
-            elif status["dirty"]:
-                status["blockReason"] = "Existem alteracoes locais no servidor."
             status["message"] = "Atualização disponível." if status["updateAvailable"] else "Sistema já está na versão mais recente conhecida."
     else:
         status["message"] = "Branch atual não possui upstream configurado."
@@ -375,8 +373,6 @@ def system_update_apply():
         return jsonify({"error": status["message"], "status": status}), 409
     if not status["updateAvailable"]:
         return jsonify({"error": "Nenhuma atualizacao disponivel no repositorio remoto.", "status": status}), 409
-    if status["dirty"]:
-        return jsonify({"error": "Existem alterações locais no servidor. Resolva antes de atualizar.", "status": status}), 409
 
     remote = status.get("remote") or "origin"
     branch = status.get("branch") or "main"
