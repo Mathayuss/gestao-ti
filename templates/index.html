@@ -3925,8 +3925,8 @@ async function renderConfiguracoes(){
     ? (updateState.updateAvailable ? badge('Disponível','amber') : badge('OK','green'))
     : badge('Manual','blue');
   const updateApplyHint = updateState.supported
-    ? (updateState.canApply ? 'Atualizacao pronta para aplicar.' : (updateState.blockReason || (updateState.updateAvailable ? 'Verifique os bloqueios antes de aplicar.' : 'Nenhuma atualizacao disponivel.')))
-    : 'Atualizacao automatica indisponivel neste ambiente.';
+    ? (updateState.canApply ? 'Atualização pronta para aplicar.' : (updateState.blockReason || (updateState.updateAvailable ? 'Verifique os bloqueios antes de aplicar.' : 'Nenhuma atualização disponível.')))
+    : 'Atualização automática indisponível neste ambiente.';
   const updateDetails = updateState.supported
     ? `${esc(updateState.branch||'branch')} · ${esc(updateState.currentCommit||updateState.currentVersion||'?')} · atrás ${updateState.behind||0} · à frente ${updateState.ahead||0}`
     : `Execute no servidor: <span class="mono">${esc(updateState.manualCommand || './scripts/update-linux.sh')}</span>`;
@@ -4575,7 +4575,7 @@ async function renderConfiguracoes(){
           : `<button class="btn btn-primary btn-sm" onclick="showManualUpdateInstructions()" type="button">Ver instruções</button>`}
       </div>
       <div style="margin-top:14px;font-size:12px;color:var(--text3)">
-        ${esc(updateApplyHint)} Antes de atualizar, gere backup. Apos aplicar, reinicie/recrie a aplicacao para carregar o novo codigo.
+        ${esc(updateApplyHint)} Antes de atualizar, gere backup. Após aplicar, reinicie/recrie a aplicação para carregar o novo código.
       </div>
     </div>
   </div>`;
