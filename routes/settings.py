@@ -186,7 +186,8 @@ def get_settings():
         "termo_vpn":          _get_setting("termo_vpn", {}),
         "aparencia":    _get_setting("aparencia", {}),
         "patrimonio_prefixo": _get_setting("patrimonio.prefixo", "TI"),
-        "app_base_url": get_app_base_url(),
+        "app_base_url":       get_app_base_url(),
+        "app_base_url_saved": _get_setting("app.base_url", "") or "",
     })
 
 
@@ -435,6 +436,26 @@ def update_termos_settings():
     audit("EDITAR", "configuracoes", "", "Personalização de termos atualizada")
     db.session.commit()
     return jsonify({"ok": True})
+
+
+@app.route("/api/settings/public-url", methods=["PUT"])
+@requires("Administrador")
+def update_public_url():
+    """Salva a URL pública da aplicação usada em e-mails e contextos sem request."""
+    d = json_payload()
+    if d is None:
+        return jsonify({"error": "Payload JSON obrigatório."}), 400
+    raw_url = clean_text(d.get("url") or "", 180).rstrip("/")
+    if raw_url:
+        from urllib.parse import urlsplit
+        parsed = urlsplit(raw_url)
+        if parsed.scheme not in ("http", "https") or not parsed.netloc:
+            return jsonify({"error": "URL inválida. Use http:// ou https://."}), 400
+    _set_setting("app.base_url", raw_url)
+    app.config["APP_BASE_URL"] = raw_url or app.config.get("APP_BASE_URL", "http://localhost")
+    audit("EDITAR", "configuracoes", "", f"URL pública atualizada: {raw_url or '(removida)'}")
+    db.session.commit()
+    return jsonify({"ok": True, "url": raw_url})
 
 
 @app.route("/api/settings/categorias", methods=["POST"])

@@ -1626,7 +1626,7 @@ def send_email_laudo_editado_rh(to: str, colaborador: str, editor: str, motivo: 
         "colaborador": colaborador,
         "editor": editor,
         "motivo": motivo,
-        "link": get_app_base_url(),
+        "link": get_public_url_for_email(),
     })
     return send_email(to, subject, html, text)
 
@@ -1639,7 +1639,7 @@ def send_email_laudo_editado_colab(to: str, colaborador: str, motivo: str) -> di
         "empresa": nome_empresa,
         "colaborador": colaborador,
         "motivo": motivo,
-        "link": get_app_base_url(),
+        "link": get_public_url_for_email(),
     })
     return send_email(to, subject, html, text)
 
@@ -1658,22 +1658,35 @@ def _set_setting(key, value):
 
 
 def get_app_base_url():
-    """Retorna a URL base da aplicação.
+    """Retorna a URL base da aplicação para links gerados durante uma request HTTP.
 
     Prioridade:
-    1. Valor salvo no banco (Configurações → Geral → URL)
-    2. Auto-detecção via request atual (funciona com ProxyFix / nginx / HTTPS)
-    3. Env var APP_BASE_URL (fallback estático para contextos sem request)
+    1. Auto-detecção via request atual (honra ProxyFix / X-Forwarded-Host / HTTPS)
+    2. Valor salvo no banco — fallback para contextos sem request (e-mails agendados)
+    3. Env var APP_BASE_URL (fallback estático final)
     """
-    saved = _get_setting("app.base_url", "")
-    if isinstance(saved, str) and saved.strip():
-        return clean_text(saved, 180).rstrip("/")
     try:
         from flask import request as _req
         if _req and _req.host_url:
             return _req.host_url.rstrip("/")
     except RuntimeError:
-        pass  # fora de contexto de request (ex: envio de e-mail agendado)
+        pass  # fora de contexto de request
+    saved = _get_setting("app.base_url", "")
+    if isinstance(saved, str) and saved.strip():
+        return clean_text(saved, 180).rstrip("/")
+    return app.config["APP_BASE_URL"]
+
+
+def get_public_url_for_email():
+    """Retorna a URL pública configurada para uso em e-mails e tarefas em segundo plano.
+
+    Usa o valor explicitamente configurado pelo admin (banco/env), nunca o host da
+    request atual — assim links em e-mails sempre apontam para o endereço público
+    acessível pelos destinatários, independente de onde o admin está navegando.
+    """
+    saved = _get_setting("app.base_url", "")
+    if isinstance(saved, str) and saved.strip():
+        return clean_text(saved, 180).rstrip("/")
     return app.config["APP_BASE_URL"]
 
 

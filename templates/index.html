@@ -3910,6 +3910,7 @@ async function renderConfiguracoes(){
   const cfg_backup = backupState.config || cfg.backup || {};
   const cfg_ap     = cfg.aparencia            || {};
   const cfg_pat_prefixo = cfg.patrimonio_prefixo || 'TI';
+  const cfg_public_url  = cfg.app_base_url_saved || '';
   const backupFiles = Array.isArray(backupState.files) ? backupState.files : [];
   const backupFreqLabel = {daily:'Diário', weekly:'Semanal', monthly:'Mensal'};
   const backupWeekdayLabel = ['Domingo','Segunda-feira','Terça-feira','Quarta-feira','Quinta-feira','Sexta-feira','Sábado'];
@@ -4052,6 +4053,32 @@ async function renderConfiguracoes(){
         <button class="btn btn-primary btn-sm" onclick="savePrefixoPatrimonio()">Salvar Prefixo</button>
       </div>
       <div style="font-size:11px;color:var(--text3);margin-top:8px">O número é gerado automaticamente a cada entrada de ativo. Ex: <strong>${esc(cfg_pat_prefixo)}-000001</strong>, <strong>${esc(cfg_pat_prefixo)}-000002</strong>, ...</div>
+    </div>
+    <div class="card">
+      <div class="section-title" style="margin-bottom:12px">URL Pública da Aplicação</div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:12px;line-height:1.6">
+        Usada em <strong>links de e-mail</strong> (assinatura, devolução, laudos) e contextos sem requisição HTTP ativa.<br>
+        Links gerados no navegador já usam automaticamente a URL de acesso atual —
+        configure esta apenas se os destinatários dos e-mails precisam de um endereço específico (IP fixo, domínio público).
+      </div>
+      <div style="display:flex;align-items:flex-end;gap:8px;flex-wrap:wrap">
+        <div class="form-group" style="margin-bottom:0;flex:1;min-width:220px">
+          <label>URL (ex: http://10.0.0.10:5000 ou https://ti.empresa.com.br)</label>
+          <input id="cfg-public-url" value="${esc(cfg_public_url)}"
+                 placeholder="Detectada automaticamente da requisição atual"
+                 style="width:100%;font-family:var(--mono);font-size:12px">
+        </div>
+        <button class="btn btn-default btn-sm" style="white-space:nowrap;height:36px"
+                onclick="document.getElementById('cfg-public-url').value = window.location.origin"
+                type="button">Usar URL atual</button>
+        <button class="btn btn-primary btn-sm" style="height:36px"
+                onclick="savePublicUrl()" type="button">Salvar</button>
+      </div>
+      <div id="public-url-status" style="margin-top:8px;font-size:12px"></div>
+      <div style="font-size:11px;color:var(--text3);margin-top:8px">
+        URL atual da sessão: <strong class="mono" style="color:var(--blue)">${esc(window.location.origin||'')}</strong>
+        — se igual à URL pública configurada, links de e-mail e navegador serão idênticos.
+      </div>
     </div>
     <div class="card">
       <div class="flex-between" style="margin-bottom:12px">
@@ -4924,6 +4951,27 @@ async function savePrefixoPatrimonio(){
     await api('/settings','PUT',{'patrimonio.prefixo':v});
     toast(`Prefixo salvo: ${v}`);
     renderConfiguracoes();
+  }catch(e){ toast(e.message,'error'); }
+}
+
+async function savePublicUrl(){
+  const raw = ($('cfg-public-url')?.value||'').trim().replace(/\/+$/, '');
+  const statusEl = $('public-url-status');
+  if(raw){
+    try{ new URL(raw); }
+    catch(e){
+      if(statusEl) statusEl.innerHTML = '<span style="color:var(--red-text)">URL inválida — use o formato http://... ou https://...</span>';
+      return;
+    }
+  }
+  try{
+    await api('/settings/public-url','PUT',{url: raw});
+    // Atualiza APP_BASE_URL para refletir a mudança imediatamente
+    if(raw) APP_BASE_URL = raw;
+    if(statusEl) statusEl.innerHTML = raw
+      ? `<span style="color:var(--green-text)">Salvo. Links de e-mail usarão: <strong>${raw}</strong></span>`
+      : '<span style="color:var(--text3)">Removido — links de e-mail usarão auto-detecção da requisição.</span>';
+    toast('URL pública salva');
   }catch(e){ toast(e.message,'error'); }
 }
 
