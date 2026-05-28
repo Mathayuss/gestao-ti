@@ -1451,6 +1451,30 @@ DEFAULT_EMAIL_TEMPLATES = {
         "button_label": "Ver Laudo e Dar Ciência",
         "footer": "{empresa} - Sistema de Gestão de TI",
     },
+    "laudo_editado_rh": {
+        "subject": "[{empresa}] Laudo técnico corrigido — {colaborador}",
+        "body": (
+            "Olá!\n\n"
+            "O laudo técnico referente à devolução de equipamentos de {colaborador} "
+            "foi corrigido pelo administrador {editor}.\n\n"
+            "Motivo da correção: {motivo}\n\n"
+            "Acesse o sistema para verificar as alterações."
+        ),
+        "button_label": "Acessar o Sistema",
+        "footer": "{empresa} - Sistema de Gestão de TI",
+    },
+    "laudo_editado_colab": {
+        "subject": "[{empresa}] Atualização no laudo técnico — devolução de equipamentos",
+        "body": (
+            "Olá, {colaborador}!\n\n"
+            "Informamos que o laudo técnico referente à devolução dos equipamentos "
+            "sob sua responsabilidade foi atualizado.\n\n"
+            "Motivo da correção: {motivo}\n\n"
+            "Em caso de dúvidas, entre em contato com o setor de TI."
+        ),
+        "button_label": "Acessar o Sistema",
+        "footer": "{empresa} - Sistema de Gestão de TI",
+    },
 }
 
 
@@ -1553,6 +1577,47 @@ def send_email_laudo_rh(to: str, colaborador: str, tecnico: str, link: str) -> d
         "colaborador": colaborador,
         "tecnico": tecnico,
         "link": link,
+    })
+    return send_email(to, subject, html, text)
+
+
+def _send_email_async(fn, *args):
+    """Dispara envio de e-mail em thread daemon para não bloquear o worker HTTP."""
+    import threading
+    from flask import current_app
+    _app = current_app._get_current_object()
+    def _run():
+        with _app.app_context():
+            try:
+                fn(*args)
+            except Exception:
+                pass
+    threading.Thread(target=_run, daemon=True).start()
+
+
+def send_email_laudo_editado_rh(to: str, colaborador: str, editor: str, motivo: str) -> dict:
+    """Notifica o RH que o laudo técnico foi corrigido por um administrador."""
+    empresa = _get_setting("empresa", {})
+    nome_empresa = empresa.get("nome", "TI Control") if isinstance(empresa, dict) else "TI Control"
+    subject, html, text = _render_email_template("laudo_editado_rh", {
+        "empresa": nome_empresa,
+        "colaborador": colaborador,
+        "editor": editor,
+        "motivo": motivo,
+        "link": get_app_base_url(),
+    })
+    return send_email(to, subject, html, text)
+
+
+def send_email_laudo_editado_colab(to: str, colaborador: str, motivo: str) -> dict:
+    """Notifica o colaborador que o laudo técnico dos seus equipamentos foi atualizado."""
+    empresa = _get_setting("empresa", {})
+    nome_empresa = empresa.get("nome", "TI Control") if isinstance(empresa, dict) else "TI Control"
+    subject, html, text = _render_email_template("laudo_editado_colab", {
+        "empresa": nome_empresa,
+        "colaborador": colaborador,
+        "motivo": motivo,
+        "link": get_app_base_url(),
     })
     return send_email(to, subject, html, text)
 
@@ -1682,7 +1747,23 @@ def _normalize_categorias_config_setting(value):
         tipo = clean_text(cfg.get("tipo_alocacao"), 20)
         if tipo not in ("colaborador", "unidade"):
             return None, f"Tipo de alocação inválido para categoria '{cat}'."
+        current_cat = result.get(cat) if isinstance(result.get(cat), dict) else {}
+        image = cfg.get("image", current_cat.get("image", ""))
+        image = clean_text(image, None)
+        if image:
+            if not image.startswith("data:"):
+                return None, f"Imagem da categoria '{cat}' inválida."
+            err = _validate_data_image(
+                image,
+                ASSET_CATEGORY_IMAGE_MIMES,
+                ASSET_CATEGORY_IMAGE_MAX_BYTES,
+                f"Imagem da categoria '{cat}'",
+            )
+            if err:
+                return None, err
         result[cat] = {"tipo_alocacao": tipo}
+        if image:
+            result[cat]["image"] = image
     return result, None
 
 
@@ -1724,6 +1805,8 @@ APARENCIA_LOGO_MAX_BYTES = 300 * 1024
 APARENCIA_BG_MAX_BYTES = 8 * 1024 * 1024
 APARENCIA_LOGO_MIMES = {"image/png", "image/jpeg", "image/webp", "image/svg+xml"}
 APARENCIA_BG_MIMES = {"image/png", "image/jpeg", "image/webp"}
+ASSET_CATEGORY_IMAGE_MAX_BYTES = 1024 * 1024
+ASSET_CATEGORY_IMAGE_MIMES = {"image/png", "image/jpeg", "image/webp"}
 
 
 def _validate_data_image(value, allowed_mimes, max_bytes, label):

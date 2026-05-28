@@ -129,8 +129,11 @@ def registrar_laudo(did):
     rh_email = clean_text(d.get("rhEmail"), 120)
     if not rh_email:
         return jsonify({"error": "E-mail do RH (rhEmail) é obrigatório."}), 400
+    err_email = validate_email(rh_email)
+    if err_email:
+        return jsonify({"error": err_email}), 400
 
-    tecnico         = clean_text(d.get("tecnico") or session.get("user", "Técnico"), 120)
+    tecnico         = clean_text(d.get("tecnico") or current_user.nome or current_user.username, 120)
     avaliacao_itens = d.get("avaliacaoItens", [])
     observacao      = clean_text(d.get("observacaoGeral", ""), 2000)
     tem_cobranca    = bool(d.get("temCobranca", False))
@@ -160,9 +163,10 @@ def registrar_laudo(did):
     db.session.commit()
 
     link_rh = f"{get_app_base_url()}/rh/laudo/{rh_token}"
-    email_enviado = False
-    res = send_email_laudo_rh(rh_email, dev.colaborador, tecnico, link_rh)
-    email_enviado = res.get("ok", False)
+    cfg = _get_email_config()
+    email_configurado = bool(cfg.get("enabled") and cfg.get("host") and cfg.get("from_email"))
+    if email_configurado:
+        _send_email_async(send_email_laudo_rh, rh_email, dev.colaborador, tecnico, link_rh)
 
     audit("LAUDO_TECNICO", "devolucoes", did,
           f"Laudo de {tecnico} para {dev.colaborador} — cobrança: {tem_cobranca}")
@@ -170,7 +174,7 @@ def registrar_laudo(did):
         "ok": True, "laudoId": laudo.id,
         "laudoStatus": "Aguardando RH",
         "linkRH": link_rh,
-        "emailRHEnviado": email_enviado,
+        "emailRHEnviado": email_configurado,
     })
 
 
@@ -208,7 +212,7 @@ def editar_laudo(did):
         laudo.valor_cobranca = float(d.get("valorCobranca", 0) or 0)
 
     laudo.editado_em  = datetime.now()
-    laudo.editado_por = clean_text(session.get("user", "Administrador"), 120)
+    laudo.editado_por = clean_text(current_user.nome or current_user.username, 120)
     laudo.motivo_edicao = motivo
 
     if "temCobranca" in d or "valorCobranca" in d:
@@ -217,7 +221,28 @@ def editar_laudo(did):
     db.session.commit()
     audit("LAUDO_EDITADO", "laudos_tecnicos", laudo.id,
           f"Laudo editado por {laudo.editado_por} — motivo: {motivo}")
-    return jsonify({"ok": True, "laudo": laudo.to_dict()})
+
+    editor = laudo.editado_por
+    cfg = _get_email_config()
+    email_configurado = bool(cfg.get("enabled") and cfg.get("host") and cfg.get("from_email"))
+
+    email_rh_ok = False
+    email_colab_ok = False
+    if email_configurado:
+        if dev.rh_email:
+            _send_email_async(send_email_laudo_editado_rh, dev.rh_email, dev.colaborador, editor, motivo)
+            email_rh_ok = True
+        colab = db.session.get(Colaborador, dev.colaborador_id) if dev.colaborador_id else None
+        if colab and colab.email:
+            _send_email_async(send_email_laudo_editado_colab, colab.email, dev.colaborador, motivo)
+            email_colab_ok = True
+
+    return jsonify({
+        "ok": True,
+        "laudo": laudo.to_dict(),
+        "emailRHEnviado": email_rh_ok,
+        "emailColabEnviado": email_colab_ok,
+    })
 
 
 @app.route("/rh/laudo/<rh_token>", methods=["GET"])
@@ -287,9 +312,10 @@ def submeter_ciencia_rh(rh_token):
     link_assinatura = f"{get_app_base_url()}/devolver/{sign_token}"
     email_colab_enviado = False
     colab = db.session.get(Colaborador, dev.colaborador_id) if dev.colaborador_id else None
-    if colab and colab.email:
-        res = send_email_link_devolucao(colab.email, dev.colaborador, link_assinatura)
-        email_colab_enviado = res.get("ok", False)
+    cfg = _get_email_config()
+    if colab and colab.email and cfg.get("enabled") and cfg.get("host") and cfg.get("from_email"):
+        _send_email_async(send_email_link_devolucao, colab.email, dev.colaborador, link_assinatura)
+        email_colab_enviado = True
 
     audit("CIENCIA_RH", "devolucoes", dev.id,
           f"RH deu ciência do laudo de {dev.colaborador}. E-mail colaborador: {email_colab_enviado}")
@@ -309,7 +335,13 @@ def get_devolucoes():
 @requires("Administrador", "Técnico TI")
 def get_devolucao(did):
     d = db.get_or_404(Devolucao, did)
-    return jsonify(d.to_dict())
+    result = d.to_dict()
+    laudo = db.session.execute(
+        db.select(LaudoTecnico).filter_by(devolucao_id=did)
+        .order_by(LaudoTecnico.data_avaliacao.desc())
+    ).scalar_one_or_none()
+    result["laudo"] = laudo.to_dict() if laudo else None
+    return jsonify(result)
 
 
 @app.route("/api/devolucoes/<did>/sign-link", methods=["POST"])
@@ -324,14 +356,16 @@ def gerar_link_devolucao(did):
     audit("GERAR_LINK_DEVOLUCAO", "devolucoes", did, f"Link gerado para {dev.colaborador}")
     db.session.commit()
     url = f"{get_app_base_url()}/devolver/{token}"
-    # Envia e-mail se colaborador tiver e-mail
-    email_result = None
+    # Envia e-mail se colaborador tiver e-mail e SMTP configurado
+    email_enviado = False
     c = db.session.get(Colaborador, dev.colaborador_id) if dev.colaborador_id else None
     email_dest = (c.email if c else "") or ""
-    if email_dest:
-        email_result = send_email_link_devolucao(email_dest, dev.colaborador, url)
+    cfg = _get_email_config()
+    if email_dest and cfg.get("enabled") and cfg.get("host") and cfg.get("from_email"):
+        _send_email_async(send_email_link_devolucao, email_dest, dev.colaborador, url)
+        email_enviado = True
     return jsonify({"url": url, "expiry": dev.sign_token_expiry.isoformat(),
-                    "emailEnviado": email_result.get("ok") if email_result else False})
+                    "emailEnviado": email_enviado})
 
 
 @app.route("/devolver/<token>", methods=["GET"])

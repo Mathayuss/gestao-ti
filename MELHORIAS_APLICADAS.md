@@ -1,5 +1,18 @@
 # Melhorias aplicadas nesta versão
 
+## Matriz de compatibilidade visual — 2026-05-27
+
+- A lista `Compatibilidade — Ativo × Insumo` recebeu layout visual mais alinhado à identidade Enterprise SaaS do sistema.
+- A matriz foi compactada em uma lista por categoria de ativo, com chips selecionáveis para categorias de insumo.
+- Cada linha exibe estado visual `Livre` ou quantidade de categorias permitidas, mantendo a regra existente de linha sem seleção liberar todos os insumos.
+
+## Imagens por categoria de ativo — 2026-05-27
+
+- A tela `Configurações > Operação > Categorias de Ativos` agora permite definir imagem padrão por categoria.
+- Os cards da aba `Ativos de TI` usam a imagem da categoria quando cadastrada, mantendo o ícone automático como fallback.
+- As imagens aceitas são PNG, JPG ou WEBP, com limite de 1 MB por categoria.
+- A configuração aproveita a estrutura existente `categorias_config`, sem criar uma nova aba.
+
 ## Cards de ativos — 2026-05-27
 
 - A aba `Ativos de TI` passou a ter visualização em cards como padrão.

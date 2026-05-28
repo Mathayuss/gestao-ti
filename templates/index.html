@@ -186,6 +186,8 @@ html[data-theme="dark"] .btn-danger:hover{background:rgba(248,113,113,.20);borde
 .asset-card-body{padding:16px 56px 14px 16px;display:flex;flex-direction:column;gap:13px;min-height:272px}
 .asset-card-top{display:flex;align-items:flex-start;gap:12px;min-width:0}
 .asset-card-visual{width:58px;height:58px;border-radius:var(--r);display:flex;align-items:center;justify-content:center;background:var(--blue-bg);color:var(--blue);border:1px solid var(--blue-border);flex-shrink:0}
+.asset-card-visual.has-image{background:var(--bg3);padding:0;overflow:hidden;color:inherit}
+.asset-card-visual img{width:100%;height:100%;object-fit:cover;display:block}
 .asset-card-visual svg{width:30px;height:30px;stroke-width:1.9}
 .asset-card-title{font-size:15px;font-weight:850;color:var(--text);line-height:1.25;letter-spacing:-.01em;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
 .asset-card-code{font-family:var(--mono);font-size:11px;color:var(--text3);margin-top:4px}
@@ -201,6 +203,39 @@ html[data-theme="dark"] .btn-danger:hover{background:rgba(248,113,113,.20);borde
 .asset-action-btn:hover{background:var(--blue);border-color:var(--blue);color:#fff}
 .asset-action-btn svg{width:16px;height:16px;stroke-width:2.2}
 .asset-empty{background:var(--bg2);border:1px dashed var(--border2);border-radius:var(--r);padding:42px 18px;text-align:center;color:var(--text3)}
+.cat-config-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:8px}
+.cat-config-row{display:flex;align-items:center;gap:10px;padding:10px;border:1px solid var(--border);border-radius:var(--r);background:var(--bg3);min-width:0}
+.cat-config-thumb{width:46px;height:46px;border-radius:var(--r);display:flex;align-items:center;justify-content:center;background:var(--blue-bg);color:var(--blue);border:1px solid var(--blue-border);overflow:hidden;flex-shrink:0}
+.cat-config-thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.cat-config-thumb svg{width:24px;height:24px;stroke-width:1.9}
+.cat-config-main{display:flex;flex-direction:column;gap:7px;min-width:0;flex:1}
+.cat-config-name{font-size:13px;font-weight:700;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cat-config-actions{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.cat-config-actions select{width:116px;min-height:30px;font-size:12px;padding:4px 7px}
+.cat-config-upload{position:relative;overflow:hidden}
+.cat-config-upload input{display:none}
+.cat-config-actions .btn-icon svg,.cat-config-upload svg{width:14px;height:14px;stroke-width:2.2}
+.compat-panel-head{display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:12px}
+.compat-panel-copy{font-size:12px;color:var(--text2);max-width:720px}
+.compat-list-wrap{border:1px solid var(--border);border-radius:var(--rl);background:var(--bg3);box-shadow:var(--shadow-sm);padding:8px;max-height:430px;overflow:auto}
+.compat-list{display:flex;flex-direction:column;gap:7px}
+.compat-item{display:grid;grid-template-columns:minmax(150px,220px) 1fr;gap:12px;align-items:center;padding:9px 10px;border:1px solid var(--border);border-radius:var(--r);background:var(--bg2);transition:border-color .15s,background .15s,box-shadow .15s}
+.compat-item:hover{border-color:var(--blue-border);box-shadow:var(--shadow-sm)}
+.compat-item-main{min-width:0}
+.compat-row-title{display:flex;align-items:center;gap:8px;min-width:0}
+.compat-row-name{font-size:13px;font-weight:800;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.compat-row-state{font-size:10px;font-weight:800;padding:2px 7px;border-radius:99px;background:var(--bg3);color:var(--text3);border:1px solid var(--border);white-space:nowrap;flex-shrink:0}
+.compat-row-state.active{background:var(--blue-bg);color:var(--blue-text);border-color:var(--blue-border)}
+.compat-chip-list{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.compat-chip{display:inline-flex;align-items:center;gap:5px;min-height:28px;padding:5px 9px;border-radius:99px;border:1px solid var(--border2);background:var(--bg3);color:var(--text2);font-size:11.5px;font-weight:750;cursor:pointer;transition:background .15s,border-color .15s,color .15s,box-shadow .15s,transform .15s}
+.compat-chip:hover{border-color:var(--blue);box-shadow:0 0 0 3px var(--focus)}
+.compat-chip:active{transform:scale(.98)}
+.compat-chip input{position:absolute;opacity:0;pointer-events:none;width:auto;min-height:0}
+.compat-chip svg{width:12px;height:12px;stroke-width:3;opacity:0;transition:opacity .15s}
+.compat-chip.is-checked{background:var(--blue-bg);border-color:var(--blue-border);color:var(--blue-text)}
+.compat-chip.is-checked svg{opacity:1}
+.compat-help{font-size:11px;color:var(--text3);margin-top:8px;display:flex;align-items:center;gap:6px}
+.compat-help svg{width:14px;height:14px;color:var(--blue);stroke-width:2.2}
 
 /* ── Table ── */
 .table-wrap{overflow-x:auto;border-radius:var(--rl);border:1px solid var(--border);box-shadow:var(--shadow-sm);background:var(--bg2)}
@@ -314,6 +349,9 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
   .asset-card-grid{grid-template-columns:1fr}
   .asset-action-rail{position:static;width:auto;opacity:1;transform:none;flex-direction:row;justify-content:flex-start;padding:0 16px 16px}
   .asset-card-body{padding:16px}
+  .cat-config-grid{grid-template-columns:1fr}
+  .compat-item{grid-template-columns:1fr;gap:8px}
+  .compat-list-wrap{max-height:520px}
   .modal-overlay{align-items:flex-end}
   .modal-box{border-radius:16px 16px 0 0;max-height:88vh}
 }
@@ -406,7 +444,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
         <div class="hdr-bell">
           <button class="hdr-bell-btn" id="hdr-bell-btn" onclick="document.querySelector('[data-module=alertas]').click()" title="Central de Alertas" aria-label="Alertas">
             <div class="hdr-bell-pulse" id="hdr-bell-pulse"></div>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+            <svg id="hdr-bell-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="width:18px;height:18px;stroke-width:2;flex-shrink:0"></svg>
             <span id="hdr-bell-count" class="hdr-bell-count"></span>
           </button>
         </div>
@@ -472,9 +510,11 @@ const fmtBytes = v => {
 };
 const AP_LOGO_MAX_BYTES = 4 * 1024 * 1024;
 const AP_BG_MAX_BYTES = 8 * 1024 * 1024;
+const ASSET_CATEGORY_IMAGE_MAX_BYTES = 1024 * 1024;
 const daysUntil = d => { if(!d) return 9999; return Math.ceil((new Date(d+'T00:00:00')-new Date())/86400000); };
 const esc = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 const escAttr = s => esc(s);
+const jsArg = s => escAttr(JSON.stringify(String(s||'')));
 
 const ICONS = {
   sun:'<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>',
@@ -486,6 +526,8 @@ const ICONS = {
   ativos:'<rect width="20" height="14" x="2" y="3" rx="2"/><path d="M12 17v4"/><path d="M8 21h8"/><path d="M7 8h2M11 8h6M7 12h4"/>',
   alocacoes:'<rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><circle cx="12" cy="12" r="2"/><path d="M8 20c0-2.2 1.8-4 4-4s4 1.8 4 4"/>',
   qrcode:'<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM20 14h1M14 20h1M18 20h3v1"/>',
+  image:'<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="8.5" cy="10" r="1.5"/><path d="m21 15-5-5L5 19"/>',
+  upload:'<path d="M12 16V4"/><path d="m7 9 5-5 5 5"/><path d="M20 16v3a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-3"/>',
   auditorias:'<path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>',
   manutencao:'<path d="M14.7 6.3a4 4 0 0 0-5 5L3 18v3h3l6.7-6.7a4 4 0 0 0 5-5l-2.4 2.4-2.6-2.6 2.4-2.4Z"/><circle cx="19" cy="5" r="3"/>',
   licencas:'<path d="m21 2-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0 3 3L22 7l-3-3m-3.5 3.5L19 4"/>',
@@ -536,6 +578,8 @@ applyTheme(localStorage.getItem('ticontrol-theme') || (matchMedia('(prefers-colo
 document.querySelector('.sb-logo-icon').innerHTML = svgIcon('app');
 const sbToggleIcon = $('sb-toggle-icon');
 if(sbToggleIcon) sbToggleIcon.innerHTML = ICONS.menu;
+const hdrBellIcon = $('hdr-bell-icon');
+if(hdrBellIcon) hdrBellIcon.innerHTML = ICONS.alertas;
 document.querySelectorAll('.nav-item').forEach(btn => {
   const icon = btn.querySelector('.icon');
   if(icon) icon.innerHTML = svgIcon(btn.dataset.module);
@@ -642,6 +686,12 @@ function unidadeOpts(sel=''){
 function catIsUnidade(cat){
   const cfg = _settings.categorias_config[cat];
   return cfg && cfg.tipo_alocacao === 'unidade';
+}
+function assetCategoryConfig(cat){
+  return (_settings.categorias_config && _settings.categorias_config[cat]) || {};
+}
+function assetCategoryImage(cat){
+  return assetCategoryConfig(cat).image || '';
 }
 
 // ─── API ──────────────────────────────────────────────────────────────────
@@ -1485,6 +1535,14 @@ function assetDisplayName(a){
   return [a.categoria, a.fabricante, a.modelo].filter(Boolean).join(' ') || a.hostname || a.patrimonio || a.id;
 }
 
+function assetVisualHtml(cat=''){
+  const image = assetCategoryImage(cat);
+  if(image){
+    return `<div class="asset-card-visual has-image"><img src="${escAttr(image)}" alt="${escAttr(cat || 'Categoria do ativo')}" loading="lazy"></div>`;
+  }
+  return `<div class="asset-card-visual">${svgIcon(assetIconName(cat))}</div>`;
+}
+
 function renderAssetCards(data){
   if(!data.length){
     return `<div class="asset-empty">
@@ -1504,7 +1562,7 @@ function renderAssetCards(data){
     return `<article class="asset-card">
       <div class="asset-card-body">
         <div class="asset-card-top">
-          <div class="asset-card-visual">${svgIcon(assetIconName(a.categoria))}</div>
+          ${assetVisualHtml(a.categoria)}
           <div style="min-width:0;flex:1">
             <div class="asset-card-title">${esc(name)}</div>
             <div class="asset-card-code">${esc(code)} · ${esc(a.hostname || 'sem hostname')}</div>
@@ -2091,23 +2149,29 @@ async function abrirLaudoPorId(devId){
 }
 
 async function editarLaudo(devId){
-  let d = _devCache[devId];
-  if(!d){
-    d = await api(`/devolucoes/${devId}`).catch(()=>null);
-    if(!d) return;
-    _devCache[d.id] = d;
+  // Sempre busca dado fresco para ter os dados do laudo incluídos
+  const d = await api(`/devolucoes/${devId}`).catch(()=>null);
+  if(!d) return;
+  _devCache[d.id] = d;
+
+  const laudoExistente = d.laudo;
+  const laudoItensMap = {};
+  if(laudoExistente){
+    (laudoExistente.avaliacaoItens||[]).forEach(it=>{ laudoItensMap[it.ativo] = it; });
   }
-  // Busca o laudo atual
-  const laudo = await api(`/devolucoes/${devId}`).catch(()=>null);
-  const itens = (d.ativosDevolvidos||[]).map(nome => {
+
+  const todosItens = [...(d.ativosDevolvidos||[]), ...(d.perifericosDevolvidos||[])];
+  const itens = todosItens.map(nome => {
+    const prev = laudoItensMap[nome] || {};
+    const estadoOpts = ['Bom estado','Dano','Mau uso','Perda'].map(op =>
+      `<option value="${op}"${prev.estado===op?' selected':''}>${op}</option>`
+    ).join('');
     return `<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--border)">
       <span style="flex:1;font-size:13px">${esc(nome)}</span>
       <select data-ativo="${escAttr(nome)}" style="width:auto;font-size:12px;border:1px solid var(--border2);padding:3px 8px;border-radius:5px">
-        <option value="OK">OK</option>
-        <option value="Dano">Dano</option>
-        <option value="Mau">Mau estado</option>
+        ${estadoOpts}
       </select>
-      <input placeholder="Observação" data-obs="${escAttr(nome)}" style="width:160px;font-size:12px">
+      <input placeholder="Observação" data-obs="${escAttr(nome)}" value="${escAttr(prev.observacao||'')}" style="width:160px;font-size:12px">
     </div>`;
   }).join('');
 
@@ -2115,16 +2179,16 @@ async function editarLaudo(devId){
     <div style="font-size:12px;color:var(--amber-text);background:var(--amber-bg);border:1px solid var(--amber-border);border-radius:var(--r);padding:10px 14px;margin-bottom:14px">
       <strong>Atenção:</strong> Esta ação corrige o laudo já enviado ao RH. A alteração será registrada com data, usuário e motivo.
     </div>
-    <div class="form-group"><label>Avaliação dos Equipamentos</label>${itens || '<div style="color:var(--text3);font-size:12px">Nenhum ativo listado nesta devolução.</div>'}</div>
+    <div class="form-group"><label>Avaliação dos Equipamentos</label>${itens || '<div style="color:var(--text3);font-size:12px">Nenhum item listado nesta devolução.</div>'}</div>
     <div class="form-group" style="margin-top:12px"><label>Observação geral</label>
-      <textarea id="edit-laudo-obs" style="width:100%;min-height:70px;resize:vertical;padding:8px;border:1px solid var(--border);border-radius:var(--r);font-family:inherit;background:var(--bg2);color:var(--text)"></textarea>
+      <textarea id="edit-laudo-obs" style="width:100%;min-height:70px;resize:vertical;padding:8px;border:1px solid var(--border);border-radius:var(--r);font-family:inherit;background:var(--bg2);color:var(--text)">${esc(laudoExistente?.observacaoGeral||'')}</textarea>
     </div>
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
-      <input type="checkbox" id="edit-laudo-cobranca" style="width:auto">
+      <input type="checkbox" id="edit-laudo-cobranca" style="width:auto"${laudoExistente?.temCobranca?' checked':''}>
       <label for="edit-laudo-cobranca" style="margin:0;font-size:13px">Recomendação de cobrança</label>
     </div>
     <div class="form-group"><label>Valor (R$)</label>
-      <input id="edit-laudo-valor" type="number" step="0.01" min="0" value="0" style="width:160px">
+      <input id="edit-laudo-valor" type="number" step="0.01" min="0" value="${laudoExistente?.valorCobranca||0}" style="width:160px">
     </div>
     <div class="form-group"><label>Motivo da Correção <span style="color:var(--red-text)">*</span></label>
       <input id="edit-laudo-motivo" placeholder="Descreva o motivo da correção..." required>
@@ -2148,10 +2212,14 @@ async function salvarEdicaoLaudo(devId){
     observacao: document.querySelector(`[data-obs="${sel.dataset.ativo.replace(/"/g,'&quot;')}"]`)?.value || ''
   }));
   try{
-    await api(`/devolucoes/${devId}/laudo`, 'PUT', {
+    const r = await api(`/devolucoes/${devId}/laudo`, 'PUT', {
       avaliacaoItens, observacaoGeral: obs, temCobranca, valorCobranca, motivoCorrecao: motivo
     });
-    toast('Laudo corrigido com sucesso', 'success');
+    const emailInfo = [];
+    if(r.emailRHEnviado)    emailInfo.push('RH notificado');
+    if(r.emailColabEnviado) emailInfo.push('colaborador notificado');
+    const extra = emailInfo.length ? ` — ${emailInfo.join(' e ')} por e-mail` : (r.emailRHEnviado===false||r.emailColabEnviado===false?' — falha ao enviar e-mails':'');
+    toast('Laudo corrigido com sucesso' + extra, 'success');
     closeModal();
     renderAlocacoes();
   }catch(e){ toast(e.message,'error'); }
@@ -3418,9 +3486,11 @@ function confirmOffboarding(id,nome){
 }
 
 async function executeOffboarding(id){
-  const r=await api(`/colaboradores/${id}/offboarding`,'POST',{});
+  let r;
+  try{ r=await api(`/colaboradores/${id}/offboarding`,'POST',{}); }
+  catch(e){ toast(e.message||'Erro ao realizar desligamento.','error'); return; }
   closeModal();
-  const temItens = r.ativosDevolvidos.length||r.perifericosDevolvidos.length;
+  const temItens = (r.ativosDevolvidos||[]).length||(r.perifericosDevolvidos||[]).length;
   if(temItens) _laudoPendente = {devId:r.devolucaoId, colaborador:r.colaborador, ativos:r.ativosDevolvidos||[], perifs:r.perifericosDevolvidos||[]};
   openModal('Desligamento Concluído',`
   <div style="text-align:center;padding:8px 0 14px">
@@ -3467,7 +3537,11 @@ function abrirLaudo(){
   <div style="max-height:60vh;overflow-y:auto;padding-right:4px">
     <div class="form-group" style="margin-bottom:12px">
       <label style="font-size:12px;font-weight:600;color:var(--text2);display:block;margin-bottom:4px">E-mail do RH (receberá o laudo para ciência) <span style="color:var(--red)">*</span></label>
-      <input type="email" id="laudo-rh-email" placeholder="rh@empresa.com" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);font-size:13px;background:var(--bg2);color:var(--text)">
+      <input type="email" id="laudo-rh-email" placeholder="rh@empresa.com" autocomplete="off" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);font-size:13px;background:var(--bg2);color:var(--text)">
+    </div>
+    <div class="form-group" style="margin-bottom:12px">
+      <label style="font-size:12px;font-weight:600;color:var(--text2);display:block;margin-bottom:4px">Confirmar e-mail do RH <span style="color:var(--red)">*</span></label>
+      <input type="email" id="laudo-rh-email-confirm" placeholder="rh@empresa.com" autocomplete="off" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);font-size:13px;background:var(--bg2);color:var(--text)">
     </div>
     ${itens.length?`<div style="font-size:12px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px">Avaliação por item</div>${itensHtml}`:'<p style="font-size:13px;color:var(--text3);text-align:center;margin-bottom:12px">Nenhum item para avaliar.</p>'}
     <div class="form-group" style="margin-bottom:12px">
@@ -3499,7 +3573,10 @@ async function enviarLaudo(){
   const {devId, ativos, perifs} = _laudoPendente;
   const itens = [...ativos, ...perifs];
   const rhEmail = document.getElementById('laudo-rh-email').value.trim();
+  const rhEmailConfirm = document.getElementById('laudo-rh-email-confirm').value.trim();
   if(!rhEmail){toast('Informe o e-mail do RH.','error');return;}
+  if(!rhEmailConfirm){toast('Confirme o e-mail do RH.','error');return;}
+  if(rhEmail.toLowerCase()!==rhEmailConfirm.toLowerCase()){toast('Os e-mails do RH não conferem.','error');return;}
   const avaliacaoItens = itens.map((ativo,i)=>({
     ativo,
     estado: document.querySelector(`input[name="estado_${i}"]:checked`)?.value||'Bom estado',
@@ -3509,15 +3586,17 @@ async function enviarLaudo(){
   const valorCobranca = parseFloat(document.getElementById('laudo-valor')?.value||0)||0;
   const obs = document.getElementById('laudo-obs').value;
 
-  const r = await api(`/devolucoes/${devId}/laudo`,'POST',{
-    rhEmail, avaliacaoItens, observacaoGeral:obs, temCobranca, valorCobranca
-  });
-  _laudoPendente = null;
-  closeModal();
-  toast(r.emailRHEnviado
-    ? 'Laudo enviado! RH receberá o e-mail para ciência.'
-    : 'Laudo registrado. E-mail ao RH falhou — verifique as configurações de SMTP.',
-    r.emailRHEnviado?'success':'warn');
+  try{
+    const r = await api(`/devolucoes/${devId}/laudo`,'POST',{
+      rhEmail, avaliacaoItens, observacaoGeral:obs, temCobranca, valorCobranca
+    });
+    _laudoPendente = null;
+    closeModal();
+    toast(r.emailRHEnviado
+      ? 'Laudo enviado! RH receberá o e-mail para ciência.'
+      : 'Laudo registrado. E-mail ao RH falhou — verifique as configurações de SMTP.',
+      r.emailRHEnviado?'success':'warn');
+  }catch(e){ toast(e.message||'Erro ao enviar laudo.','error'); }
 }
 
 function reativarColab(id, nome){
@@ -4075,14 +4154,14 @@ async function renderConfiguracoes(){
       </div>
     </div>
     <div class="card" style="grid-column:span 2">
-      <div class="flex-between" style="margin-bottom:6px">
+      <div class="compat-panel-head">
         <div>
           <div class="section-title" style="margin-bottom:4px">Compatibilidade — Ativo × Insumo</div>
-          <div style="font-size:12px;color:var(--text2)">Defina quais categorias de insumo podem ser adicionadas ao alocar cada categoria de ativo. Deixe sem marcação para liberar todos.</div>
+          <div class="compat-panel-copy">Marque apenas as restrições necessárias. Sem seleção = todos os insumos liberados.</div>
         </div>
         <button class="btn btn-primary btn-sm" onclick="saveCompatConfig()">Salvar Compatibilidade</button>
       </div>
-      <div id="compat-matrix" style="overflow-x:auto">
+      <div id="compat-matrix">
         ${_buildCompatMatrix(getAssetCats(), getSupplyCats(), cfg.categorias_compat || {})}
       </div>
     </div>
@@ -4519,27 +4598,108 @@ function cfgTab(tab){
 
 function _buildCatsConfigHtml(cats, cfg_cats){
   if(!cats||!cats.length) return '<p style="font-size:13px;color:var(--text3)">Nenhuma categoria cadastrada.</p>';
-  return `<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">${cats.map(cat=>{
-    const cfg_cat = cfg_cats[cat] || {tipo_alocacao:'colaborador'};
-    return `<div style="display:flex;align-items:center;gap:6px;padding:6px 10px;border:1px solid var(--border);border-radius:var(--r);background:var(--bg3);min-width:0">
-      <span style="flex:1;font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(cat)}">${esc(cat)}</span>
-      <select data-cat="${esc(cat)}" style="width:100px;font-size:12px;border:1px solid var(--border2);padding:2px 4px;border-radius:5px;flex-shrink:0" onchange="saveCatConfig()">
-        <option value="colaborador" ${cfg_cat.tipo_alocacao==='colaborador'?'selected':''}>Colaborador</option>
-        <option value="unidade" ${cfg_cat.tipo_alocacao==='unidade'?'selected':''}>Unidade</option>
-      </select>
-      <button class="btn btn-default btn-sm btn-icon" style="flex-shrink:0" title="Renomear" onclick="renameCategoria('${esc(cat)}')">✎</button>
-      <button class="btn btn-danger btn-sm btn-icon" style="flex-shrink:0" title="Remover" onclick="delCategoria('${esc(cat)}')">x</button>
+  cfg_cats = cfg_cats || {};
+  return `<div class="cat-config-grid">${cats.map((cat,idx)=>{
+    const cfg_raw = cfg_cats[cat] && typeof cfg_cats[cat] === 'object' ? cfg_cats[cat] : {};
+    const cfg_cat = {tipo_alocacao:'colaborador', ...cfg_raw};
+    const image = cfg_cat.image || '';
+    const inputId = `cat-img-${idx}`;
+    return `<div class="cat-config-row">
+      <div class="cat-config-thumb">${image ? `<img src="${escAttr(image)}" alt="${escAttr(cat)}">` : svgIcon(assetIconName(cat))}</div>
+      <div class="cat-config-main">
+        <div class="cat-config-name" title="${escAttr(cat)}">${esc(cat)}</div>
+        <div class="cat-config-actions">
+          <select data-cat="${escAttr(cat)}" onchange="saveCatConfig()">
+            <option value="colaborador" ${cfg_cat.tipo_alocacao==='colaborador'?'selected':''}>Colaborador</option>
+            <option value="unidade" ${cfg_cat.tipo_alocacao==='unidade'?'selected':''}>Unidade</option>
+          </select>
+          <label class="btn btn-default btn-sm cat-config-upload" for="${inputId}" title="Imagem da categoria">
+            ${inlineIcon(image ? 'image' : 'upload')} ${image ? 'Trocar' : 'Imagem'}
+            <input id="${inputId}" type="file" accept="image/png,image/jpeg,image/webp" onchange="saveCategoryImage(${jsArg(cat)},this)">
+          </label>
+          ${image ? `<button class="btn btn-default btn-sm btn-icon" type="button" title="Remover imagem" onclick="removeCategoryImage(${jsArg(cat)})">${svgIcon('x')}</button>` : ''}
+          <button class="btn btn-default btn-sm btn-icon" type="button" title="Renomear" onclick="renameCategoria(${jsArg(cat)})">${svgIcon('edit')}</button>
+          <button class="btn btn-danger btn-sm btn-icon" type="button" title="Remover categoria" onclick="delCategoria(${jsArg(cat)})">${svgIcon('trash')}</button>
+        </div>
+      </div>
     </div>`;
   }).join('')}</div>`;
 }
 
-async function saveCatConfig(){
-  const sels = document.querySelectorAll('[data-cat]');
+function collectCatConfig(){
   const cats = {};
-  sels.forEach(s=>{ cats[s.dataset.cat]={tipo_alocacao:s.value}; });
-  await api('/settings','PUT',{categorias_config:cats});
-  _settings.categorias_config = cats;
-  toast('Tipo de alocação salvo');
+  Object.entries(_settings.categorias_config || {}).forEach(([cat,cfg])=>{
+    const current = cfg && typeof cfg === 'object' ? cfg : {};
+    cats[cat] = {
+      ...current,
+      tipo_alocacao: current.tipo_alocacao === 'unidade' ? 'unidade' : 'colaborador'
+    };
+  });
+  document.querySelectorAll('select[data-cat]').forEach(s=>{
+    const current = cats[s.dataset.cat] || {};
+    cats[s.dataset.cat] = {
+      ...current,
+      tipo_alocacao: s.value === 'unidade' ? 'unidade' : 'colaborador'
+    };
+  });
+  return cats;
+}
+
+async function saveCatConfig(){
+  try{
+    const cats = collectCatConfig();
+    const cfg = await api('/settings','PUT',{categorias_config:cats});
+    if(cfg) _settings = cfg;
+    if($('cats-config-list')) $('cats-config-list').innerHTML = _buildCatsConfigHtml(getAssetCats(), _settings.categorias_config || {});
+    toast('Categoria atualizada');
+  }catch(e){ toast(e.message,'error'); }
+}
+
+async function saveCategoryImage(cat,input){
+  const file = input?.files?.[0];
+  if(!file) return;
+  if(!['image/png','image/jpeg','image/webp'].includes(file.type)){
+    toast('Use PNG, JPG ou WEBP para a imagem da categoria','error');
+    input.value = '';
+    return;
+  }
+  if(file.size > ASSET_CATEGORY_IMAGE_MAX_BYTES){
+    toast(`Imagem muito grande — máx ${fmtBytes(ASSET_CATEGORY_IMAGE_MAX_BYTES)}`,'error');
+    input.value = '';
+    return;
+  }
+  try{
+    const image = await new Promise(res=>{ const r=new FileReader(); r.onload=e=>res(e.target.result); r.readAsDataURL(file); });
+    const cats = collectCatConfig();
+    cats[cat] = {
+      ...(cats[cat] || {}),
+      tipo_alocacao: (cats[cat]?.tipo_alocacao === 'unidade') ? 'unidade' : 'colaborador',
+      image
+    };
+    const cfg = await api('/settings','PUT',{categorias_config:cats});
+    if(cfg) _settings = cfg;
+    if($('cats-config-list')) $('cats-config-list').innerHTML = _buildCatsConfigHtml(getAssetCats(), _settings.categorias_config || {});
+    toast('Imagem da categoria salva');
+  }catch(e){
+    toast(e.message,'error');
+  }finally{
+    input.value = '';
+  }
+}
+
+async function removeCategoryImage(cat){
+  try{
+    const cats = collectCatConfig();
+    cats[cat] = {
+      ...(cats[cat] || {}),
+      tipo_alocacao: (cats[cat]?.tipo_alocacao === 'unidade') ? 'unidade' : 'colaborador',
+      image: ''
+    };
+    const cfg = await api('/settings','PUT',{categorias_config:cats});
+    if(cfg) _settings = cfg;
+    if($('cats-config-list')) $('cats-config-list').innerHTML = _buildCatsConfigHtml(getAssetCats(), _settings.categorias_config || {});
+    toast('Imagem da categoria removida');
+  }catch(e){ toast(e.message,'error'); }
 }
 
 async function addCategoria(){
@@ -4568,12 +4728,20 @@ async function delCategoria(nome){
 async function renameCategoria(nome){
   const novo = prompt(`Novo nome para '${nome}':`, nome);
   if(!novo||novo.trim()===nome) return;
-  const cats = await api(`/settings/categorias/${encodeURIComponent(nome)}`,'PUT',{nome:novo.trim()});
+  const novoNome = novo.trim();
+  const prevCfg = _settings.categorias_config || {};
+  const cats = await api(`/settings/categorias/${encodeURIComponent(nome)}`,'PUT',{nome:novoNome});
   if(!cats) return;
   _settings.categorias = cats;
-  const cfg_cats = _settings.categorias_config || {};
+  let cfg_cats = _settings.categorias_config || {};
+  if(prevCfg[nome]){
+    cfg_cats = {...prevCfg, [novoNome]: {...prevCfg[nome]}};
+    const cfg = await api('/settings','PUT',{categorias_config:cfg_cats});
+    if(cfg) _settings = cfg;
+  }
+  cfg_cats = _settings.categorias_config || cfg_cats;
   $('cats-config-list').innerHTML = _buildCatsConfigHtml(getAssetCats(), cfg_cats);
-  toast(`Categoria renomeada para '${novo.trim()}'`);
+  toast(`Categoria renomeada para '${novoNome}'`);
 }
 
 // ── Categorias de Insumos / Periféricos ──────────────────────────────────────
@@ -4625,28 +4793,46 @@ function _buildCompatMatrix(ativosCats, insumosCats, compat){
   if(!ativosCats.length||!insumosCats.length)
     return '<p style="font-size:13px;color:var(--text3)">Cadastre categorias de ativos e insumos primeiro.</p>';
 
-  const thStyle = 'padding:6px 10px;font-size:11px;font-weight:700;text-align:center;color:var(--text2);white-space:nowrap;border-bottom:1px solid var(--border);border-right:1px solid var(--border)';
-  const tdStyle = 'padding:6px;text-align:center;border-bottom:1px solid var(--border);border-right:1px solid var(--border)';
-  const tdLabel = 'padding:6px 10px;font-size:12px;font-weight:600;white-space:nowrap;border-bottom:1px solid var(--border);border-right:1px solid var(--border)';
-
-  const header = `<tr><th style="${thStyle};text-align:left">Ativo \\ Insumo</th>${insumosCats.map(ic=>`<th style="${thStyle}">${esc(ic)}</th>`).join('')}</tr>`;
   const rows = ativosCats.map(ac=>{
     const allowed = compat[ac] || [];
     const unconfigured = !Object.hasOwn(compat, ac);
-    const cells = insumosCats.map(ic=>{
+    const selectedCount = unconfigured ? 0 : allowed.length;
+    const stateLabel = selectedCount ? `${selectedCount}/${insumosCats.length}` : 'Livre';
+    const chips = insumosCats.map(ic=>{
       const checked = !unconfigured && allowed.includes(ic);
-      return `<td style="${tdStyle}"><input type="checkbox" data-ativo="${esc(ac)}" data-insumo="${esc(ic)}" ${checked?'checked':''} style="width:auto;cursor:pointer;accent-color:var(--blue)"></td>`;
+      return `<label class="compat-chip ${checked?'is-checked':''}" title="${escAttr(ac)} permite ${escAttr(ic)}">
+        <input type="checkbox" data-ativo="${escAttr(ac)}" data-insumo="${escAttr(ic)}" ${checked?'checked':''} onchange="this.closest('.compat-chip').classList.toggle('is-checked',this.checked);updateCompatMatrixState()">
+        ${svgIcon('check')}<span>${esc(ic)}</span>
+      </label>`;
     }).join('');
-    return `<tr><td style="${tdLabel}">${esc(ac)}</td>${cells}</tr>`;
+    return `<div class="compat-row compat-item ${selectedCount?'':'is-unrestricted'}">
+      <div class="compat-item-main">
+        <div class="compat-row-title">
+          <span class="compat-row-name" title="${escAttr(ac)}">${esc(ac)}</span>
+          <span class="compat-row-state ${selectedCount?'active':''}">${stateLabel}</span>
+        </div>
+      </div>
+      <div class="compat-chip-list">${chips}</div>
+    </div>`;
   }).join('');
 
-  return `<table style="border-collapse:collapse;width:100%;border:1px solid var(--border);border-radius:var(--r);overflow:hidden">
-    <thead style="background:var(--bg3)">${header}</thead>
-    <tbody>${rows}</tbody>
-  </table>
-  <div style="font-size:11px;color:var(--text3);margin-top:8px">
-    Linha sem nenhum item marcado = todos os insumos em estoque serão exibidos (sem restrição).
+  return `<div class="compat-list-wrap"><div class="compat-list">${rows}</div></div>
+  <div class="compat-help">
+    ${inlineIcon('warning')} Linha sem nenhum item marcado = todos os insumos em estoque serão exibidos.
   </div>`;
+}
+
+function updateCompatMatrixState(){
+  document.querySelectorAll('#compat-matrix .compat-row').forEach(row=>{
+    const checks = [...row.querySelectorAll('input[type=checkbox]')];
+    const selected = checks.filter(cb=>cb.checked).length;
+    row.classList.toggle('is-unrestricted', selected === 0);
+    const state = row.querySelector('.compat-row-state');
+    if(state){
+      state.textContent = selected ? `${selected}/${checks.length}` : 'Livre';
+      state.classList.toggle('active', selected > 0);
+    }
+  });
 }
 
 async function saveCompatConfig(){
@@ -5801,7 +5987,7 @@ document.addEventListener('click',()=>{ const u=$('hdr-user'); if(u) u.classList
   try { me = await api('/me'); } catch(e){}
   if (!me || _redirectingToLogin) return;
 
-  // Preenche rodapé com dados do usuário logado
+  // Preenche dados do usuário logado (sidebar e header)
   const initials = (me.nome||'?').split(' ').map(p=>p[0]).slice(0,2).join('').toUpperCase();
   const avatarEl = document.getElementById('sb-avatar');
   const nomeEl   = document.getElementById('sb-nome');
@@ -5809,6 +5995,16 @@ document.addEventListener('click',()=>{ const u=$('hdr-user'); if(u) u.classList
   if(avatarEl)  avatarEl.textContent  = initials;
   if(nomeEl)    nomeEl.textContent    = me.nome;
   if(perfilEl)  perfilEl.textContent  = me.perfil;
+  const hdrAvatar = document.getElementById('hdr-avatar');
+  const hdrUname  = document.getElementById('hdr-uname');
+  const hdrUrole  = document.getElementById('hdr-urole');
+  const hdrDdName = document.getElementById('hdr-dd-fullname');
+  const hdrDdRole = document.getElementById('hdr-dd-role');
+  if(hdrAvatar)  hdrAvatar.textContent  = initials;
+  if(hdrUname)   hdrUname.textContent   = me.nome;
+  if(hdrUrole)   hdrUrole.textContent   = me.perfil;
+  if(hdrDdName)  hdrDdName.textContent  = me.nome;
+  if(hdrDdRole)  hdrDdRole.textContent  = me.perfil;
   applyProfileNavigation(me);
 
   // Carrega settings e colaboradores em paralelo
@@ -5829,6 +6025,7 @@ document.addEventListener('click',()=>{ const u=$('hdr-user'); if(u) u.classList
   if (_redirectingToLogin) return;
 
   await navigateTo(moduleFromHash() || moduleFromStorage() || 'dashboard');
+  updateAlertBadge();
   setInterval(updateAlertBadge, 30000);
 })();
 </script>
