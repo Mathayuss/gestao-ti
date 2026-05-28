@@ -87,6 +87,35 @@ body{font-family:Inter,ui-sans-serif,system-ui,-apple-system,'Segoe UI',Roboto,s
 .sb-logout{background:var(--sb-logout-bg);color:var(--sb-text);border-color:var(--sb-border);flex-shrink:0}
 .sb-logout:hover{background:var(--sb-logout-hover);color:var(--sb-text-act)}
 
+/* ── Header bell + user dropdown ── */
+@keyframes bell-pulse{0%{transform:scale(1);opacity:.65}100%{transform:scale(1.7);opacity:0}}
+.hdr-bell{position:relative;flex-shrink:0}
+.hdr-bell-btn{position:relative;width:38px;height:38px;border-radius:50%;border:1px solid var(--border);background:var(--bg2);color:var(--text2);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:background .15s,border-color .15s}
+.hdr-bell-btn:hover{background:var(--bg3);color:var(--text)}
+.hdr-bell-btn svg{width:18px;height:18px;stroke-width:2}
+.hdr-bell-pulse{position:absolute;inset:-4px;border-radius:50%;border:2px solid var(--red);opacity:0;pointer-events:none;display:none}
+.hdr-bell-pulse.active{display:block;animation:bell-pulse 1.8s ease-out infinite}
+.hdr-bell-count{position:absolute;top:1px;right:1px;min-width:16px;height:16px;border-radius:99px;background:var(--red);color:#fff;font-size:9px;font-weight:800;display:none;align-items:center;justify-content:center;padding:0 3px;border:2px solid var(--bg);line-height:1}
+.hdr-user{position:relative;flex-shrink:0}
+.hdr-user-btn{display:flex;align-items:center;gap:7px;padding:4px 8px 4px 4px;border-radius:99px;border:1px solid var(--border);background:var(--bg2);cursor:pointer;transition:background .15s,border-color .15s;font:inherit}
+.hdr-user-btn:hover{background:var(--bg3)}
+.hdr-uname{font-size:12px;font-weight:700;color:var(--text);white-space:nowrap;max-width:110px;overflow:hidden;text-overflow:ellipsis}
+.hdr-urole{font-size:10px;color:var(--text3);white-space:nowrap}
+.hdr-caret{color:var(--text3);flex-shrink:0;transition:transform .15s}
+.hdr-user.open .hdr-caret{transform:rotate(180deg)}
+.hdr-dropdown{position:absolute;top:calc(100% + 7px);right:0;min-width:190px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--rl);box-shadow:var(--shadow-lg);z-index:400;overflow:hidden;display:none;animation:fadeIn .12s ease}
+@keyframes fadeIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}
+.hdr-user.open .hdr-dropdown{display:block}
+.hdr-dd-head{padding:12px 14px 10px;border-bottom:1px solid var(--border)}
+.hdr-dd-fullname{font-size:13px;font-weight:700;color:var(--text)}
+.hdr-dd-role{font-size:11px;color:var(--text3);margin-top:2px}
+.hdr-dd-item{display:flex;align-items:center;gap:9px;padding:10px 14px;font-size:13px;font-weight:600;color:var(--text);text-decoration:none;background:transparent;border:none;width:100%;cursor:pointer;font-family:inherit;transition:background .12s}
+.hdr-dd-item:hover{background:var(--bg3)}
+.hdr-dd-item svg{width:15px;height:15px;stroke-width:2.2;color:var(--text3);flex-shrink:0}
+.hdr-dd-item.logout{color:var(--red-text)}
+.hdr-dd-item.logout:hover{background:var(--red-bg)}
+.hdr-dd-item.logout svg{color:var(--red-text)}
+
 /* ── Main ── */
 #main{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0}
 #header{min-height:64px;padding:12px 24px;background:var(--bg2);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;box-shadow:var(--shadow-sm)}
@@ -132,6 +161,9 @@ html[data-theme="dark"] .btn-danger:hover{background:rgba(248,113,113,.20);borde
 
 /* ── Cards ── */
 .card{background:var(--bg2);border-radius:var(--rl);border:1px solid var(--border);padding:20px 22px;box-shadow:var(--shadow-sm)}
+.view-toggle{display:inline-flex;align-items:center;background:var(--bg2);border:1px solid var(--border2);border-radius:var(--r);padding:2px;gap:2px}
+.view-toggle .btn{min-height:30px;padding:5px 10px;border-color:transparent;background:transparent;color:var(--text2)}
+.view-toggle .btn.active{background:var(--blue);color:#fff;border-color:var(--blue);box-shadow:var(--shadow-sm)}
 .stat-card{position:relative;overflow:hidden;background:var(--bg2);border-radius:var(--rl);border:1px solid var(--border);padding:17px 20px;box-shadow:var(--shadow-sm);transition:box-shadow .15s,transform .15s,border-color .15s}
 .stat-card::before{content:'';position:absolute;left:0;top:0;width:100%;height:3px;background:var(--blue);opacity:.72}
 .stat-card:hover{box-shadow:var(--shadow);transform:translateY(-1px)}
@@ -147,6 +179,28 @@ html[data-theme="dark"] .btn-danger:hover{background:rgba(248,113,113,.20);borde
 .section-title{font-size:15px;font-weight:700;margin-bottom:16px;display:flex;align-items:center;gap:8px;color:var(--text)}
 .cfg-tab-bar{scrollbar-width:none;-ms-overflow-style:none}
 .cfg-tab-bar::-webkit-scrollbar{display:none}
+
+.asset-card-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(292px,1fr));gap:16px}
+.asset-card{position:relative;min-height:272px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--shadow-sm);overflow:hidden;transition:transform .16s,border-color .16s,box-shadow .16s}
+.asset-card:hover{transform:translateY(-2px);border-color:var(--blue-border);box-shadow:var(--shadow)}
+.asset-card-body{padding:16px 56px 14px 16px;display:flex;flex-direction:column;gap:13px;min-height:272px}
+.asset-card-top{display:flex;align-items:flex-start;gap:12px;min-width:0}
+.asset-card-visual{width:58px;height:58px;border-radius:var(--r);display:flex;align-items:center;justify-content:center;background:var(--blue-bg);color:var(--blue);border:1px solid var(--blue-border);flex-shrink:0}
+.asset-card-visual svg{width:30px;height:30px;stroke-width:1.9}
+.asset-card-title{font-size:15px;font-weight:850;color:var(--text);line-height:1.25;letter-spacing:-.01em;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.asset-card-code{font-family:var(--mono);font-size:11px;color:var(--text3);margin-top:4px}
+.asset-card-meta{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.asset-card-field{min-width:0}
+.asset-card-label{font-size:10px;color:var(--text3);font-weight:800;text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px}
+.asset-card-value{font-size:12.5px;color:var(--text2);font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.asset-card-value.mono{font-size:11.5px}
+.asset-card-footer{margin-top:auto;border-top:1px solid var(--border);padding-top:12px;display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.asset-action-rail{position:absolute;right:10px;top:10px;bottom:10px;width:36px;display:flex;flex-direction:column;gap:7px;align-items:center;justify-content:center;opacity:0;transform:translateX(8px);transition:opacity .16s,transform .16s}
+.asset-card:hover .asset-action-rail,.asset-card:focus-within .asset-action-rail{opacity:1;transform:translateX(0)}
+.asset-action-btn{width:32px;height:32px;display:flex;align-items:center;justify-content:center;border-radius:var(--r);border:1px solid var(--border);background:var(--bg2);color:var(--text2);box-shadow:var(--shadow-sm);cursor:pointer;transition:background .15s,color .15s,border-color .15s}
+.asset-action-btn:hover{background:var(--blue);border-color:var(--blue);color:#fff}
+.asset-action-btn svg{width:16px;height:16px;stroke-width:2.2}
+.asset-empty{background:var(--bg2);border:1px dashed var(--border2);border-radius:var(--r);padding:42px 18px;text-align:center;color:var(--text3)}
 
 /* ── Table ── */
 .table-wrap{overflow-x:auto;border-radius:var(--rl);border:1px solid var(--border);box-shadow:var(--shadow-sm);background:var(--bg2)}
@@ -257,6 +311,9 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
   .search-wrap input{width:100%}
   .flex-between{flex-wrap:wrap;gap:8px}
   .grid-4,.grid-3{grid-template-columns:repeat(auto-fit,minmax(140px,1fr))}
+  .asset-card-grid{grid-template-columns:1fr}
+  .asset-action-rail{position:static;width:auto;opacity:1;transform:none;flex-direction:row;justify-content:flex-start;padding:0 16px 16px}
+  .asset-card-body{padding:16px}
   .modal-overlay{align-items:flex-end}
   .modal-box{border-radius:16px 16px 0 0;max-height:88vh}
 }
@@ -320,13 +377,11 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
       <div class="sb-section">Administração</div>
       <button class="nav-item" data-module="configuracoes"><span class="icon"></span><span class="lbl">Configurações</span></button>
     </div>
-    <div class="sb-footer">
-      <div class="avatar" id="sb-avatar" style="background:var(--blue-bg);color:var(--blue-text)">?</div>
-      <div style="flex:1;min-width:0">
-        <div class="sb-user-name" id="sb-nome">...</div>
-        <div class="sb-user-role" id="sb-perfil">...</div>
-      </div>
-      <a href="/logout" class="btn btn-sm sb-logout" title="Sair">Sair</a>
+    <div class="sb-footer" style="justify-content:center">
+      <a href="/logout" class="btn btn-sm sb-logout" style="width:100%;justify-content:center;gap:6px" title="Sair do sistema">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" style="width:14px;height:14px;stroke-width:2.2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        Sair
+      </a>
     </div>
   </div>
 
@@ -346,7 +401,37 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
           <svg id="theme-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"></svg>
           <span id="theme-label">Tema</span>
         </button>
-        <div id="header-alerts" style="display:flex;align-items:center;gap:8px"></div>
+
+        <!-- Bell de alertas com pulse -->
+        <div class="hdr-bell">
+          <button class="hdr-bell-btn" id="hdr-bell-btn" onclick="document.querySelector('[data-module=alertas]').click()" title="Central de Alertas" aria-label="Alertas">
+            <div class="hdr-bell-pulse" id="hdr-bell-pulse"></div>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+            <span id="hdr-bell-count" class="hdr-bell-count"></span>
+          </button>
+        </div>
+
+        <!-- Usuário no canto superior direito -->
+        <div class="hdr-user" id="hdr-user">
+          <button class="hdr-user-btn" onclick="toggleHdrUser(event)" aria-label="Menu do usuário">
+            <div class="avatar" id="hdr-avatar" style="background:var(--blue-bg);color:var(--blue-text);width:30px;height:30px;font-size:10px">?</div>
+            <div style="display:flex;flex-direction:column;gap:1px">
+              <div class="hdr-uname" id="hdr-uname">Usuário</div>
+              <div class="hdr-urole" id="hdr-urole">...</div>
+            </div>
+            <svg class="hdr-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:14px;height:14px"><path d="M6 9l6 6 6-6"/></svg>
+          </button>
+          <div class="hdr-dropdown">
+            <div class="hdr-dd-head">
+              <div class="hdr-dd-fullname" id="hdr-dd-fullname">...</div>
+              <div class="hdr-dd-role" id="hdr-dd-role">...</div>
+            </div>
+            <a href="/logout" class="hdr-dd-item logout">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+              Sair do sistema
+            </a>
+          </div>
+        </div>
       </div>
     </div>
     <div id="content"><div class="loading">Carregando...</div></div>
@@ -478,6 +563,8 @@ let _colab_cache = [];
 let _settings  = { setores:[], unidades:[], categorias_config:{}, categorias:[] };
 const APP_VERSION = {{ build_version|tojson }};
 let _pendingDeleteBackup = null;
+let _assetViewMode = localStorage.getItem('ticontrol-assets-view') || 'cards';
+if(!['cards','table'].includes(_assetViewMode)) _assetViewMode = 'cards';
 let _srchTimer = null;
 function debounce(fn, ms=300){ clearTimeout(_srchTimer); _srchTimer=setTimeout(fn,ms); }
 
@@ -1380,25 +1467,95 @@ async function salvarEntradaInsumo(){
 // ══════════════════════════════════════════════════════════════════════════
 // ATIVOS
 // ══════════════════════════════════════════════════════════════════════════
-async function renderAtivos(q='',cat=''){
-  const data=await api(`/assets?q=${encodeURIComponent(q)}&categoria=${encodeURIComponent(cat)}`);
-  const cats=['Todos',...new Set(data.map(a=>a.categoria))];
-  $('content').innerHTML=`
-  <div class="flex-between mb-16">
-    <div class="flex-gap">
-      <div class="search-wrap"><span class="search-icon">${inlineIcon('search')}</span>
-        <input placeholder="Hostname, colaborador, service tag..." value="${esc(q)}" onkeyup="debounce(()=>renderAtivos(this.value,document.getElementById('ac').value))">
+function assetIconName(cat=''){
+  const c = String(cat||'').toLowerCase();
+  if(c.includes('smartphone') || c.includes('tablet') || c.includes('celular')) return 'smartphone';
+  if(c.includes('impressora')) return 'printer';
+  if(c.includes('switch') || c.includes('firewall') || c.includes('servidor') || c.includes('storage') || c.includes('rack') || c.includes('nobreak')) return 'app';
+  return 'ativos';
+}
+
+function setAssetViewMode(mode){
+  _assetViewMode = mode === 'table' ? 'table' : 'cards';
+  localStorage.setItem('ticontrol-assets-view', _assetViewMode);
+  renderAtivos(document.getElementById('asset-search')?.value || '', document.getElementById('ac')?.value || '');
+}
+
+function assetDisplayName(a){
+  return [a.categoria, a.fabricante, a.modelo].filter(Boolean).join(' ') || a.hostname || a.patrimonio || a.id;
+}
+
+function renderAssetCards(data){
+  if(!data.length){
+    return `<div class="asset-empty">
+      <div style="font-weight:800;color:var(--text);margin-bottom:4px">Nenhum ativo encontrado</div>
+      <div style="font-size:13px">Ajuste os filtros ou cadastre um novo ativo.</div>
+    </div>`;
+  }
+  return `<div class="asset-card-grid">${data.map(a=>{
+    const d = daysUntil(a.garantia);
+    const warrantyAlert = d >= 0 && d <= 60;
+    const location = [a.unidade, a.setor].filter(Boolean).join(' - ') || 'Local não informado';
+    const owner = a.colaborador || 'Sem responsável';
+    const name = assetDisplayName(a);
+    const code = a.patrimonio || a.id;
+    const editPayload = JSON.stringify(a).replace(/"/g,'&quot;');
+    const titlePayload = JSON.stringify(name).replace(/"/g,'&quot;');
+    return `<article class="asset-card">
+      <div class="asset-card-body">
+        <div class="asset-card-top">
+          <div class="asset-card-visual">${svgIcon(assetIconName(a.categoria))}</div>
+          <div style="min-width:0;flex:1">
+            <div class="asset-card-title">${esc(name)}</div>
+            <div class="asset-card-code">${esc(code)} · ${esc(a.hostname || 'sem hostname')}</div>
+          </div>
+        </div>
+        <div class="flex-gap" style="flex-wrap:wrap">
+          ${badge(a.status)}
+          ${badge(a.categoria || 'Ativo de TI','blue')}
+          ${warrantyAlert ? badge(`Garantia ${d}d`,'amber') : ''}
+        </div>
+        <div class="asset-card-meta">
+          <div class="asset-card-field">
+            <div class="asset-card-label">Marca / modelo</div>
+            <div class="asset-card-value">${esc([a.fabricante,a.modelo].filter(Boolean).join(' ') || 'Não informado')}</div>
+          </div>
+          <div class="asset-card-field">
+            <div class="asset-card-label">Service tag</div>
+            <div class="asset-card-value mono">${esc(a.serviceTag || '—')}</div>
+          </div>
+          <div class="asset-card-field">
+            <div class="asset-card-label">Localização</div>
+            <div class="asset-card-value">${esc(location)}</div>
+          </div>
+          <div class="asset-card-field">
+            <div class="asset-card-label">Garantia</div>
+            <div class="asset-card-value" style="${warrantyAlert?'color:var(--amber);font-weight:800':''}">${fmtDate(a.garantia)}</div>
+          </div>
+        </div>
+        <div class="asset-card-footer">
+          <div class="asset-card-field">
+            <div class="asset-card-label">Responsável</div>
+            <div class="asset-card-value">${esc(owner)}</div>
+          </div>
+          <div class="asset-card-field">
+            <div class="asset-card-label">IP / MAC</div>
+            <div class="asset-card-value mono">${esc([a.ip || 'DHCP', a.mac].filter(Boolean).join(' · '))}</div>
+          </div>
+        </div>
       </div>
-      <select id="ac" style="width:auto" onchange="renderAtivos(document.querySelector('#content input').value,this.value)">
-        ${cats.map(c=>`<option ${c===cat?'selected':''}>${c}</option>`).join('')}
-      </select>
-    </div>
-    <div class="flex-gap">
-      <a class="btn btn-default" href="/api/export/assets.csv" download>Exportar CSV</a>
-      <button class="btn btn-primary" onclick="openNewAsset()">Novo Ativo</button>
-    </div>
-  </div>
-  <div class="card"><div class="table-wrap"><table>
+      <div class="asset-action-rail" aria-label="Ações do ativo">
+        <button class="asset-action-btn" title="Visualizar" onclick="viewAsset('${escAttr(a.id)}')">${svgIcon('eye')}</button>
+        <button class="asset-action-btn" title="Editar" onclick="editAsset(${editPayload})">${svgIcon('edit')}</button>
+        <button class="asset-action-btn" title="QR Code" onclick="viewAssetQr('${escAttr(a.id)}',${titlePayload})">${svgIcon('qrcode')}</button>
+        <button class="asset-action-btn" title="Histórico" onclick="viewAssetHistory('${escAttr(a.id)}')">${svgIcon('clipboard')}</button>
+      </div>
+    </article>`;
+  }).join('')}</div>`;
+}
+
+function renderAssetTable(data){
+  return `<div class="card"><div class="table-wrap"><table>
     <thead><tr><th>ID</th><th>Hostname</th><th>Categoria</th><th>Fabricante / Modelo</th><th>Service Tag</th><th>Colaborador</th><th>Status</th><th>Garantia</th><th></th></tr></thead>
     <tbody>${data.map(a=>{
       const d=daysUntil(a.garantia); const wG=d>=0&&d<=60;
@@ -1418,6 +1575,54 @@ async function renderAtivos(q='',cat=''){
       </tr>`;}).join('')}
     </tbody>
   </table></div></div>`;
+}
+
+async function renderAtivos(q='',cat=''){
+  q = q || '';
+  cat = (cat === 'Todos') ? '' : (cat || '');
+  const [data, allAssets] = await Promise.all([
+    api(`/assets?q=${encodeURIComponent(q)}&categoria=${encodeURIComponent(cat)}`),
+    api('/assets')
+  ]);
+  const cats=[...new Set([...getAssetCats(), ...allAssets.map(a=>a.categoria).filter(Boolean)])];
+  const contentHtml = _assetViewMode === 'table' ? renderAssetTable(data) : renderAssetCards(data);
+  $('content').innerHTML=`
+  <div class="page-toolbar">
+    <div class="page-toolbar-left">
+      <div class="search-wrap"><span class="search-icon">${inlineIcon('search')}</span>
+        <input id="asset-search" placeholder="Hostname, colaborador, service tag..." value="${escAttr(q)}" onkeyup="debounce(()=>renderAtivos(this.value,document.getElementById('ac').value))">
+      </div>
+      <select id="ac" style="width:auto" onchange="renderAtivos(document.getElementById('asset-search').value,this.value)">
+        <option value="" ${!cat?'selected':''}>Todos</option>
+        ${cats.map(c=>`<option value="${escAttr(c)}" ${c===cat?'selected':''}>${esc(c)}</option>`).join('')}
+      </select>
+      <div class="view-toggle" aria-label="Modo de visualização dos ativos">
+        <button class="btn btn-sm ${_assetViewMode==='cards'?'active':''}" type="button" onclick="setAssetViewMode('cards')">${inlineIcon('ativos')} Cards</button>
+        <button class="btn btn-sm ${_assetViewMode==='table'?'active':''}" type="button" onclick="setAssetViewMode('table')">${inlineIcon('clipboard')} Tabela</button>
+      </div>
+    </div>
+    <div class="page-toolbar-right">
+      <a class="btn btn-default" href="/api/export/assets.csv" download>Exportar CSV</a>
+      <button class="btn btn-primary" onclick="openNewAsset()">Novo Ativo</button>
+    </div>
+  </div>
+  ${contentHtml}`;
+}
+
+function viewAssetQr(id,title='Ativo'){
+  openModal('QR Code do Ativo',`
+    <div style="text-align:center">
+      <div style="font-size:15px;font-weight:800;color:var(--text);margin-bottom:4px">${esc(title)}</div>
+      <div class="mono" style="font-size:12px;color:var(--text3);margin-bottom:14px">${esc(id)}</div>
+      <div style="display:inline-block;padding:14px;background:#fff;border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--shadow-sm)">
+        <img src="/api/assets/${id}/qrcode" width="180" height="180" alt="QR Code do ativo">
+      </div>
+      <div class="modal-footer">
+        <a class="btn btn-default" href="/asset/${id}" target="_blank">Abrir perfil público</a>
+        <a class="btn btn-primary" href="/api/assets/${id}/qrcode" download="qrcode-${id}.png">Baixar QR Code</a>
+      </div>
+    </div>
+  `);
 }
 
 async function viewAsset(id){
@@ -3623,6 +3828,15 @@ async function renderConfiguracoes(){
   const cfg_pat_prefixo = cfg.patrimonio_prefixo || 'TI';
   const backupFiles = Array.isArray(backupState.files) ? backupState.files : [];
   const backupFreqLabel = {daily:'Diário', weekly:'Semanal', monthly:'Mensal'};
+  const backupWeekdayLabel = ['Domingo','Segunda-feira','Terça-feira','Quarta-feira','Quinta-feira','Sexta-feira','Sábado'];
+  const backupScheduleTime = cfg_backup.schedule_time || '02:00';
+  const backupWeeklyDay = Number.isFinite(Number(cfg_backup.weekly_day)) ? Number(cfg_backup.weekly_day) : 1;
+  const backupMonthlyDay = Math.max(1, Math.min(31, Number(cfg_backup.monthly_day) || 1));
+  const backupScheduleLabel = cfg_backup.frequency === 'weekly'
+    ? `${backupWeekdayLabel[backupWeeklyDay] || 'Segunda-feira'} às ${backupScheduleTime}`
+    : (cfg_backup.frequency === 'monthly'
+      ? `Dia ${backupMonthlyDay} às ${backupScheduleTime}`
+      : `Todos os dias às ${backupScheduleTime}`);
   const updateBadge = updateState.supported
     ? (updateState.updateAvailable ? badge('Disponível','amber') : badge('OK','green'))
     : badge('Manual','blue');
@@ -4181,16 +4395,28 @@ async function renderConfiguracoes(){
         </div>
         <div style="border:1px solid var(--border);border-radius:var(--r);padding:12px;background:var(--bg3)">
           <div style="font-size:11px;color:var(--text3);font-weight:700;text-transform:uppercase;margin-bottom:4px">Frequência atual</div>
-          <div style="font-size:14px;font-weight:700;color:var(--text)">${backupFreqLabel[cfg_backup.frequency] || 'Diário'} · retenção ${cfg_backup.retention || 7}</div>
+          <div style="font-size:14px;font-weight:700;color:var(--text)">${backupFreqLabel[cfg_backup.frequency] || 'Diário'} · ${esc(backupScheduleLabel)}</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:3px">Retenção ${cfg_backup.retention || 7} arquivo(s)</div>
         </div>
       </div>
       <div class="form-grid-2">
         <div class="form-group"><label>Frequência</label>
-          <select id="backup-frequency">
+          <select id="backup-frequency" onchange="updateBackupScheduleFields()">
             <option value="daily" ${cfg_backup.frequency==='daily'?'selected':''}>Diário</option>
             <option value="weekly" ${cfg_backup.frequency==='weekly'?'selected':''}>Semanal</option>
             <option value="monthly" ${cfg_backup.frequency==='monthly'?'selected':''}>Mensal</option>
           </select>
+        </div>
+        <div class="form-group"><label>Horário de execução</label>
+          <input id="backup-schedule-time" type="time" value="${escAttr(backupScheduleTime)}">
+        </div>
+        <div class="form-group" id="backup-weekly-day-group" style="display:${cfg_backup.frequency==='weekly'?'block':'none'}"><label>Dia da semana</label>
+          <select id="backup-weekly-day">
+            ${backupWeekdayLabel.map((label,idx)=>`<option value="${idx}" ${backupWeeklyDay===idx?'selected':''}>${label}</option>`).join('')}
+          </select>
+        </div>
+        <div class="form-group" id="backup-monthly-day-group" style="display:${cfg_backup.frequency==='monthly'?'block':'none'}"><label>Dia do mês</label>
+          <input id="backup-monthly-day" type="number" min="1" max="31" value="${backupMonthlyDay}">
         </div>
         <div class="form-group"><label>Retenção de arquivos</label>
           <input id="backup-retention" type="number" min="1" max="90" value="${cfg_backup.retention || 7}">
@@ -4772,12 +4998,26 @@ async function saveEmailTemplates(){
   }catch(e){ toast(e.message,'error'); }
 }
 
+function updateBackupScheduleFields(){
+  const freqEl = $('backup-frequency');
+  const weeklyEl = $('backup-weekly-day-group');
+  const monthlyEl = $('backup-monthly-day-group');
+  const freq = freqEl ? freqEl.value : 'daily';
+  if(weeklyEl) weeklyEl.style.display = freq === 'weekly' ? 'block' : 'none';
+  if(monthlyEl) monthlyEl.style.display = freq === 'monthly' ? 'block' : 'none';
+}
+
 async function saveBackupCfg(){
   const retention = Math.max(1, Math.min(90, Number($('backup-retention').value) || 7));
+  const monthlyDay = Math.max(1, Math.min(31, Number($('backup-monthly-day')?.value) || 1));
+  const weeklyDay = Math.max(0, Math.min(6, Number($('backup-weekly-day')?.value) || 0));
   try{
     await api('/settings/backup','PUT',{
       enabled: $('backup-enabled').checked,
       frequency: $('backup-frequency').value,
+      schedule_time: $('backup-schedule-time').value || '02:00',
+      weekly_day: weeklyDay,
+      monthly_day: monthlyDay,
       retention,
       include_audit: $('backup-include-audit').checked,
     });
@@ -5528,13 +5768,29 @@ async function updateAlertBadge(){
   try{
     const alerts=await api('/alerts');
     state.alertCount=alerts.length;
+    // Badge da sidebar
     const b=$('alert-badge');
     b.style.display=alerts.length>0?'':'none';
     if(alerts.length>0) b.textContent=alerts.length;
-    $('header-alerts').innerHTML=alerts.length>0
-      ?`<button class="btn btn-danger" onclick="document.querySelector('[data-module=alertas]').click()"> ${alerts.length} alertas</button>`:'';
+    // Bell do header
+    const bellCount=$('hdr-bell-count');
+    const bellPulse=$('hdr-bell-pulse');
+    if(alerts.length>0){
+      bellCount.style.display='flex';
+      bellCount.textContent=alerts.length>99?'99+':alerts.length;
+      bellPulse.classList.add('active');
+    } else {
+      bellCount.style.display='none';
+      bellPulse.classList.remove('active');
+    }
   }catch(e){}
 }
+
+function toggleHdrUser(e){
+  e.stopPropagation();
+  $('hdr-user').classList.toggle('open');
+}
+document.addEventListener('click',()=>{ const u=$('hdr-user'); if(u) u.classList.remove('open'); });
 
 // ══════════════════════════════════════════════════════════════════════════
 // INIT

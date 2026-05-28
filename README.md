@@ -181,6 +181,8 @@ A aplicação possui backup lógico em JSON pela tela `Configurações > Backup`
 - `/api/backups/files/<arquivo>`: baixa ou exclui backup armazenado.
 - `/api/backup.json`: baixa um backup lógico imediato.
 
+O backup automático permite definir frequência diária, semanal ou mensal, horário de execução, dia da semana para backups semanais e dia do mês para backups mensais.
+
 Os arquivos gerados pela aplicação ficam em `instance/backups`. Para produção, esse backup lógico deve complementar snapshots ou dumps do PostgreSQL, não substituir uma política de backup do banco.
 
 Para gerar um dump real do PostgreSQL pelo Docker Compose:

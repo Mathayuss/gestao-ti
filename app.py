@@ -1334,10 +1334,20 @@ def _get_email_config() -> dict:
     rows = db.session.execute(
         db.select(Setting).where(Setting.key.in_(email_keys))
     ).scalars().all()
-    db_vals = {r.key: r.value for r in rows}
+
+    def _parse_setting_value(raw):
+        if raw is None:
+            return None
+        try:
+            return json.loads(raw)
+        except Exception:
+            return raw
+
+    db_vals = {r.key: _parse_setting_value(r.value) for r in rows}
 
     def _s(k, default=""):
-        return db_vals.get(k, default)
+        value = db_vals.get(k)
+        return default if value is None else value
 
     source = clean_text(_s("email.source"), 20)
     if source not in ("app", "env"):
@@ -1862,6 +1872,9 @@ ATTACHMENT_MIME_BY_EXT = {
 DEFAULT_BACKUP_CONFIG = {
     "enabled": False,
     "frequency": "daily",
+    "schedule_time": "02:00",
+    "weekly_day": 1,
+    "monthly_day": 1,
     "retention": 7,
     "include_audit": False,
     "last_run": "",
@@ -1869,6 +1882,49 @@ DEFAULT_BACKUP_CONFIG = {
     "last_status": "Nunca executado",
     "last_error": "",
 }
+
+
+def _parse_backup_schedule_time(value):
+    raw = clean_text(value, 5)
+    if not re.fullmatch(r"\d{1,2}:\d{2}", raw):
+        return None
+    hour_raw, minute_raw = raw.split(":", 1)
+    hour = parse_int(hour_raw, default=-1)
+    minute = parse_int(minute_raw, default=-1)
+    if hour < 0 or hour > 23 or minute < 0 or minute > 59:
+        return None
+    return datetime.strptime(f"{hour:02d}:{minute:02d}", "%H:%M").time()
+
+
+def _normalize_backup_schedule_time(value, default="02:00"):
+    parsed = _parse_backup_schedule_time(value) or _parse_backup_schedule_time(default)
+    return parsed.strftime("%H:%M")
+
+
+def _last_day_of_month(year, month):
+    if month == 12:
+        first_next_month = date(year + 1, 1, 1)
+    else:
+        first_next_month = date(year, month + 1, 1)
+    return (first_next_month - timedelta(days=1)).day
+
+
+def _backup_scheduled_at_for_period(cfg, now=None):
+    now = now or datetime.now()
+    schedule_time = _parse_backup_schedule_time(cfg.get("schedule_time")) or datetime.strptime("02:00", "%H:%M").time()
+    frequency = cfg.get("frequency") if cfg.get("frequency") in ("daily", "weekly", "monthly") else "daily"
+    if frequency == "daily":
+        scheduled_date = now.date()
+    elif frequency == "weekly":
+        current_weekday = (now.weekday() + 1) % 7
+        target_weekday = min(max(parse_int(cfg.get("weekly_day"), default=1), 0), 6)
+        week_start = now.date() - timedelta(days=current_weekday)
+        scheduled_date = week_start + timedelta(days=target_weekday)
+    else:
+        target_day = min(max(parse_int(cfg.get("monthly_day"), default=1), 1), 31)
+        scheduled_day = min(target_day, _last_day_of_month(now.year, now.month))
+        scheduled_date = date(now.year, now.month, scheduled_day)
+    return datetime.combine(scheduled_date, schedule_time)
 
 
 def _auto_seed_demo_enabled():
@@ -1995,6 +2051,9 @@ def _get_backup_config():
     cfg = {**DEFAULT_BACKUP_CONFIG, **saved}
     cfg["enabled"] = parse_bool(cfg.get("enabled"), default=False)
     cfg["frequency"] = cfg.get("frequency") if cfg.get("frequency") in ("daily", "weekly", "monthly") else "daily"
+    cfg["schedule_time"] = _normalize_backup_schedule_time(cfg.get("schedule_time"), default="02:00")
+    cfg["weekly_day"] = min(max(parse_int(cfg.get("weekly_day"), default=1), 0), 6)
+    cfg["monthly_day"] = min(max(parse_int(cfg.get("monthly_day"), default=1, minimum=1), 1), 31)
     cfg["retention"] = parse_int(cfg.get("retention"), default=7, minimum=1)
     cfg["include_audit"] = parse_bool(cfg.get("include_audit"), default=False)
     return cfg
@@ -2011,6 +2070,21 @@ def _normalize_backup_config(value):
         if freq not in ("daily", "weekly", "monthly"):
             return None, "Frequência de backup inválida."
         cfg["frequency"] = freq
+    if "schedule_time" in value:
+        parsed = _parse_backup_schedule_time(value.get("schedule_time"))
+        if not parsed:
+            return None, "Horário de backup inválido."
+        cfg["schedule_time"] = parsed.strftime("%H:%M")
+    if "weekly_day" in value:
+        weekly_day = parse_int(value.get("weekly_day"), default=1)
+        if weekly_day < 0 or weekly_day > 6:
+            return None, "Dia da semana do backup inválido."
+        cfg["weekly_day"] = weekly_day
+    if "monthly_day" in value:
+        monthly_day = parse_int(value.get("monthly_day"), default=1)
+        if monthly_day < 1 or monthly_day > 31:
+            return None, "Dia do mês do backup inválido."
+        cfg["monthly_day"] = monthly_day
     if "retention" in value:
         cfg["retention"] = min(parse_int(value.get("retention"), default=7, minimum=1), 90)
     if "include_audit" in value:
@@ -2176,14 +2250,17 @@ def _write_backup_file(kind="manual", generated_by="sistema"):
 def _backup_is_due(cfg):
     if not cfg["enabled"]:
         return False
-    if not cfg.get("last_run"):
-        return True
+    now = datetime.now()
+    scheduled_at = _backup_scheduled_at_for_period(cfg, now)
+    if now < scheduled_at:
+        return False
     try:
-        last_run = datetime.fromisoformat(cfg["last_run"])
-    except ValueError:
+        last_run = datetime.fromisoformat(cfg.get("last_run") or "")
+    except (TypeError, ValueError):
+        last_run = None
+    if not last_run:
         return True
-    delta = {"daily": timedelta(days=1), "weekly": timedelta(days=7), "monthly": timedelta(days=30)}[cfg["frequency"]]
-    return datetime.now() - last_run >= delta
+    return last_run < scheduled_at
 
 
 def _maybe_run_scheduled_backup():

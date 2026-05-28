@@ -1,5 +1,27 @@
 # Melhorias aplicadas nesta versão
 
+## Cards de ativos — 2026-05-27
+
+- A aba `Ativos de TI` passou a ter visualização em cards como padrão.
+- Mantida alternância entre `Cards` e `Tabela`, com preferência persistida no navegador.
+- Cada card exibe categoria, marca/modelo, patrimônio, hostname, Service Tag, status, responsável, localização, garantia e IP/MAC.
+- Adicionada barra de ações por card para visualizar, editar, abrir QR Code e consultar histórico.
+- A visualização em cards segue o padrão visual corporativo do sistema, com bordas discretas, sombras suaves e badges de status.
+
+## Correção de filtros em Ativos — 2026-05-27
+
+- Corrigido o filtro de categorias na aba `Ativos de TI` para manter todas as opções disponíveis após selecionar uma categoria.
+- A opção `Todos` agora limpa corretamente o filtro em vez de buscar uma categoria literal chamada `Todos`.
+- A API `/api/assets` também passou a tratar `Todos`, `Todas` e `all` como ausência de filtro para compatibilidade.
+
+## Agendamento avançado de backup — 2026-05-27
+
+- Adicionado horário configurável para execução do backup automático.
+- Frequência semanal agora permite escolher o dia da semana.
+- Frequência mensal agora permite escolher o dia do mês, respeitando o último dia válido em meses menores.
+- A rotina automática passou a executar apenas após a janela configurada da frequência atual.
+- A tela `Configurações > Backup` exibe a programação atual e salva os novos campos.
+
 ## Limpeza de identidade pública e observabilidade — 2026-05-21
 
 - Removida a documentação de estudo pessoal de confiabilidade operacional do repositório público.
