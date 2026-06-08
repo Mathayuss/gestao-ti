@@ -10,6 +10,170 @@ from app import _export_route_globals
 
 globals().update(_export_route_globals())
 
+
+def _send_allocation_term_pdf(al, aid, empresa, logo_b64, titulo, preambulo, clausulas, rodape_txt, ctx):
+    from xml.sax.saxutils import escape
+    from reportlab.lib import colors
+    from reportlab.lib.enums import TA_CENTER, TA_JUSTIFY, TA_LEFT
+    from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+    from reportlab.lib.utils import ImageReader
+    from reportlab.platypus import (
+        Image, KeepTogether, Paragraph, SimpleDocTemplate, Spacer,
+        Table, TableStyle,
+    )
+
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buf,
+        pagesize=A4,
+        leftMargin=2 * cm,
+        rightMargin=2 * cm,
+        topMargin=1.7 * cm,
+        bottomMargin=2.1 * cm,
+        title=titulo,
+        author=empresa.get("nome", "") if isinstance(empresa, dict) else "",
+    )
+    styles = getSampleStyleSheet()
+    styles.add(ParagraphStyle(
+        name="TermTitle", parent=styles["Title"], fontName="Helvetica-Bold",
+        fontSize=14, leading=17, alignment=TA_CENTER, spaceAfter=6,
+    ))
+    styles.add(ParagraphStyle(
+        name="TermMeta", parent=styles["Normal"], fontSize=9, leading=11,
+        alignment=TA_CENTER, textColor=colors.HexColor("#555555"),
+    ))
+    styles.add(ParagraphStyle(
+        name="TermBody", parent=styles["BodyText"], fontSize=10, leading=14,
+        alignment=TA_JUSTIFY, spaceAfter=7,
+    ))
+    styles.add(ParagraphStyle(
+        name="TermLabel", parent=styles["Normal"], fontName="Helvetica-Bold",
+        fontSize=10, leading=13, alignment=TA_LEFT,
+    ))
+    styles.add(ParagraphStyle(
+        name="TermSmall", parent=styles["Normal"], fontSize=8, leading=10,
+        alignment=TA_CENTER, textColor=colors.HexColor("#666666"),
+    ))
+
+    def para(text, style="TermBody"):
+        txt = escape(str(text or "")).replace("\n", "<br/>")
+        return Paragraph(txt, styles[style])
+
+    def data_image_flowable(data_url, max_w=5.6 * cm, max_h=1.8 * cm):
+        if not data_url or not str(data_url).startswith("data:image/png;base64,"):
+            return Spacer(max_w, max_h)
+        raw = base64.b64decode(data_url.split(",", 1)[1])
+        reader = ImageReader(io.BytesIO(raw))
+        iw, ih = reader.getSize()
+        scale = min(max_w / iw, max_h / ih)
+        return Image(io.BytesIO(raw), width=iw * scale, height=ih * scale)
+
+    story = []
+    if logo_b64 and str(logo_b64).startswith("data:"):
+        try:
+            raw_logo = base64.b64decode(logo_b64.split(",", 1)[1])
+            reader = ImageReader(io.BytesIO(raw_logo))
+            iw, ih = reader.getSize()
+            scale = min((3.2 * cm) / iw, (1.5 * cm) / ih)
+            logo = Image(io.BytesIO(raw_logo), width=iw * scale, height=ih * scale)
+            story.append(Table([[logo]], colWidths=[doc.width], style=[
+                ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
+            ]))
+        except Exception:
+            pass
+
+    story.extend([
+        para(titulo, "TermTitle"),
+        para(f"No. {al.termo or aid} - Data: {al.data_aloc}", "TermMeta"),
+    ])
+    if isinstance(empresa, dict) and empresa.get("nome"):
+        story.append(para(empresa["nome"], "TermMeta"))
+    story.append(Spacer(1, 0.35 * cm))
+
+    for linha in str(preambulo or "").split("\n"):
+        if linha.strip():
+            story.append(para(linha.strip()))
+
+    ativo_table = Table(
+        [[para("Ativo", "TermLabel"), para(al.ativo_nome or al.ativo_id or "-", "TermBody")]],
+        colWidths=[2.5 * cm, doc.width - 2.5 * cm],
+    )
+    ativo_table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#f1f3f5")),
+        ("BOX", (0, 0), (-1, -1), 0.5, colors.HexColor("#d8dee4")),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 8),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 8),
+        ("TOPPADDING", (0, 0), (-1, -1), 7),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 7),
+    ]))
+    story.extend([Spacer(1, 0.15 * cm), ativo_table, Spacer(1, 0.35 * cm)])
+
+    if (al.tipo or "Responsabilidade") == "Empréstimo" and al.data_devolucao_prevista:
+        story.append(para(f"Devolucao prevista: {al.data_devolucao_prevista}", "TermLabel"))
+
+    if al.items:
+        item_rows = [[para("Qtd.", "TermLabel"), para("Periferico entregue", "TermLabel")]]
+        for p in al.items:
+            item_rows.append([para(str(p.quantidade), "TermBody"), para(p.supply_nome, "TermBody")])
+        items_table = Table(item_rows, colWidths=[2 * cm, doc.width - 2 * cm], repeatRows=1)
+        items_table.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#eef2f7")),
+            ("GRID", (0, 0), (-1, -1), 0.4, colors.HexColor("#d8dee4")),
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ("LEFTPADDING", (0, 0), (-1, -1), 7),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 7),
+            ("TOPPADDING", (0, 0), (-1, -1), 5),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+        ]))
+        story.extend([para("Perifericos entregues nesta alocacao:", "TermLabel"), items_table, Spacer(1, 0.3 * cm)])
+
+    for cl in clausulas:
+        story.append(para(_render_termo_text(cl, ctx)))
+
+    if al.termo_status == "Assinado" and al.data_assinatura:
+        story.append(Spacer(1, 0.15 * cm))
+        story.append(para(
+            f"Assinado em {al.data_assinatura.strftime('%d/%m/%Y %H:%M')}  IP: {al.assinatura_ip or '-'}",
+            "TermLabel",
+        ))
+
+    ti_label = al.assinatura_ti_nome or "Responsavel TI"
+    sig_table = Table(
+        [
+            [data_image_flowable(al.assinatura_img), data_image_flowable(al.assinatura_ti_img)],
+            [para(al.colaborador, "TermSmall"), para(ti_label, "TermSmall")],
+        ],
+        colWidths=[doc.width / 2 - 0.4 * cm, doc.width / 2 - 0.4 * cm],
+        hAlign="CENTER",
+    )
+    sig_table.setStyle(TableStyle([
+        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+        ("VALIGN", (0, 0), (-1, -1), "BOTTOM"),
+        ("LINEABOVE", (0, 1), (-1, 1), 0.7, colors.black),
+        ("LEFTPADDING", (0, 0), (-1, -1), 6),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+        ("TOPPADDING", (0, 0), (-1, -1), 4),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+    ]))
+    story.extend([Spacer(1, 0.55 * cm), KeepTogether([sig_table])])
+
+    def footer(cv, doc_obj):
+        cv.saveState()
+        cv.setFont("Helvetica", 8)
+        cv.setFillColor(colors.HexColor("#999999"))
+        if rodape_txt:
+            cv.drawCentredString(A4[0] / 2, 1.25 * cm, str(rodape_txt)[:160])
+        cv.drawRightString(A4[0] - 2 * cm, 1.25 * cm, f"Pagina {doc_obj.page}")
+        cv.restoreState()
+
+    doc.build(story, onFirstPage=footer, onLaterPages=footer)
+    buf.seek(0)
+    nome_pdf = f"termo_{safe_filename(al.colaborador)}_{safe_filename(al.termo or aid)}.pdf"
+    return send_file(buf, mimetype="application/pdf", as_attachment=True, download_name=nome_pdf)
+
+
 @app.route("/api/allocations", methods=["GET"])
 @api_auth
 def get_allocations():
@@ -257,6 +421,11 @@ def gerar_termo(aid):
     preambulo = _render_termo_text(tr_cfg.get("preambulo", preambulo_default), ctx)
     clausulas = tr_cfg.get("clausulas", clausulas_padrao)
     rodape_txt= _render_termo_text(tr_cfg.get("rodape", ""), ctx)
+
+    try:
+        return _send_allocation_term_pdf(al, aid, empresa, logo_b64, titulo, preambulo, clausulas, rodape_txt, ctx)
+    except Exception:
+        app.logger.exception("Falha no layout novo do termo; usando gerador legado.")
 
     try:
         buf = io.BytesIO()

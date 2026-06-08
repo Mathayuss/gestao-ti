@@ -5118,12 +5118,55 @@ async function delSetor(nome){
   toast('Setor removido'); renderConfiguracoes();
 }
 
+function onlyCepDigits(value){
+  return String(value||'').replace(/\D/g,'').slice(0,8);
+}
+function maskCep(value){
+  const digits = onlyCepDigits(value);
+  return digits.length > 5 ? digits.slice(0,5) + '-' + digits.slice(5) : digits;
+}
+function formatUnidadeCep(input){
+  input.value = maskCep(input.value);
+}
+function getUnidadePayload(){
+  return {
+    nome: $('nu-nome').value,
+    tipo: $('nu-tipo').value,
+    cep: maskCep($('nu-cep')?.value || ''),
+    cidade: $('nu-cidade').value,
+    estado: $('nu-estado').value
+  };
+}
+async function lookupUnidadeCep(){
+  const cepInput = $('nu-cep');
+  const cep = onlyCepDigits(cepInput?.value || '');
+  if(!cep) return;
+  if(cep.length !== 8){ toast('Informe um CEP com 8 digitos','error'); return; }
+  if(cepInput) cepInput.value = maskCep(cep);
+  try{
+    const data = await api(`/settings/cep/${cep}`);
+    if(!data) return;
+    if($('nu-cep')) $('nu-cep').value = data.cep || maskCep(cep);
+    if($('nu-cidade')) $('nu-cidade').value = data.cidade || '';
+    if($('nu-estado')) $('nu-estado').value = data.estado || '';
+    toast('Cidade e estado preenchidos pelo CEP');
+  }catch(e){
+    toast(e.message || 'Nao foi possivel consultar o CEP','error');
+  }
+}
+
 function openNewUnidade(){
   openModal('Nova Unidade',`
   <div class="form-grid-2">
     <div class="form-group"><label>Nome</label><input id="nu-nome" placeholder="Ex: Filial SP Interior"></div>
     <div class="form-group"><label>Tipo</label>
       <select id="nu-tipo"><option>Sede</option><option>Filial</option><option>Depósito</option><option>Escritório</option><option>DataCenter</option></select>
+    </div>
+    <div class="form-group"><label>CEP</label>
+      <div style="display:flex;gap:8px">
+        <input id="nu-cep" inputmode="numeric" maxlength="9" placeholder="00000-000" oninput="formatUnidadeCep(this)" onblur="lookupUnidadeCep()">
+        <button class="btn btn-default btn-sm" type="button" onclick="lookupUnidadeCep()">Buscar</button>
+      </div>
     </div>
     <div class="form-group"><label>Cidade</label><input id="nu-cidade"></div>
     <div class="form-group"><label>Estado</label><input id="nu-estado" placeholder="SP"></div>
@@ -5134,18 +5177,24 @@ function openNewUnidade(){
   </div>`,false,true);
 }
 async function saveNewUnidade(){
-  await api('/settings/unidades','POST',{nome:$('nu-nome').value,tipo:$('nu-tipo').value,cidade:$('nu-cidade').value,estado:$('nu-estado').value});
+  await api('/settings/unidades','POST',getUnidadePayload());
   toast('Unidade criada');closeModal();renderConfiguracoes();
 }
 function editUnidade(u){
   openModal('Editar Unidade',`
   <div class="form-grid-2">
-    <div class="form-group"><label>Nome</label><input id="nu-nome" value="${esc(u.nome)}"></div>
+    <div class="form-group"><label>Nome</label><input id="nu-nome" value="${escAttr(u.nome)}"></div>
     <div class="form-group"><label>Tipo</label>
       <select id="nu-tipo">${['Sede','Filial','Depósito','Escritório','DataCenter'].map(t=>`<option ${t===u.tipo?'selected':''}>${t}</option>`).join('')}</select>
     </div>
-    <div class="form-group"><label>Cidade</label><input id="nu-cidade" value="${esc(u.cidade)}"></div>
-    <div class="form-group"><label>Estado</label><input id="nu-estado" value="${esc(u.estado)}"></div>
+    <div class="form-group"><label>CEP</label>
+      <div style="display:flex;gap:8px">
+        <input id="nu-cep" inputmode="numeric" maxlength="9" placeholder="00000-000" value="${escAttr(u.cep||'')}" oninput="formatUnidadeCep(this)" onblur="lookupUnidadeCep()">
+        <button class="btn btn-default btn-sm" type="button" onclick="lookupUnidadeCep()">Buscar</button>
+      </div>
+    </div>
+    <div class="form-group"><label>Cidade</label><input id="nu-cidade" value="${escAttr(u.cidade)}"></div>
+    <div class="form-group"><label>Estado</label><input id="nu-estado" value="${escAttr(u.estado)}"></div>
   </div>
   <div class="modal-footer">
     <button class="btn btn-default" onclick="closeModal()">Cancelar</button>
@@ -5153,7 +5202,7 @@ function editUnidade(u){
   </div>`,false,true);
 }
 async function saveEditUnidade(id){
-  await api('/settings/unidades/'+id,'PUT',{nome:$('nu-nome').value,tipo:$('nu-tipo').value,cidade:$('nu-cidade').value,estado:$('nu-estado').value});
+  await api('/settings/unidades/'+id,'PUT',getUnidadePayload());
   toast('Unidade atualizada');closeModal();renderConfiguracoes();
 }
 async function delUnidade(id){

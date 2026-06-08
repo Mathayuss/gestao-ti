@@ -11,6 +11,9 @@ globals().update(_export_route_globals())
 import shutil
 import subprocess
 import threading
+import re
+import urllib.error
+import urllib.request
 
 
 APP_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
@@ -229,6 +232,30 @@ def del_setor(nome):
     setores=[s for s in (_clean_list_setting(_get_setting("setores",[]), 80) or []) if s != nome]
     _set_setting("setores",setores); db.session.commit()
     return jsonify(setores)
+
+
+@app.route("/api/settings/cep/<cep>", methods=["GET"])
+@requires("Administrador")
+def lookup_cep(cep):
+    digits = re.sub(r"\D", "", cep or "")[:8]
+    if len(digits) != 8:
+        return jsonify({"error": "CEP precisa ter 8 digitos."}), 400
+    try:
+        req = urllib.request.Request(
+            f"https://viacep.com.br/ws/{digits}/json/",
+            headers={"User-Agent": "ti-control/cep-lookup"},
+        )
+        with urllib.request.urlopen(req, timeout=8) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+    except (urllib.error.URLError, TimeoutError, ValueError):
+        return jsonify({"error": "Nao foi possivel consultar o CEP."}), 502
+    if data.get("erro"):
+        return jsonify({"error": "CEP nao encontrado."}), 404
+    return jsonify({
+        "cep": data.get("cep") or f"{digits[:5]}-{digits[5:]}",
+        "cidade": data.get("localidade") or "",
+        "estado": data.get("uf") or "",
+    })
 
 
 @app.route("/api/settings/unidades", methods=["POST"])

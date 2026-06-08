@@ -1807,7 +1807,7 @@ def _normalize_unidade_payload(payload, current=None):
         return None, "Dados da unidade precisam ser um objeto."
     current = current if isinstance(current, dict) else {}
     result = dict(current)
-    fields = {"nome": 80, "tipo": 40, "cidade": 80, "estado": 2}
+    fields = {"nome": 80, "tipo": 40, "cep": 9, "cidade": 80, "estado": 2}
     for key, max_len in fields.items():
         if key in payload or key not in result:
             result[key] = clean_text(payload.get(key, result.get(key, "")), max_len)
