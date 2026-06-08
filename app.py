@@ -76,7 +76,7 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
 
 
-def _version_from_file(default="0.1.2-BETA"):
+def _version_from_file(default="1.2.1-beta"):
     version_path = os.path.join(os.path.dirname(__file__), "VERSION")
     try:
         with open(version_path, "r", encoding="utf-8") as fh:
