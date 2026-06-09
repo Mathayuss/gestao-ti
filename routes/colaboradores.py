@@ -59,6 +59,34 @@ def get_colaborador(cid):
     d = c.to_dict()
     d["ativos"]      = [a.to_dict() for a in db.session.execute(db.select(Asset).filter_by(colaborador=c.nome)).scalars().all()]
     d["alocacoes"]   = [al.to_dict(include_items=True) for al in db.session.execute(db.select(Allocation).filter_by(colaborador=c.nome)).scalars().all()]
+    d["devolucoes"]  = [dev.to_dict() for dev in db.session.execute(db.select(Devolucao).where(db.or_(Devolucao.colaborador_id == c.id, Devolucao.colaborador == c.nome))).scalars().all()]
+    d["termosAvulsos"] = [t.to_dict() for t in db.session.execute(db.select(TermoAvulso).filter_by(colaborador=c.nome)).scalars().all()]
+    termos = []
+    for al in d["alocacoes"]:
+        termos.append({
+            "tipo": "Alocação",
+            "referencia": al.get("termo") or al.get("id"),
+            "status": al.get("termoStatus") or "-",
+            "data": al.get("dataAloc") or "",
+            "url": f"/api/allocations/{al.get('id')}/termo.pdf",
+        })
+    for dev in d["devolucoes"]:
+        termos.append({
+            "tipo": "Devolução",
+            "referencia": dev.get("id"),
+            "status": dev.get("status") or "-",
+            "data": dev.get("dataDevolucao") or "",
+            "url": f"/api/devolucoes/{dev.get('id')}/termo.pdf",
+        })
+    for termo in d["termosAvulsos"]:
+        termos.append({
+            "tipo": termo.get("tipo") or "Avulso",
+            "referencia": termo.get("id"),
+            "status": termo.get("status") or "-",
+            "data": termo.get("createdAt") or "",
+            "url": f"/api/termos-avulsos/{termo.get('id')}/termo.pdf",
+        })
+    d["termos"] = termos
     d["perifericos"] = perifericos_do_colaborador(c.nome)
     return jsonify(d)
 
@@ -179,6 +207,8 @@ def termo_devolucao_pdf(cid):
         db.select(Devolucao).where(Devolucao.colaborador_id == cid)
         .order_by(Devolucao.data_devolucao.desc())
     ).scalar_one_or_none()
+    if dev:
+        return redirect(url_for("devolucao_pdf", did=dev.id))
 
     alocacoes = db.session.execute(
         db.select(Allocation).where(

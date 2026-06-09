@@ -9,6 +9,88 @@ from app import _export_route_globals
 
 globals().update(_export_route_globals())
 
+
+def _send_devolucao_term_pdf(dev, c, empresa, logo_b64, titulo, preambulo, clausulas, declaracao, rodape_txt, ctx, ativos, perifs):
+    from xml.sax.saxutils import escape
+    from reportlab.lib import colors
+    from reportlab.lib.enums import TA_CENTER, TA_JUSTIFY, TA_LEFT
+    from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+    from reportlab.lib.utils import ImageReader
+    from reportlab.platypus import Image, KeepTogether, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(buf, pagesize=A4, leftMargin=2*cm, rightMargin=2*cm, topMargin=1.7*cm, bottomMargin=2.1*cm, title=titulo)
+    styles = getSampleStyleSheet()
+    styles.add(ParagraphStyle(name="TermTitle", parent=styles["Title"], fontName="Helvetica-Bold", fontSize=14, leading=17, alignment=TA_CENTER, spaceAfter=6))
+    styles.add(ParagraphStyle(name="TermMeta", parent=styles["Normal"], fontSize=9, leading=11, alignment=TA_CENTER, textColor=colors.HexColor("#555555")))
+    styles.add(ParagraphStyle(name="TermBody", parent=styles["BodyText"], fontSize=10, leading=14, alignment=TA_JUSTIFY, spaceAfter=7))
+    styles.add(ParagraphStyle(name="TermLabel", parent=styles["Normal"], fontName="Helvetica-Bold", fontSize=10, leading=13, alignment=TA_LEFT))
+    styles.add(ParagraphStyle(name="TermSmall", parent=styles["Normal"], fontSize=8, leading=10, alignment=TA_CENTER, textColor=colors.HexColor("#666666")))
+
+    def para(text, style="TermBody"):
+        return Paragraph(escape(str(text or "")).replace("\n", "<br/>"), styles[style])
+
+    def sig_img(data_url, max_w=5.6*cm, max_h=1.8*cm):
+        if not data_url or not str(data_url).startswith("data:image/png;base64,"):
+            return Spacer(max_w, max_h)
+        raw = base64.b64decode(data_url.split(",", 1)[1])
+        reader = ImageReader(io.BytesIO(raw)); iw, ih = reader.getSize()
+        scale = min(max_w / iw, max_h / ih)
+        return Image(io.BytesIO(raw), width=iw * scale, height=ih * scale)
+
+    story = []
+    if logo_b64 and str(logo_b64).startswith("data:"):
+        try:
+            raw = base64.b64decode(logo_b64.split(",", 1)[1])
+            reader = ImageReader(io.BytesIO(raw)); iw, ih = reader.getSize()
+            scale = min((3.2*cm)/iw, (1.5*cm)/ih)
+            story.append(Table([[Image(io.BytesIO(raw), width=iw*scale, height=ih*scale)]], colWidths=[doc.width], style=[("ALIGN",(0,0),(-1,-1),"CENTER"),("BOTTOMPADDING",(0,0),(-1,-1),8)]))
+        except Exception:
+            pass
+    story += [para(titulo, "TermTitle"), para(f"Data: {dev.data_devolucao} - Gerado em: {datetime.now().strftime('%d/%m/%Y %H:%M')}", "TermMeta")]
+    if isinstance(empresa, dict) and empresa.get("nome"):
+        story.append(para(empresa["nome"], "TermMeta"))
+    story.append(Spacer(1, 0.35*cm))
+
+    dados = [["Colaborador", dev.colaborador], ["Matricula", (c.matricula if c else "") or "-"], ["Setor / Unidade", f"{dev.setor or '-'} / {dev.unidade or '-'}"]]
+    tbl = Table([[para(k, "TermLabel"), para(v)] for k, v in dados], colWidths=[3.2*cm, doc.width-3.2*cm])
+    tbl.setStyle(TableStyle([("BACKGROUND",(0,0),(-1,-1),colors.HexColor("#f1f3f5")),("BOX",(0,0),(-1,-1),0.5,colors.HexColor("#d8dee4")),("VALIGN",(0,0),(-1,-1),"TOP"),("LEFTPADDING",(0,0),(-1,-1),7),("RIGHTPADDING",(0,0),(-1,-1),7),("TOPPADDING",(0,0),(-1,-1),5),("BOTTOMPADDING",(0,0),(-1,-1),5)]))
+    story += [tbl, Spacer(1, 0.35*cm)]
+
+    for linha in str(preambulo or "").split("\n"):
+        if linha.strip():
+            story.append(para(linha.strip()))
+
+    def item_table(title, rows):
+        if not rows:
+            return
+        data = [[para(title, "TermLabel")]] + [[para(str(x))] for x in rows]
+        t = Table(data, colWidths=[doc.width], repeatRows=1)
+        t.setStyle(TableStyle([("BACKGROUND",(0,0),(-1,0),colors.HexColor("#eef2f7")),("GRID",(0,0),(-1,-1),0.4,colors.HexColor("#d8dee4")),("VALIGN",(0,0),(-1,-1),"TOP"),("LEFTPADDING",(0,0),(-1,-1),7),("RIGHTPADDING",(0,0),(-1,-1),7),("TOPPADDING",(0,0),(-1,-1),5),("BOTTOMPADDING",(0,0),(-1,-1),5)]))
+        story.extend([t, Spacer(1, 0.25*cm)])
+
+    item_table("Equipamentos devolvidos", ativos)
+    item_table("Perifericos / insumos devolvidos", perifs)
+    for cl in clausulas:
+        story.append(para(_render_termo_text(cl, ctx)))
+    if declaracao:
+        story += [Spacer(1, 0.15*cm), para(declaracao, "TermLabel")]
+    if dev.status == "Assinado" and dev.data_assinatura:
+        story.append(para(f"Assinado em {dev.data_assinatura.strftime('%d/%m/%Y %H:%M')}  IP: {dev.assinatura_ip or '-'}", "TermLabel"))
+    sig_table = Table([[sig_img(dev.assinatura_img), Spacer(5.6*cm, 1.8*cm)], [para(dev.colaborador, "TermSmall"), para("Responsavel TI", "TermSmall")]], colWidths=[doc.width/2-0.4*cm, doc.width/2-0.4*cm], hAlign="CENTER")
+    sig_table.setStyle(TableStyle([("ALIGN",(0,0),(-1,-1),"CENTER"),("VALIGN",(0,0),(-1,-1),"BOTTOM"),("LINEABOVE",(0,1),(-1,1),0.7,colors.black),("LEFTPADDING",(0,0),(-1,-1),6),("RIGHTPADDING",(0,0),(-1,-1),6)]))
+    story += [Spacer(1, 0.55*cm), KeepTogether([sig_table])]
+
+    def footer(cv, doc_obj):
+        cv.saveState(); cv.setFont("Helvetica", 8); cv.setFillColor(colors.HexColor("#999999"))
+        if rodape_txt: cv.drawCentredString(A4[0]/2, 1.25*cm, str(rodape_txt)[:160])
+        cv.drawRightString(A4[0]-2*cm, 1.25*cm, f"Pagina {doc_obj.page}"); cv.restoreState()
+
+    doc.build(story, onFirstPage=footer, onLaterPages=footer)
+    buf.seek(0)
+    return send_file(buf, mimetype="application/pdf", as_attachment=True, download_name=f"devolucao_{safe_filename(dev.colaborador)}_{dev.data_devolucao}.pdf")
+
+
 @app.route("/api/devolucoes/<did>/termo.pdf")
 @api_auth
 def devolucao_pdf(did):
@@ -33,6 +115,13 @@ def devolucao_pdf(did):
     rodape_txt = _render_termo_text(td_cfg.get("rodape", ""), ctx)
     decl_padrao= "Declaro ter devolvido todos os equipamentos listados acima em plenas condições."
     declaracao = _render_termo_text(td_cfg.get("declaracao", decl_padrao), ctx)
+
+    try:
+        ativos = json.loads(dev.ativos_devolvidos or "[]")
+        perifs = json.loads(dev.perifericos_devolvidos or "[]")
+        return _send_devolucao_term_pdf(dev, c, empresa, logo_b64, titulo, preambulo, clausulas, declaracao, rodape_txt, ctx, ativos, perifs)
+    except Exception:
+        app.logger.exception("Falha no layout novo do termo de devolucao; usando gerador legado.")
 
     try:
         buf = io.BytesIO()

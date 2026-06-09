@@ -604,6 +604,7 @@ const PERFIL_COLOR = {Administrador:'red','Técnico TI':'blue',Gestor:'amber',Vi
 const STATUS_COLAB_COLOR = {Ativo:'green',Inativo:'red',Férias:'blue',Afastado:'amber'};
 
 let _colab_cache = [];
+let _termoAvulsoTipos = ['VPN','BYOD','Confidencialidade','Outro'];
 let _settings  = { setores:[], unidades:[], categorias_config:{}, categorias:[] };
 const APP_VERSION = {{ build_version|tojson }};
 let _pendingDeleteBackup = null;
@@ -2001,6 +2002,7 @@ async function renderTermosAvulsos(q=''){
   if(!wrap) return;
   try {
     const data = await api('/termos-avulsos' + (q?'?q='+encodeURIComponent(q):''));
+    _termoAvulsoTipos = Array.from(new Set([..._termoAvulsoTipos, ...data.map(t=>t.tipo).filter(Boolean)])).sort((a,b)=>a.localeCompare(b));
     const tipoBadgeAv = t => {
       const colors = {VPN:'blue',BYOD:'purple',Confidencialidade:'amber',Outro:'gray'};
       const c = colors[t.tipo] || 'gray';
@@ -2048,15 +2050,15 @@ async function renderTermosAvulsos(q=''){
 async function openNewTermoAvulso(){
   if(!_colab_cache.length){ try{ _colab_cache=await api('/colaboradores'); }catch(e){} }
   const colabOpts = _colab_cache.filter(c=>c.status==='Ativo'||c.status==='Férias');
+  const tipoOpts = _termoAvulsoTipos.map(t=>`<option value="${escAttr(t)}">${esc(t)}</option>`).join('');
   openModal('Novo Termo Avulso', `
   <div class="form-grid-2">
     <div class="form-group"><label>Tipo de Termo</label>
-      <select id="tav-tipo">
-        <option value="VPN">VPN</option>
-        <option value="BYOD">BYOD</option>
-        <option value="Confidencialidade">Confidencialidade</option>
-        <option value="Outro">Outro</option>
+      <div style="display:flex;gap:8px">
+      <select id="tav-tipo">${tipoOpts}
       </select>
+        <button class="btn btn-default btn-sm" type="button" onclick="addTipoTermoAvulso()">+ Tipo</button>
+      </div>
     </div>
     <div class="form-group"><label>Validade (opcional)</label>
       <input id="tav-validade" type="date">
@@ -2090,6 +2092,21 @@ function preencheColabAvulso(id){
   $('tav-setor').value = opt.dataset.setor||'';
   $('tav-uni').value   = opt.dataset.uni||'';
   $('tav-email').value = opt.dataset.email||'';
+}
+
+function addTipoTermoAvulso(){
+  const nome = prompt('Nome do novo tipo de termo:');
+  const tipo = (nome||'').trim();
+  if(!tipo) return;
+  if(tipo.length > 40){ toast('Use no máximo 40 caracteres','error'); return; }
+  const exists = _termoAvulsoTipos.some(t=>t.toLowerCase()===tipo.toLowerCase());
+  if(!exists) _termoAvulsoTipos.push(tipo);
+  _termoAvulsoTipos.sort((a,b)=>a.localeCompare(b));
+  const sel = $('tav-tipo');
+  if(sel){
+    sel.innerHTML = _termoAvulsoTipos.map(t=>`<option value="${escAttr(t)}">${esc(t)}</option>`).join('');
+    sel.value = _termoAvulsoTipos.find(t=>t.toLowerCase()===tipo.toLowerCase()) || tipo;
+  }
 }
 
 async function saveNewTermoAvulso(){
@@ -3406,6 +3423,15 @@ async function viewColab(id){
         <span></span><div style="flex:1"><div class="mono" style="font-size:12px;font-weight:700">${esc(a.hostname)}</div>
         <div style="font-size:11px;color:var(--text3)">${esc(a.fabricante)} ${esc(a.modelo)}</div></div>${badge(a.status)}</div>`).join('')
     :'<p style="font-size:12px;color:var(--text3)">Nenhum ativo alocado.</p>';
+  const termosHtml=c.termos&&c.termos.length
+    ?c.termos.map(t=>`<div class="alert-row" style="padding:8px 0;gap:10px">
+        <div style="flex:1">
+          <div style="font-size:13px;font-weight:700">${esc(t.tipo)} · ${esc(t.referencia)}</div>
+          <div style="font-size:11px;color:var(--text3)">${fmtDate(t.data)} · ${badge(t.status)}</div>
+        </div>
+        <a class="btn btn-default btn-sm" href="${escAttr(t.url)}" target="_blank">PDF</a>
+      </div>`).join('')
+    :'<p style="font-size:12px;color:var(--text3)">Nenhum termo vinculado.</p>';
 
   openModal(`Perfil — ${c.nome}`,`
   <div style="display:flex;gap:16px;margin-bottom:18px">
@@ -3429,6 +3455,10 @@ async function viewColab(id){
   <div class="grid-2">
     <div><div class="section-title" style="font-size:13px">Ativos (${(c.ativos||[]).length})</div>${ativosHtml}</div>
     <div><div class="section-title" style="font-size:13px">Periféricos (${(c.perifericos||[]).length})</div>${perfHtml}</div>
+  </div>
+  <div style="margin-top:16px">
+    <div class="section-title" style="font-size:13px">Termos (${(c.termos||[]).length})</div>
+    ${termosHtml}
   </div>
   <div class="modal-footer">
     <button class="btn btn-default" onclick="editColab('${id}');closeModal()">Editar</button>
@@ -3899,6 +3929,8 @@ async function renderConfiguracoes(){
   _settings.categorias = cfg.categorias || [];
   _settings.categorias_insumos = cfg.categorias_insumos || [];
   _settings.categorias_compat = cfg.categorias_compat || {};
+  _settings.termos_avulsos_tipos = cfg.termos_avulsos_tipos || ['VPN','BYOD','Confidencialidade','Outro'];
+  _termoAvulsoTipos = [..._settings.termos_avulsos_tipos];
   const {empresa, setores, unidades, alertas, regras_usuario, campos_ativo_obrigatorios} = cfg;
   const cfg_cats   = cfg.categorias_config    || {};
   const cfg_email  = cfg.email                || {};
@@ -4381,6 +4413,30 @@ async function renderConfiguracoes(){
 
   const panelTermos = `<div id="cfg-panel-termos" style="display:none;flex-direction:column;gap:16px">
     <div class="card">
+      <div class="flex-between" style="gap:12px;align-items:flex-end;flex-wrap:wrap;margin-bottom:12px">
+        <div>
+          <div class="section-title" style="margin-bottom:4px">Preview do Termo</div>
+        </div>
+        <div class="flex-gap">
+          <select id="term-preview-kind" style="width:auto" onchange="selectTermConfig(this.value)">
+            <option value="tr">Recebimento</option>
+            <option value="td">Devolução</option>
+            <option value="te">Empréstimo</option>
+            <option value="tv">VPN / Avulso</option>
+          </select>
+          <button class="btn btn-default btn-sm" type="button" onclick="renderTermPreview()">Atualizar Preview</button>
+        </div>
+      </div>
+      <div id="term-preview-box"></div>
+      <div style="border-top:1px solid var(--border);margin-top:14px;padding-top:12px">
+        <div class="flex-between" style="gap:10px;flex-wrap:wrap;margin-bottom:8px">
+          <div class="section-title" style="font-size:13px;margin-bottom:0">Tipos de Termos Avulsos</div>
+          <button class="btn btn-default btn-sm" type="button" onclick="addTipoTermoConfig()">+ Tipo</button>
+        </div>
+        <div id="termos-tipos-list"></div>
+      </div>
+    </div>
+    <div class="card term-config-card" data-term-kind="tr">
       <div class="section-title">Personalização — Termo de Recebimento</div>
       <div class="info-box blue" style="margin-bottom:14px">
         <strong>Variáveis disponíveis:</strong> <code>{colaborador}</code> <code>{setor}</code> <code>{unidade}</code> <code>{ativo}</code> <code>{data}</code> <code>{empresa}</code> <code>{termo}</code><br>
@@ -4405,7 +4461,7 @@ async function renderConfiguracoes(){
         <button class="btn btn-default btn-sm" onclick="carregarExemploTR()">Carregar Exemplo</button>
       </div>
     </div>
-    <div class="card">
+    <div class="card term-config-card" data-term-kind="td">
       <div class="section-title">Personalização — Termo de Devolução</div>
       <div class="info-box blue" style="margin-bottom:14px">
         <strong>Variáveis disponíveis:</strong> <code>{colaborador}</code> <code>{setor}</code> <code>{unidade}</code> <code>{ativo}</code> <code>{data}</code> <code>{empresa}</code> <code>{termo}</code><br>
@@ -4434,7 +4490,7 @@ async function renderConfiguracoes(){
       </div>
     </div>
 
-    <div class="card">
+    <div class="card term-config-card" data-term-kind="te">
       <div class="section-title">Personalização — Termo de Empréstimo</div>
       <div class="info-box blue" style="margin-bottom:14px">
         <strong>Variáveis:</strong> <code>{colaborador}</code> <code>{setor}</code> <code>{unidade}</code> <code>{ativo}</code> <code>{data}</code> <code>{empresa}</code> <code>{dataDevolucao}</code>
@@ -4456,7 +4512,7 @@ async function renderConfiguracoes(){
       <button class="btn btn-primary btn-sm" onclick="saveTermoEmprestimo()">Salvar Termo de Empréstimo</button>
     </div>
 
-    <div class="card">
+    <div class="card term-config-card" data-term-kind="tv">
       <div class="section-title">Personalização — Termo VPN / Avulso</div>
       <div class="info-box blue" style="margin-bottom:14px">
         <strong>Variáveis:</strong> <code>{colaborador}</code> <code>{setor}</code> <code>{unidade}</code> <code>{empresa}</code> <code>{tipo}</code> <code>{validade}</code> <code>{data}</code>
@@ -4626,6 +4682,7 @@ function cfgTab(tab){
     btn.style.borderBottomColor = active ? 'var(--blue)' : 'transparent';
     btn.style.fontWeight       = active ? '700' : '600';
   });
+  if(tab==='termos') setTimeout(()=>selectTermConfig($('term-preview-kind')?.value || 'tr'), 0);
 }
 
 function _buildCatsConfigHtml(cats, cfg_cats){
@@ -5517,6 +5574,122 @@ async function confirmRestoreBackupUpload(){
       }catch(e){ toast(e.message,'error'); }
     });
   }catch(e){ toast(e.message,'error'); }
+}
+
+function termPreviewCtx(){
+  return {
+    colaborador:'Ana Costa',
+    setor:'Financeiro',
+    unidade:'Sede',
+    ativo:'Notebook Dell Latitude 5440 · Patrimônio TI-000123',
+    data:fmtDate(new Date().toISOString().slice(0,10)),
+    empresa:_settings?.empresa?.nome||'Empresa',
+    termo:'TERMO-EXEMPLO',
+    tipo:'VPN',
+    validade:'31/12/2026',
+    dataDevolucao:'31/12/2026'
+  };
+}
+function renderTermTextPreview(text, ctx){
+  return esc(String(text||'').replace(/\{(\w+)\}/g, (_,k)=>ctx[k] ?? `{${k}}`)).replace(/\n/g,'<br>');
+}
+function termPreviewFields(kind, ctx){
+  if(kind==='td') return [['Colaborador',ctx.colaborador],['Setor / Unidade',`${ctx.setor} / ${ctx.unidade}`],['Itens','Notebook Dell Latitude 5440; Mouse sem fio Logitech']];
+  if(kind==='tv') return [['Colaborador',ctx.colaborador],['Setor / Unidade',`${ctx.setor} / ${ctx.unidade}`],['Tipo',ctx.tipo],['Validade',ctx.validade]];
+  if(kind==='te') return [['Colaborador',ctx.colaborador],['Ativo',ctx.ativo],['Devolução prevista',ctx.dataDevolucao]];
+  return [['Colaborador',ctx.colaborador],['Ativo',ctx.ativo],['Termo',ctx.termo]];
+}
+function termPreviewPayload(kind){
+  const p = {
+    tr:{titulo:'tr-titulo',preambulo:'tr-preambulo',clausulas:'tr-clausulas',rodape:'tr-rodape'},
+    td:{titulo:'td-titulo',preambulo:'td-preambulo',clausulas:'td-clausulas',rodape:'td-rodape',declaracao:'td-declaracao'},
+    te:{titulo:'te-titulo',preambulo:'te-preambulo',clausulas:'te-clausulas',rodape:'te-rodape'},
+    tv:{titulo:'tv-titulo',preambulo:'tv-preambulo',clausulas:'tv-clausulas',rodape:'tv-rodape'},
+  }[kind] || {};
+  return {
+    titulo: $(p.titulo)?.value || '',
+    preambulo: $(p.preambulo)?.value || '',
+    clausulas: ($(p.clausulas)?.value || '').split('\n').map(s=>s.trim()).filter(Boolean),
+    declaracao: p.declaracao ? ($(p.declaracao)?.value || '') : '',
+    rodape: $(p.rodape)?.value || ''
+  };
+}
+function renderTermPreview(kind){
+  kind = kind || $('term-preview-kind')?.value || 'tr';
+  const box = $('term-preview-box');
+  if(!box) return;
+  const ctx = termPreviewCtx();
+  const p = termPreviewPayload(kind);
+  const fields = termPreviewFields(kind, ctx).map(([k,v])=>`
+    <div style="display:grid;grid-template-columns:95px 1fr;gap:8px;border-bottom:1px solid #e5e7eb;padding:5px 0">
+      <strong>${esc(k)}</strong><span>${renderTermTextPreview(v,ctx)}</span>
+    </div>`).join('');
+  const clauses = p.clausulas.length
+    ? p.clausulas.slice(0,3).map(cl=>`<p style="margin:0 0 7px">${renderTermTextPreview(cl,ctx)}</p>`).join('') + (p.clausulas.length>3?`<p style="margin:0;color:#64748b">+ ${p.clausulas.length-3} cláusula(s) no PDF final.</p>`:'')
+    : '<p style="margin:0;color:#64748b">Sem cláusulas cadastradas.</p>';
+  box.innerHTML = `
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;align-items:start">
+      <div style="background:#fff;color:#111827;border:1px solid #e5e7eb;border-radius:6px;padding:14px;box-shadow:var(--shadow);font-size:11px;line-height:1.45;max-height:430px;overflow:auto">
+        <div style="text-align:center;font-weight:800;font-size:13px;margin-bottom:4px">${renderTermTextPreview(p.titulo,ctx)}</div>
+        <div style="text-align:center;color:#64748b;font-size:10px;margin-bottom:10px">${esc(ctx.termo)} · ${esc(ctx.data)}</div>
+        <div style="margin-bottom:10px">${renderTermTextPreview(p.preambulo,ctx)}</div>
+        <div style="margin:8px 0 12px">${fields}</div>
+        <div>${clauses}</div>
+        ${p.declaracao?`<div style="font-weight:700;margin-top:10px">${renderTermTextPreview(p.declaracao,ctx)}</div>`:''}
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:22px;margin-top:30px;text-align:center;font-size:10px">
+          <div style="border-top:1px solid #111827;padding-top:5px">${esc(ctx.colaborador)}</div>
+          <div style="border-top:1px solid #111827;padding-top:5px">Responsável TI</div>
+        </div>
+        ${p.rodape?`<div style="text-align:center;color:#64748b;font-size:9px;margin-top:16px">${renderTermTextPreview(p.rodape,ctx)}</div>`:''}
+      </div>
+      <div style="font-size:12px;color:var(--text2);line-height:1.5">
+        <div style="font-weight:700;color:var(--text);margin-bottom:6px">Campos exibidos nesta prévia</div>
+        ${termPreviewFields(kind, ctx).map(([k,v])=>`<div style="padding:5px 0;border-bottom:1px solid var(--border)"><strong>${esc(k)}:</strong> ${renderTermTextPreview(v,ctx)}</div>`).join('')}
+      </div>
+    </div>`;
+}
+function selectTermConfig(kind){
+  if($('term-preview-kind')) $('term-preview-kind').value = kind || 'tr';
+  document.querySelectorAll('.term-config-card').forEach(card=>{
+    card.style.display = card.dataset.termKind === (kind || 'tr') ? '' : 'none';
+  });
+  renderTermTiposConfig();
+  renderTermPreview(kind || 'tr');
+}
+function renderTermTiposConfig(){
+  const el = $('termos-tipos-list');
+  if(!el) return;
+  const tipos = _settings.termos_avulsos_tipos || _termoAvulsoTipos || [];
+  el.innerHTML = tipos.length
+    ? `<div class="flex-gap" style="flex-wrap:wrap">${tipos.map(t=>`
+        <span class="badge badge-gray" style="display:inline-flex;align-items:center;gap:6px">
+          ${esc(t)}
+          <button type="button" onclick="removeTipoTermoConfig(${jsArg(t)})" style="border:0;background:transparent;color:inherit;cursor:pointer;font-weight:900;padding:0 2px">x</button>
+        </span>`).join('')}</div>`
+    : '<div style="font-size:12px;color:var(--text3)">Nenhum tipo configurado.</div>';
+}
+async function saveTermTiposConfig(tipos){
+  tipos = Array.from(new Set((tipos||[]).map(t=>String(t||'').trim()).filter(Boolean))).slice(0,80);
+  if(!tipos.length){ toast('Mantenha pelo menos um tipo de termo','error'); return false; }
+  const cfg = await api('/settings','PUT',{termos_avulsos_tipos:tipos});
+  _settings.termos_avulsos_tipos = cfg?.termos_avulsos_tipos || tipos;
+  _termoAvulsoTipos = [..._settings.termos_avulsos_tipos];
+  renderTermTiposConfig();
+  toast('Tipos de termos atualizados');
+  return true;
+}
+async function addTipoTermoConfig(){
+  const nome = prompt('Nome do novo tipo de termo:');
+  const tipo = (nome||'').trim();
+  if(!tipo) return;
+  if(tipo.length > 60){ toast('Use no máximo 60 caracteres','error'); return; }
+  const tipos = _settings.termos_avulsos_tipos || _termoAvulsoTipos || [];
+  if(tipos.some(t=>t.toLowerCase()===tipo.toLowerCase())){ toast('Tipo já cadastrado','warning'); return; }
+  await saveTermTiposConfig([...tipos, tipo]);
+}
+async function removeTipoTermoConfig(tipo){
+  const tipos = (_settings.termos_avulsos_tipos || _termoAvulsoTipos || []).filter(t=>t!==tipo);
+  await saveTermTiposConfig(tipos);
 }
 
 async function saveTermoRecebimento(){

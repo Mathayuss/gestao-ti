@@ -187,6 +187,7 @@ def get_settings():
         "termo_devolucao":    _get_setting("termo_devolucao", {}),
         "termo_emprestimo":   _get_setting("termo_emprestimo", {}),
         "termo_vpn":          _get_setting("termo_vpn", {}),
+        "termos_avulsos_tipos": _get_setting("termos_avulsos_tipos", ["VPN", "BYOD", "Confidencialidade", "Outro"]),
         "aparencia":    _get_setting("aparencia", {}),
         "patrimonio_prefixo": _get_setting("patrimonio.prefixo", "TI"),
         "app_base_url":       get_app_base_url(),

@@ -266,7 +266,7 @@ if (canvas) {
     canvas.height = rect.height * devicePixelRatio;
     ctx.scale(devicePixelRatio, devicePixelRatio);
     ctx.lineWidth = 2.5; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-    ctx.strokeStyle = document.documentElement.dataset.theme === 'dark' ? '#f8fafc' : '#111827';
+    ctx.strokeStyle = '#111827';
   }
   resize();
   window.addEventListener('resize', resize);
@@ -299,9 +299,20 @@ if (canvas) {
     document.getElementById('sig-data').value = '';
   };
 
+  function exportSignaturePng() {
+    const out = document.createElement('canvas');
+    out.width = canvas.width;
+    out.height = canvas.height;
+    const outCtx = out.getContext('2d');
+    outCtx.fillStyle = '#ffffff';
+    outCtx.fillRect(0, 0, out.width, out.height);
+    outCtx.drawImage(canvas, 0, 0);
+    return out.toDataURL('image/png');
+  }
+
   document.getElementById('form-devolver')?.addEventListener('submit', function(e) {
     if (!hasSig) { e.preventDefault(); alert('Desenhe sua assinatura antes de confirmar.'); return; }
-    document.getElementById('sig-data').value = canvas.toDataURL('image/png');
+    document.getElementById('sig-data').value = exportSignaturePng();
   });
 }
 </script>
