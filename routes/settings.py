@@ -188,6 +188,7 @@ def get_settings():
         "termo_emprestimo":   _get_setting("termo_emprestimo", {}),
         "termo_vpn":          _get_setting("termo_vpn", {}),
         "termos_avulsos_tipos": _get_setting("termos_avulsos_tipos", ["VPN", "BYOD", "Confidencialidade", "Outro"]),
+        "termos_avulsos_modelos": _get_termos_avulsos_modelos(),
         "aparencia":    _get_setting("aparencia", {}),
         "patrimonio_prefixo": _get_setting("patrimonio.prefixo", "TI"),
         "app_base_url":       get_app_base_url(),
@@ -461,6 +462,11 @@ def update_termos_settings():
             if error:
                 return jsonify({"error": error}), 400
             _set_setting(key, normalized)
+    if "termos_avulsos_modelos" in d:
+        normalized, error = _normalize_termos_avulsos_modelos(d["termos_avulsos_modelos"])
+        if error:
+            return jsonify({"error": error}), 400
+        _set_setting("termos_avulsos_modelos", normalized)
     audit("EDITAR", "configuracoes", "", "Personalização de termos atualizada")
     db.session.commit()
     return jsonify({"ok": True})
@@ -596,4 +602,3 @@ def rename_categoria_insumo(nome):
     audit("EDITAR", "configuracoes", "", f"Categoria de insumo '{nome}' renomeada para '{novo}'")
     db.session.commit()
     return jsonify(cats)
-

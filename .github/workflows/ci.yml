@@ -12,12 +12,22 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
       - name: Compile Python
-        run: python -m py_compile app.py
+        run: python -m py_compile app.py routes/*.py services/*.py tests/*.py
+      - name: Check JavaScript syntax
+        run: |
+          find static/js -name '*.js' -print | sort | while read -r file; do
+            node --check "$file"
+          done
+      - name: Run unit tests
+        run: python -m unittest discover -s tests
       - name: Import app and validate health endpoints
         env:
           DATABASE_URL: sqlite:////tmp/ticontrol-ci.db

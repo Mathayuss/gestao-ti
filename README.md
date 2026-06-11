@@ -157,6 +157,8 @@ Usuários de demonstração só devem ser exibidos em ambiente local quando `SHO
 | `DATABASE_URL` | URL SQLAlchemy do banco para execução fora do Docker. Recomendado: PostgreSQL. |
 | `DB_STARTUP_RETRIES` | Número de tentativas de conexão no boot da aplicação. |
 | `DB_STARTUP_RETRY_DELAY` | Intervalo, em segundos, entre tentativas de conexão no boot. |
+| `AUTO_CREATE_DB` | Mantém `db.create_all()` no boot quando `1`. Para fluxo Alembic puro, use `0`. |
+| `AUTO_LEGACY_MIGRATIONS` | Mantém as migrações legadas do `app.py` no boot quando `1`. Para fluxo Alembic puro, use `0`. |
 | `POSTGRES_DB` | Nome do banco usado pelo Docker Compose. |
 | `POSTGRES_USER` | Usuário PostgreSQL usado pelo Docker Compose. |
 | `POSTGRES_PASSWORD` | Senha PostgreSQL usada pelo Docker Compose. |
@@ -171,6 +173,33 @@ Usuários de demonstração só devem ser exibidos em ambiente local quando `SHO
 Nunca compartilhe ou versiona o arquivo `.env`.
 
 Ao executar com Docker Compose, a aplicação usa o hostname interno `postgres`. Use `127.0.0.1` apenas quando a aplicação estiver rodando fora do container e acessando o PostgreSQL pela porta publicada no host.
+
+## Migrações de banco
+
+O projeto possui estrutura Alembic/Flask-Migrate em `migrations/` e uma migration baseline com o schema atual.
+
+Para banco novo, rode as migrações antes de iniciar a aplicação em modo Alembic puro:
+
+```bash
+export FLASK_APP=app:create_app
+export AUTO_CREATE_DB=0
+export AUTO_LEGACY_MIGRATIONS=0
+flask db upgrade
+```
+
+No Docker Compose:
+
+```bash
+docker compose exec -e AUTO_CREATE_DB=0 -e AUTO_LEGACY_MIGRATIONS=0 app flask db upgrade
+```
+
+Para banco existente que já foi criado pela aplicação antes do Alembic, não execute a migration baseline diretamente sobre tabelas existentes. Faça backup primeiro, confirme que o schema atual está íntegro e marque o banco como alinhado:
+
+```bash
+docker compose exec -e AUTO_CREATE_DB=0 -e AUTO_LEGACY_MIGRATIONS=0 app flask db stamp head
+```
+
+Depois disso, novas mudanças de schema devem ser feitas por migrations versionadas. Enquanto a transição estiver em andamento, os valores padrão `AUTO_CREATE_DB=1` e `AUTO_LEGACY_MIGRATIONS=1` mantêm compatibilidade com instalações antigas.
 
 ## Backup
 

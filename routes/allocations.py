@@ -451,7 +451,7 @@ def gerar_termo(aid):
         if (al.tipo or "Responsabilidade") == "Empréstimo" and al.data_devolucao_prevista:
             c.setFont("Helvetica-Bold", 10)
             c.setFillColorRGB(0.8, 0.2, 0.0)
-            c.drawString(2*cm, y, f"⚠  Devolução prevista: {al.data_devolucao_prevista}")
+            c.drawString(2*cm, y, f"Devolução prevista: {al.data_devolucao_prevista}")
             c.setFillColorRGB(0, 0, 0)
             y -= 0.8*cm
         items = al.items
@@ -664,4 +664,3 @@ def emprestimos_vencidos():
         )
     ).scalars().all()
     return jsonify([a.to_dict() for a in vencidos])
-

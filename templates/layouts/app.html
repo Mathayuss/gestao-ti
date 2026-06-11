@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="csrf-token" content="{{ csrf_token() }}">
+<title id="app-title">TI Control</title>
+<link id="app-favicon" rel="icon" href="/static/bg.png?v={{ build_version|e }}">
+<link rel="stylesheet" href="/static/css/app.css?v={{ build_version|e }}">
+{% block head_extra %}{% endblock %}
+</head>
+<body>
+<div id="app">
+  {% include "partials/sidebar.html" %}
+  <div id="main">
+    {% block main %}{% endblock %}
+  </div>
+</div>
+
+{% include "partials/modal.html" %}
+<div id="sb-overlay" onclick="toggleSidebar()"></div>
+<div id="toast"></div>
+
+<script>window.TICONTROL_BOOT = { buildVersion: {{ build_version|tojson }} };</script>
+{% include "partials/scripts.html" %}
+{% block scripts_extra %}{% endblock %}
+</body>
+</html>

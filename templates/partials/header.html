@@ -1,0 +1,46 @@
+<div id="header">
+  <div style="display:flex;align-items:center;gap:10px;min-width:0">
+    <button id="sb-toggle" class="btn btn-default btn-icon" onclick="toggleSidebar()" aria-label="Alternar menu" title="Alternar menu">
+      <svg id="sb-toggle-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="width:17px;height:17px;stroke-width:2.2"></svg>
+    </button>
+    <div style="min-width:0">
+      <div style="font-size:18px;font-weight:800;letter-spacing:-.3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" id="page-title">Dashboard</div>
+      <div style="font-size:12px;color:var(--text3);margin-top:1px" id="page-date"></div>
+    </div>
+  </div>
+  <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+    <button class="theme-toggle" type="button" onclick="toggleTheme()" aria-label="Alternar tema">
+      <svg id="theme-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"></svg>
+      <span id="theme-label">Tema</span>
+    </button>
+
+    <div class="hdr-bell">
+      <button class="hdr-bell-btn" id="hdr-bell-btn" onclick="document.querySelector('[data-module=alertas]').click()" title="Central de Alertas" aria-label="Alertas">
+        <div class="hdr-bell-pulse" id="hdr-bell-pulse"></div>
+        <svg id="hdr-bell-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="width:18px;height:18px;stroke-width:2;flex-shrink:0"></svg>
+        <span id="hdr-bell-count" class="hdr-bell-count"></span>
+      </button>
+    </div>
+
+    <div class="hdr-user" id="hdr-user">
+      <button class="hdr-user-btn" onclick="toggleHdrUser(event)" aria-label="Menu do usuário">
+        <div class="avatar" id="hdr-avatar" style="background:var(--blue-bg);color:var(--blue-text);width:30px;height:30px;font-size:10px">?</div>
+        <div style="display:flex;flex-direction:column;gap:1px">
+          <div class="hdr-uname" id="hdr-uname">Usuário</div>
+          <div class="hdr-urole" id="hdr-urole">...</div>
+        </div>
+        <svg class="hdr-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:14px;height:14px"><path d="M6 9l6 6 6-6"/></svg>
+      </button>
+      <div class="hdr-dropdown">
+        <div class="hdr-dd-head">
+          <div class="hdr-dd-fullname" id="hdr-dd-fullname">...</div>
+          <div class="hdr-dd-role" id="hdr-dd-role">...</div>
+        </div>
+        <a href="/logout" class="hdr-dd-item logout">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+          Sair do sistema
+        </a>
+      </div>
+    </div>
+  </div>
+</div>

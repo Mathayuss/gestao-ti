@@ -80,11 +80,11 @@ def get_colaborador(cid):
         })
     for termo in d["termosAvulsos"]:
         termos.append({
-            "tipo": termo.get("tipo") or "Avulso",
+            "tipo": termo.get("tipo") or "Termo",
             "referencia": termo.get("id"),
             "status": termo.get("status") or "-",
             "data": termo.get("createdAt") or "",
-            "url": f"/api/termos-avulsos/{termo.get('id')}/termo.pdf",
+            "url": f"/api/termos/{termo.get('id')}/termo.pdf",
         })
     d["termos"] = termos
     d["perifericos"] = perifericos_do_colaborador(c.nome)
@@ -347,4 +347,3 @@ def colaboradores_stats():
                     "inativos":sum(1 for c in cols if c.status=="Inativo"),
                     "afastados":sum(1 for c in cols if c.status in ("Afastado","Férias")),
                     "porSetor":ps,"comAtivos":com_ativos or 0})
-

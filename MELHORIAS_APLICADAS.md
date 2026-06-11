@@ -1,5 +1,81 @@
 # Melhorias aplicadas nesta versão
 
+## Desmembramento do dashboard principal — 2026-06-10
+
+- O antigo `templates/index.html` foi reduzido de mais de 6 mil linhas para um template mínimo de composição.
+- Criado `templates/layouts/app.html` como layout base do dashboard autenticado.
+- Criados partials para `sidebar`, `header`, `footer` e `modal`, reduzindo acoplamento visual no template principal.
+- O CSS inline foi extraído para `static/css/app.css`.
+- O JavaScript inline foi extraído e dividido entre `static/js/core/` e `static/js/modules/`.
+- Criado `templates/partials/scripts.html` para carregar os módulos JavaScript em ordem explícita.
+- O módulo de configurações foi subdividido em `static/js/modules/settings/`, separando renderização, categorias, dados gerais/aparência, e-mail, backup/atualizações e termos.
+- A versão da aplicação passou a ser entregue ao JavaScript por um bootstrap mínimo `window.TICONTROL_BOOT`, preservando o uso de `build_version` do Flask.
+- CSS, favicon inicial e scripts passaram a receber cache busting com `build_version` na query string.
+- O CI passou a instalar Node.js 20 e validar sintaxe de todos os arquivos JavaScript com `node --check`.
+- O CI passou a executar a suíte `unittest discover -s tests`.
+- Adicionado smoke test para validar que o shell do dashboard referencia assets versionados e que todos os arquivos estáticos renderizados respondem corretamente.
+- A refatoração foi feita sem mudança intencional de comportamento, preparando futuras melhorias por módulo.
+
+## Modelos de termos independentes — 2026-06-10
+
+- A tela `Configurações > Termos` passou a tratar todos os documentos como modelos de termos, sem distinção visual entre categorias antigas.
+- Recebimento, devolução e empréstimo ficam identificados como modelos padrão do sistema.
+- VPN, BYOD, confidencialidade e novos modelos passam a aparecer como modelos personalizados, com o mesmo estilo de card.
+- Cada modelo salva título, preâmbulo, cláusulas e rodapé de forma independente.
+- A prévia e o editor reconhecem cada modelo por tipo, mantendo textos totalmente separados entre si.
+- A geração de PDF passou a usar o template específico do tipo selecionado.
+- A página pública de assinatura passou a exibir o conteúdo personalizado do respectivo termo.
+- A API ganhou aliases `/api/termos...`, preservando compatibilidade com rotas antigas.
+- Links novos de assinatura usam `/assinar-termo/<token>`, preservando compatibilidade com links antigos.
+- Adicionados testes para garantir independência dos modelos e validação de cláusulas.
+
+## Migrações Alembic/Flask-Migrate — 2026-06-10
+
+- Criada a estrutura `migrations/` com Alembic/Flask-Migrate.
+- Gerada migration baseline `ade7d99e9212_baseline_schema.py` com o schema atual da aplicação.
+- Validado `flask db upgrade` em banco SQLite temporário para criar o schema a partir da baseline.
+- Validado `flask db current` apontando para o revision `ade7d99e9212 (head)`.
+- Validado `flask db check` sem diferenças pendentes entre modelos e migration.
+- Atualizado `Dockerfile` com `FLASK_APP=app:create_app` para facilitar comandos Flask CLI dentro do container.
+- Atualizado `README.md` com fluxo seguro para banco novo, banco existente e uso de `stamp head`.
+- Atualizado `migrations/README` com alerta para não aplicar baseline diretamente sobre bancos existentes.
+
+## Camada de serviço para Backup — 2026-06-10
+
+- Criado `services/backup_service.py` com regras puras de configuração e agendamento de backup.
+- O `app.py` passou a delegar parsing de horário, normalização de configuração, cálculo da próxima janela e verificação de vencimento para o service layer.
+- Mantidos os helpers antigos com underscore para preservar compatibilidade com rotas e testes existentes.
+- A configuração de backup agora possui testes dedicados para frequência diária, semanal e mensal.
+- Adicionados testes para validação de horário, limites de retenção, dia da semana, dia do mês e rotina de backup devido.
+- Confirmado o tratamento de frequência mensal em meses com menos dias, usando o último dia válido do mês.
+
+## Camada de serviço para Ativos — 2026-06-10
+
+- Criado o diretório `services/` para iniciar a separação formal de regras de negócio.
+- Criado `services/asset_service.py` com validação de ativos, checagem de duplicidade, normalização de filtro de categoria e geração de patrimônio.
+- O `app.py` passou a delegar validações e geração de patrimônio para a camada de serviço, mantendo compatibilidade com as rotas atuais.
+- A rota `/api/assets` passou a usar o normalizador de categoria do service layer para tratar `Todos`, `Todas`, `all` e `__all__`.
+- Corrigida a geração do próximo patrimônio para ignorar códigos legados sem sufixo numérico, evitando reiniciar a sequência indevidamente.
+- Adicionados testes unitários para regras de ativos, filtro de categoria e sequência patrimonial.
+
+## Refatoração arquitetural para beta — 2026-06-09
+
+- Criado `extensions.py` para centralizar `SQLAlchemy`, `CSRFProtect`, `LoginManager` e `Flask-Migrate`.
+- Criado `models.py` com os modelos SQLAlchemy e perfis de permissão, reduzindo o tamanho e a responsabilidade do `app.py`.
+- O `app.py` agora inicializa extensões via `init_app`, mantendo compatibilidade com as rotas atuais.
+- Adicionado `create_app()` como ponto de entrada compatível com testes, Flask CLI e evolução para application factory.
+- Adicionado `wsgi.py` para deploys que preferem importar `wsgi:app`.
+- Adicionadas chaves `AUTO_CREATE_DB` e `AUTO_LEGACY_MIGRATIONS` para permitir transição gradual de migração manual para Alembic/Flask-Migrate em produção.
+- Adicionados smoke tests para factory, health checks, login e proteção de API sem autenticação.
+
+## Remodelagem de Configurações > Termos — 2026-06-09
+
+- A tela de termos foi reorganizada como um gerenciador de modelos em cards.
+- Cada modelo agora possui ações consistentes para editar, pré-visualizar e carregar exemplo.
+- Os modelos personalizados saíram da linha de chips do preview e passaram para uma lista compacta com botão dedicado de novo termo.
+- O editor passou a abrir como uma área dedicada com botão de voltar, reduzindo poluição visual na primeira dobra.
+- A prévia passou a abrir em modal amplo, sem ocupar espaço fixo na tela de configuração.
+
 ## Matriz de compatibilidade visual — 2026-05-27
 
 - A lista `Compatibilidade — Ativo × Insumo` recebeu layout visual mais alinhado à identidade Enterprise SaaS do sistema.

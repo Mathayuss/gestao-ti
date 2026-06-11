@@ -1,0 +1,17 @@
+Migrações Alembic/Flask-Migrate do TI Control.
+
+Esta pasta contém a migration baseline do schema atual. Para bancos novos,
+use `flask db upgrade`.
+
+Para bancos existentes criados antes do Alembic, não rode a baseline sobre
+tabelas já existentes. Gere backup, valide o schema atual e use:
+
+    flask db stamp head
+
+Ao usar o fluxo Alembic puro, execute os comandos com:
+
+    AUTO_CREATE_DB=0
+    AUTO_LEGACY_MIGRATIONS=0
+
+Os valores padrão continuam preservando compatibilidade com instalações
+antigas durante a transição.

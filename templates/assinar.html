@@ -1,355 +1,659 @@
+{% macro device_icon(name) -%}
+  {% if name == 'notebook' %}
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><rect x="5" y="4" width="14" height="10" rx="2"/><path d="M3 18h18l-2-4H5l-2 4Z"/><path d="M9 18h6"/></svg>
+  {% elif name == 'server' %}
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><rect x="4" y="3" width="16" height="7" rx="2"/><rect x="4" y="14" width="16" height="7" rx="2"/><path d="M8 7h.01M8 18h.01M12 7h4M12 18h4"/></svg>
+  {% elif name == 'network' %}
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><rect x="9" y="3" width="6" height="6" rx="1.5"/><rect x="3" y="15" width="6" height="6" rx="1.5"/><rect x="15" y="15" width="6" height="6" rx="1.5"/><path d="M12 9v3M6 15v-2h12v2"/></svg>
+  {% elif name == 'printer' %}
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M7 8V4h10v4"/><rect x="5" y="14" width="14" height="7" rx="1.5"/><rect x="3" y="8" width="18" height="8" rx="2"/><path d="M7 18h10M17 12h.01"/></svg>
+  {% elif name == 'monitor' %}
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/><path d="M7 9h2M11 9h6M7 13h4"/></svg>
+  {% else %}
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><rect x="4" y="4" width="16" height="12" rx="2"/><path d="M8 20h8M12 16v4"/><path d="M8 8h8M8 12h5"/></svg>
+  {% endif %}
+{%- endmacro %}
+
+{% macro ui_icon(name) -%}
+  {% if name == 'eye' %}
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>
+  {% elif name == 'edit' %}
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 12.5-12.5Z"/></svg>
+  {% elif name == 'qr' %}
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM20 14h1M14 20h1M18 20h3v1"/></svg>
+  {% elif name == 'history' %}
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 3v6h6"/><path d="M12 7v5l3 2"/></svg>
+  {% elif name == 'file' %}
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><path d="M8 13h8M8 17h5"/></svg>
+  {% elif name == 'barcode' %}
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M4 7V5a1 1 0 0 1 1-1h2M4 17v2a1 1 0 0 0 1 1h2M17 4h2a1 1 0 0 1 1 1v2M17 20h2a1 1 0 0 0 1-1v-2"/><path d="M7 12h10"/></svg>
+  {% elif name == 'tag' %}
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8Z"/><circle cx="8" cy="8" r="1.5"/></svg>
+  {% elif name == 'factory' %}
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M3 21h18"/><path d="M5 21V8l6 4V8l6 4V5h2v16"/><path d="M8 17h1M12 17h1M16 17h1"/></svg>
+  {% elif name == 'serial' %}
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><rect x="4" y="5" width="16" height="14" rx="2"/><path d="M8 9h8M8 13h5M8 17h3"/></svg>
+  {% elif name == 'map' %}
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M20 10c0 5-8 12-8 12S4 15 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+  {% elif name == 'user' %}
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M20 21a8 8 0 0 0-16 0"/><circle cx="12" cy="7" r="4"/></svg>
+  {% elif name == 'activity' %}
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg>
+  {% elif name == 'rack' %}
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><rect x="2" y="4" width="20" height="6" rx="2"/><rect x="2" y="14" width="20" height="6" rx="2"/><circle cx="6" cy="7" r="1.5" fill="currentColor" stroke="none"/><circle cx="6" cy="17" r="1.5" fill="currentColor" stroke="none"/><path d="M10 7h5M10 17h5"/></svg>
+  {% elif name == 'moon' %}
+    <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 7.5A9 9 0 1 1 12 3Z"/></svg>
+  {% elif name == 'sun' %}
+    <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+  {% endif %}
+{%- endmacro %}
+
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-BR" data-theme="light">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <title>Assinar Termo — TI Control</title>
-  <style>
-    :root {
-      color-scheme: light;
-      --primary: #2563eb;
-      --primary-hover: #1d4ed8;
-      --success: #16a34a;
-      --danger: #dc2626;
-      --bg: #f6f7f9;
-      --card: #ffffff;
-      --soft: #f1f5f9;
-      --border: #e2e8f0;
-      --text: #111827;
-      --text2: #64748b;
-      --text3: #94a3b8;
-      --r: 8px;
-      --shadow: 0 18px 48px rgba(15, 23, 42, .10), 0 3px 12px rgba(15, 23, 42, .06);
-    }
-    html[data-theme="dark"] {
-      color-scheme: dark;
-      --primary: #60a5fa;
-      --primary-hover: #93c5fd;
-      --success: #4ade80;
-      --danger: #f87171;
-      --bg: #0b1120;
-      --card: #111827;
-      --soft: #1e293b;
-      --border: #334155;
-      --text: #f8fafc;
-      --text2: #cbd5e1;
-      --text3: #94a3b8;
-      --shadow: 0 18px 48px rgba(0, 0, 0, .36), 0 3px 12px rgba(0, 0, 0, .25);
-    }
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-      font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-      background: radial-gradient(circle at 16% 0%, rgba(37,99,235,.12), transparent 30%), linear-gradient(180deg, var(--bg), var(--soft));
-      min-height: 100vh;
-      padding: 16px;
-      color: var(--text);
-    }
-    .container { max-width: 560px; margin: 0 auto; }
-    .logo {
-      display: flex; align-items: center; gap: 10px;
-      margin-bottom: 20px;
-    }
-    .logo-icon {
-      width: 38px; height: 38px; background: color-mix(in srgb, var(--primary) 14%, transparent);
-      color: var(--primary); border: 1px solid color-mix(in srgb, var(--primary) 22%, transparent);
-      border-radius: 10px; display: flex; align-items: center;
-      justify-content: center;
-    }
-    .logo-name { font-size: 17px; font-weight: 700; }
-    .logo-sub  { font-size: 11px; color: var(--text3); }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="csrf-token" content="{{ csrf_token() }}">
+<title>{{ public_card.title }} · TI Control</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-    .card {
-      background: var(--card); border-radius: 14px;
-      border: 1px solid var(--border); padding: 22px;
-      margin-bottom: 14px;
-      box-shadow: 0 2px 12px rgba(0,0,0,.06);
-      box-shadow: var(--shadow);
-    }
-    h2 { font-size: 15px; font-weight: 700; margin-bottom: 14px; }
-    .row { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
-    .label { font-size: 11px; font-weight: 600; color: var(--text2); text-transform: uppercase; letter-spacing: .04em; }
-    .value { font-size: 14px; font-weight: 500; }
-    .asset-box {
-      background: color-mix(in srgb, var(--primary) 12%, var(--card)); border-radius: var(--r);
-      padding: 10px 14px; font-family: monospace;
-      font-size: 13px; font-weight: 700; color: #1e40af;
-      margin: 12px 0;
-    }
-    .periferico-list { display: flex; flex-direction: column; gap: 4px; margin-bottom: 12px; }
-    .periferico-item {
-      background: var(--soft); border-radius: var(--r);
-      padding: 8px 12px; font-size: 13px;
-      display: flex; justify-content: space-between; align-items: center;
-    }
-    .badge {
-      background: #dbeafe; color: #1e40af;
-      font-size: 11px; font-weight: 700;
-      padding: 2px 8px; border-radius: 20px;
-    }
-    .clausulas { font-size: 12px; line-height: 1.7; color: var(--text2); border-top: 1px solid var(--border); padding-top: 12px; }
+  :root {
+    color-scheme: light dark;
+    /* Transições suaves adicionadas para troca de tema */
+    --theme-transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+  }
 
-    .alert {
-      padding: 14px 16px; border-radius: var(--r);
-      font-size: 13px; font-weight: 500; margin-bottom: 14px;
-      display: flex; gap: 10px; align-items: flex-start;
-    }
-    .alert-err  { background: #fef2f2; border: 1px solid #fca5a5; color: #991b1b; }
-    .alert-ok   { background: #f0fdf4; border: 1px solid #86efac; color: #166534; }
-    .alert-warn { background: #fffbeb; border: 1px solid #fcd34d; color: #92400e; }
+  html[data-theme="light"] {
+    --bg:           #f1f5f9;
+    --surface:      #ffffff;
+    --surface-soft: #f8fafc;
+    --surface-muted:#f1f5f9;
+    --primary:      #2563eb;
+    --primary-hover:#1d4ed8;
+    --primary-soft: #eff6ff;
+    --primary-border:rgba(37,99,235,.18);
+    --ink:          #0f172a;
+    --text:         #1e293b;
+    --muted:        #64748b;
+    --line:         #e2e8f0;
+    --line-strong:  #cbd5e1;
+    --green:        #15803d;
+    --green-soft:   #dcfce7;
+    --green-border: rgba(21,128,61,.18);
+    --amber:        #b45309;
+    --amber-soft:   #fef3c7;
+    --amber-border: rgba(180,83,9,.18);
+    --red:          #b91c1c;
+    --red-soft:     #fef2f2;
+    --red-border:   rgba(185,28,28,.18);
+    --gray-soft:    #f1f5f9;
+    --shadow-sm:    0 1px 3px rgba(15,23,42,.06), 0 1px 2px rgba(15,23,42,.04);
+    --shadow:       0 8px 24px rgba(15,23,42,.09), 0 2px 8px rgba(15,23,42,.05);
+    --shadow-lg:    0 20px 48px rgba(15,23,42,.11), 0 4px 16px rgba(15,23,42,.06);
+    --radius:       16px;
+    --radius-sm:    10px;
+    --radius-xs:    8px;
+  }
 
-    canvas#sig-canvas {
-      width: 100%; height: 180px; background: var(--card);
-      border: 2px dashed var(--border); border-radius: var(--r);
-      display: block; touch-action: none; cursor: crosshair;
-    }
-    canvas#sig-canvas.has-sig { border-color: var(--primary); border-style: solid; }
-    .sig-actions {
-      display: flex; gap: 8px; margin-top: 8px; margin-bottom: 14px;
-    }
-    .btn {
-      padding: 11px 18px; border-radius: var(--r); font-size: 14px;
-      font-weight: 600; cursor: pointer; border: none; font-family: inherit;
-      transition: opacity .15s;
-    }
-    .btn:active { opacity: .75; }
-    .btn-primary { background: var(--primary); color: #fff; flex: 1; }
-    .btn-primary:hover { background: var(--primary-hover); }
-    .btn-danger  { background: #fee2e2; color: var(--danger); }
-    .btn-success { background: var(--success); color: #fff; flex: 1; }
-    .form-group { margin-bottom: 14px; }
-    .form-group label { display: block; font-size: 12px; font-weight: 600; color: var(--text2); margin-bottom: 6px; }
-    .form-group input {
-      width: 100%; padding: 10px 12px; border: 1px solid var(--border);
-      border-radius: var(--r); font-size: 14px; font-family: inherit;
-      background: var(--soft); color: var(--text);
-      outline: none;
-    }
-    .form-group input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(26,109,201,.15); }
-    .hint { font-size: 11px; color: var(--text3); margin-top: 4px; }
+  html[data-theme="dark"] {
+    --bg:           #0f172a;
+    --surface:      #111827;
+    --surface-soft: #1e293b;
+    --surface-muted:#172033;
+    --primary:      #60a5fa;
+    --primary-hover:#3b82f6;
+    --primary-soft: rgba(96,165,250,.13);
+    --primary-border:rgba(96,165,250,.28);
+    --ink:          #f8fafc;
+    --text:         #e2e8f0;
+    --muted:        #94a3b8;
+    --line:         #1e293b;
+    --line-strong:  #334155;
+    --green:        #4ade80;
+    --green-soft:   rgba(74,222,128,.12);
+    --green-border: rgba(74,222,128,.22);
+    --amber:        #fbbf24;
+    --amber-soft:   rgba(251,191,36,.12);
+    --amber-border: rgba(251,191,36,.22);
+    --red:          #f87171;
+    --red-soft:     rgba(248,113,113,.12);
+    --red-border:   rgba(248,113,113,.22);
+    --gray-soft:    rgba(148,163,184,.1);
+    --shadow-sm:    0 1px 3px rgba(0,0,0,.2);
+    --shadow:       0 8px 24px rgba(0,0,0,.28);
+    --shadow-lg:    0 20px 48px rgba(0,0,0,.38);
+  }
 
-    .success-icon { font-size: 48px; text-align: center; margin-bottom: 12px; }
-    .success-title { font-size: 18px; font-weight: 700; text-align: center; margin-bottom: 8px; }
-    .success-sub { font-size: 13px; color: var(--text2); text-align: center; line-height: 1.6; }
+  body {
+    min-height: 100vh;
+    background: var(--bg);
+    color: var(--text);
+    font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+    padding: 20px 16px 40px;
+    font-size: 14px;
+    line-height: 1.5;
+    transition: var(--theme-transition);
+  }
 
-    footer { text-align: center; font-size: 11px; color: var(--text3); margin-top: 24px; padding-bottom: 16px; }
-    .topbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 20px; }
-    .theme-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 38px; padding: 0 12px; border-radius: var(--r); border: 1px solid var(--border); background: var(--card); color: var(--text); font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
-    svg { width: 18px; height: 18px; stroke-width: 2.2; }
-  </style>
+  .page { width: min(100%, 900px); margin: 0 auto; }
+
+  /* ── Topbar ── */
+  .topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 20px;
+  }
+  .brand { display: flex; align-items: center; gap: 11px; min-width: 0; }
+  .brand-mark {
+    width: 40px; height: 40px;
+    border-radius: 11px;
+    display: grid; place-items: center;
+    color: var(--primary);
+    background: var(--primary-soft);
+    border: 1px solid var(--primary-border);
+    flex-shrink: 0;
+  }
+  .brand-mark svg { width: 20px; height: 20px; stroke-width: 2; }
+  .brand-name {
+    font-size: 15px; font-weight: 800; color: var(--ink); line-height: 1.2;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .brand-sub { font-size: 11px; color: var(--muted); margin-top: 1px; }
+
+  /* Ajuste no botão de tema para usar CSS na troca de ícones */
+  .theme-btn {
+    min-height: 36px; padding: 0 12px;
+    border: 1px solid var(--line); border-radius: var(--radius-xs);
+    background: var(--surface); color: var(--text);
+    cursor: pointer; display: inline-flex; align-items: center; gap: 7px;
+    font: inherit; font-size: 12px; font-weight: 700;
+    box-shadow: var(--shadow-sm); white-space: nowrap;
+    transition: var(--theme-transition);
+  }
+  .theme-btn:hover { border-color: var(--line-strong); background: var(--surface-soft); }
+  .theme-btn svg { width: 15px; height: 15px; stroke-width: 2.2; flex-shrink: 0; }
+
+  html[data-theme="light"] .icon-sun { display: none; }
+  html[data-theme="dark"] .icon-moon { display: none; }
+
+  /* ── Main card ── */
+  .asset-card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-lg);
+    overflow: hidden;
+    border-top: 3px solid var(--primary);
+    transition: var(--theme-transition);
+  }
+
+  /* ── Card header ── */
+  .card-head {
+    display: grid;
+    grid-template-columns: minmax(0,1fr) auto;
+    gap: 20px;
+    padding: 24px 24px 20px;
+    border-bottom: 1px solid var(--line);
+    background: linear-gradient(135deg, var(--surface) 55%, var(--primary-soft) 100%);
+    transition: background 0.3s ease;
+  }
+  .asset-identity { display: flex; align-items: flex-start; gap: 18px; min-width: 0; }
+
+  .device-frame {
+    width: 80px; height: 80px; border-radius: 18px;
+    display: grid; place-items: center;
+    color: var(--primary);
+    background: var(--surface);
+    border: 1.5px solid var(--primary-border);
+    box-shadow: 0 0 0 4px var(--primary-soft), var(--shadow-sm);
+    flex-shrink: 0;
+  }
+  .device-frame svg { width: 40px; height: 40px; stroke-width: 1.7; }
+
+  .asset-meta { min-width: 0; }
+  .kicker {
+    display: inline-flex; align-items: center; gap: 5px;
+    color: var(--primary); font-size: 10px; font-weight: 800;
+    letter-spacing: .1em; text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+  .kicker svg { width: 11px; height: 11px; stroke-width: 2.5; }
+  h1 {
+    color: var(--ink); font-size: clamp(20px, 3.5vw, 30px);
+    font-weight: 800; line-height: 1.1; letter-spacing: -.02em;
+    overflow-wrap: anywhere; margin-bottom: 10px;
+  }
+  .meta-row { display: flex; flex-wrap: wrap; gap: 6px; }
+  .meta-chip {
+    display: inline-flex; align-items: center; gap: 5px;
+    min-height: 26px; padding: 0 9px;
+    border: 1px solid var(--line); border-radius: 999px;
+    background: var(--surface); color: var(--text);
+    font-size: 11px; font-weight: 700;
+    transition: var(--theme-transition);
+  }
+  .meta-chip svg { width: 13px; height: 13px; stroke-width: 2.2; color: var(--muted); }
+  .meta-chip code {
+    color: var(--ink);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 11px;
+  }
+
+  /* ── Head side ── */
+  .head-side {
+    display: flex; flex-direction: column;
+    align-items: flex-end; gap: 14px; flex-shrink: 0;
+  }
+  .status-badge {
+    display: inline-flex; align-items: center; gap: 7px;
+    min-height: 32px; padding: 0 12px;
+    border-radius: 999px; border: 1px solid transparent;
+    font-size: 12px; font-weight: 800; white-space: nowrap;
+  }
+  .status-dot {
+    width: 7px; height: 7px; border-radius: 999px;
+    background: currentColor; flex-shrink: 0;
+  }
+  .status-dot.pulse { animation: pulse 2s infinite; }
+  @keyframes pulse {
+    0%,100% { box-shadow: 0 0 0 0 currentColor; opacity: 1; }
+    50%      { box-shadow: 0 0 0 4px currentColor; opacity: .4; }
+  }
+  .status-green { background: var(--green-soft); color: var(--green); border-color: var(--green-border); }
+  .status-blue  { background: var(--primary-soft); color: var(--primary); border-color: var(--primary-border); }
+  .status-amber { background: var(--amber-soft); color: var(--amber); border-color: var(--amber-border); }
+  .status-red   { background: var(--red-soft); color: var(--red); border-color: var(--red-border); }
+  .status-gray  { background: var(--gray-soft); color: var(--muted); border-color: var(--line); }
+
+  .actions { display: flex; gap: 7px; }
+  .action-btn {
+    width: 36px; height: 36px; border-radius: var(--radius-xs);
+    border: 1px solid var(--line); background: var(--surface);
+    color: var(--muted); display: inline-grid; place-items: center;
+    cursor: pointer; transition: all .15s ease;
+    box-shadow: var(--shadow-sm);
+  }
+  .action-btn svg { width: 15px; height: 15px; stroke-width: 2.2; }
+  .action-btn:hover:not(:disabled) {
+    border-color: var(--primary); color: var(--primary);
+    background: var(--primary-soft); transform: translateY(-1px);
+    box-shadow: var(--shadow);
+  }
+  .action-btn:disabled { opacity: .45; cursor: not-allowed; }
+
+  /* ── Content ── */
+  .content { padding: 20px 24px 24px; }
+
+  .section-label {
+    font-size: 10px; font-weight: 800; color: var(--muted);
+    letter-spacing: .1em; text-transform: uppercase;
+    margin-bottom: 12px; display: flex; align-items: center; gap: 6px;
+  }
+  .section-label::after {
+    content: ''; flex: 1; height: 1px; background: var(--line);
+  }
+
+  .info-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0,1fr));
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+  .info-item {
+    display: flex; gap: 11px;
+    padding: 14px;
+    border: 1px solid var(--line); border-radius: var(--radius-sm);
+    background: var(--surface-soft);
+    transition: var(--theme-transition), box-shadow 0.15s ease;
+  }
+  .info-item:hover { border-color: var(--primary-border); box-shadow: 0 0 0 3px var(--primary-soft); }
+  .info-icon {
+    width: 32px; height: 32px; border-radius: var(--radius-xs);
+    display: grid; place-items: center;
+    color: var(--primary); background: var(--surface);
+    border: 1px solid var(--line); flex-shrink: 0;
+  }
+  .info-icon svg { width: 15px; height: 15px; stroke-width: 2.2; }
+  .info-label {
+    display: block; color: var(--muted); font-size: 10px; font-weight: 700;
+    letter-spacing: .07em; text-transform: uppercase; margin-bottom: 4px;
+  }
+  .info-value {
+    color: var(--ink); font-size: 13px; font-weight: 700;
+    line-height: 1.3; overflow-wrap: anywhere;
+  }
+  .mono {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 12px; font-weight: 600;
+  }
+
+  /* ── Activity band ── */
+  .activity-band {
+    display: flex; gap: 13px; align-items: flex-start;
+    padding: 14px 16px;
+    border: 1px solid var(--amber-border); border-radius: var(--radius-sm);
+    background: var(--amber-soft);
+  }
+  .activity-band .info-icon { color: var(--amber); background: var(--surface); border-color: var(--amber-border); }
+  .activity-title { font-size: 13px; font-weight: 800; color: var(--ink); }
+  .activity-detail { margin-top: 3px; font-size: 12px; color: var(--muted); line-height: 1.4; }
+
+  /* ── Footer ── */
+  .card-footer {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    padding: 14px 24px; border-top: 1px solid var(--line);
+    background: var(--surface-soft);
+    transition: var(--theme-transition);
+  }
+  .footer-brand {
+    display: inline-flex; align-items: center; gap: 7px;
+    color: var(--ink); font-size: 12px; font-weight: 800;
+  }
+  .footer-brand svg { width: 16px; height: 16px; stroke-width: 2; color: var(--primary); }
+  .footer-right { font-size: 11px; color: var(--muted); text-align: right; }
+
+  /* ── Toast ── */
+  .toast {
+    position: fixed; left: 50%; bottom: 22px;
+    transform: translateX(-50%) translateY(10px);
+    min-width: min(340px, calc(100vw - 32px)); padding: 11px 16px;
+    border-radius: 12px; border: 1px solid var(--line);
+    background: var(--ink); color: var(--surface);
+    box-shadow: var(--shadow-lg); font-size: 13px; font-weight: 700;
+    opacity: 0; pointer-events: none; z-index: 30;
+    transition: opacity .2s ease, transform .2s ease; text-align: center;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* ── Native Dialog (Modal) ── */
+  .qr-dialog {
+    border: none;
+    background: transparent;
+    margin: auto;
+    padding: 18px;
+    outline: none;
+    max-width: 100vw;
+  }
+  .qr-dialog::backdrop {
+    background: rgba(15,23,42,.55);
+    backdrop-filter: blur(3px);
+  }
+  .qr-panel {
+    width: min(100vw - 36px, 340px); border: 1px solid var(--line);
+    border-radius: 16px; border-top: 3px solid var(--primary);
+    background: var(--surface); box-shadow: var(--shadow-lg); overflow: hidden;
+  }
+  .qr-panel-head {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    padding: 16px 18px 14px;
+    background: linear-gradient(135deg, var(--surface) 50%, var(--primary-soft));
+    border-bottom: 1px solid var(--line);
+  }
+  .qr-asset-id { font-size: 10px; font-weight: 800; color: var(--primary); letter-spacing: .08em; text-transform: uppercase; margin-bottom: 3px; }
+  .qr-panel-title { font-size: 15px; font-weight: 800; color: var(--ink); }
+  .qr-code-box {
+    display: grid; place-items: center; padding: 20px;
+    background: #ffffff; /* Fundo branco fixo para leitura eficiente do QR Code */
+  }
+  .qr-code-box img { width: 200px; height: 200px; object-fit: contain; display: block; }
+  .qr-meta {
+    padding: 10px 18px 14px;
+    background: var(--surface-soft);
+    border-top: 1px solid var(--line);
+    display: grid; grid-template-columns: 1fr 1fr; gap: 6px;
+  }
+  .qr-meta-item { font-size: 11px; color: var(--muted); }
+  .qr-meta-item strong { display: block; font-size: 12px; color: var(--ink); font-weight: 700; }
+  .qr-panel-actions {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 0 18px 18px; background: var(--surface-soft);
+  }
+  .qr-panel-actions a,
+  .qr-panel-actions button {
+    min-height: 36px; border-radius: var(--radius-xs);
+    border: 1px solid var(--line); background: var(--surface); color: var(--text);
+    cursor: pointer; display: inline-flex; align-items: center; justify-content: center;
+    gap: 6px; font: inherit; font-size: 12px; font-weight: 700; text-decoration: none;
+    transition: all .15s;
+  }
+  .qr-panel-actions a:hover, .qr-panel-actions button:hover {
+    border-color: var(--primary); color: var(--primary); background: var(--primary-soft);
+  }
+  .qr-panel-actions svg { width: 14px; height: 14px; stroke-width: 2.2; }
+
+  /* ── Responsive ── */
+  @media (max-width: 760px) {
+    .card-head { grid-template-columns: 1fr; gap: 16px; }
+    .head-side { align-items: flex-start; flex-direction: row; justify-content: space-between; flex-wrap: wrap; }
+    .info-grid { grid-template-columns: repeat(2, minmax(0,1fr)); }
+  }
+  @media (max-width: 520px) {
+    body { padding: 12px 12px 32px; }
+    .topbar { flex-direction: column; align-items: flex-start; }
+    .theme-btn { width: 100%; justify-content: center; }
+    .card-head, .content, .card-footer { padding: 16px; }
+    .asset-identity { flex-direction: column; }
+    .device-frame { width: 68px; height: 68px; border-radius: 14px; }
+    .device-frame svg { width: 34px; height: 34px; }
+    .head-side, .actions { width: 100%; }
+    .actions { justify-content: flex-start; }
+    .info-grid { grid-template-columns: 1fr; }
+    .card-footer { flex-direction: column; align-items: flex-start; gap: 6px; }
+  }
+</style>
 </head>
 <body>
-<div class="container">
-
-  <div class="topbar">
-    <div class="logo" style="margin-bottom:0">
-      <div class="logo-icon" aria-hidden="true">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M20 13c0 5-3.5 7.5-8 9-4.5-1.5-8-4-8-9V5l8-3 8 3v8Z"/><path d="M9 12l2 2 4-4"/></svg>
-      </div>
+<div class="page">
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-mark" aria-hidden="true">{{ ui_icon('rack') }}</div>
       <div>
-        <div class="logo-name">TI Control</div>
-        <div class="logo-sub">Assinatura de Termo</div>
+        <div class="brand-name">TI Control</div>
+        <div class="brand-sub">Consulta pública · Ativo de TI</div>
       </div>
     </div>
     <button class="theme-btn" type="button" onclick="toggleTheme()" aria-label="Alternar tema">
-      <svg id="theme-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"></svg>
-      <span id="theme-label">Tema</span>
+      {{ ui_icon('sun') }}
+      {{ ui_icon('moon') }}
+      <span id="theme-label">Escuro</span>
     </button>
-  </div>
+  </header>
 
-  {% if erro %}
-    <div class="alert alert-err">
-      <span>Atenção</span>
-      <div>{{ erro }}</div>
-    </div>
-    <footer>TI Control — Gestão de Ativos de TI</footer>
-  {% elif sucesso %}
-    <div class="card" style="text-align:center;padding:36px 22px">
-      <div class="success-title">Termo assinado com sucesso!</div>
-      <div class="success-sub">
-        Obrigado, <strong>{{ al.colaborador }}</strong>.<br>
-        Seu termo <strong>{{ al.termo }}</strong> foi assinado e registrado em
-        <strong>{{ al.data_assinatura.strftime('%d/%m/%Y às %H:%M') }}</strong>.<br><br>
-        Você pode fechar esta página.
-      </div>
-    </div>
-    <footer>TI Control — Gestão de Ativos de TI</footer>
-  {% else %}
-    {# ─── Exibição do termo ─── #}
-    <div class="card">
-      <h2>Termo de Responsabilidade</h2>
-      <div style="font-size:12px;color:var(--text3);margin-bottom:14px">Nº {{ al.termo }} — {{ al.data_aloc }}</div>
-
-      <div class="row">
-        <div class="label">Colaborador</div>
-        <div class="value">{{ al.colaborador }}</div>
-      </div>
-      <div class="row">
-        <div class="label">Setor / Unidade</div>
-        <div class="value">{{ al.setor }} — {{ al.unidade }}</div>
+  <main class="asset-card" aria-labelledby="asset-title">
+    <section class="card-head">
+      <div class="asset-identity">
+        <div class="device-frame" aria-hidden="true">{{ device_icon(public_card.icon) }}</div>
+        <div class="asset-meta">
+          <div class="kicker">
+            {{ ui_icon('rack') }}
+            Ativo Corporativo · Inventário TI
+          </div>
+          <h1 id="asset-title">{{ public_card.title }}</h1>
+          <div class="meta-row" aria-label="Identificação do ativo">
+            <span class="meta-chip">{{ ui_icon('barcode') }} <code>{{ public_card.code }}</code></span>
+            <span class="meta-chip">{{ ui_icon('tag') }} {{ public_card.type }}</span>
+          </div>
+        </div>
       </div>
 
-      <div style="font-size:12px;font-weight:600;color:var(--text2);margin-top:8px;margin-bottom:4px">EQUIPAMENTO</div>
-      <div class="asset-box">[ATIVO] {{ al.ativo_nome }}</div>
-
-      {% if perifericos %}
-      <div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:6px">PERIFÉRICOS</div>
-      <div class="periferico-list">
-        {% for p in perifericos %}
-        <div class="periferico-item">
-          <span>{{ p.supply_nome }}</span>
-          <span class="badge">{{ p.quantidade }}x</span>
+      <aside class="head-side" aria-label="Status e ações">
+        <span class="status-badge status-{{ public_card.status_class }}" role="status">
+          <span class="status-dot{% if public_card.status_class == 'green' %} pulse{% endif %}"></span>
+          {{ public_card.status_label }}
+        </span>
+        <div class="actions" role="toolbar" aria-label="Ações">
+          <button class="action-btn" type="button" onclick="scrollToAsset()" title="Visualizar detalhes" aria-label="Visualizar">{{ ui_icon('eye') }}</button>
+          <button class="action-btn" type="button" onclick="showProtectedNotice('Edição disponível no painel autenticado.')" title="Editar" aria-label="Editar" disabled>{{ ui_icon('edit') }}</button>
+          <button class="action-btn" type="button" onclick="openQrDialog()" title="QR Code" aria-label="Ver QR Code">{{ ui_icon('qr') }}</button>
+          <button class="action-btn" type="button" onclick="showProtectedNotice('Histórico disponível no painel autenticado.')" title="Histórico" aria-label="Histórico" disabled>{{ ui_icon('history') }}</button>
+          <button class="action-btn" type="button" onclick="showProtectedNotice('Termo disponível no painel autenticado.')" title="Termo" aria-label="Gerar termo" disabled>{{ ui_icon('file') }}</button>
         </div>
-        {% endfor %}
+      </aside>
+    </section>
+
+    <section class="content">
+      <div class="section-label">Dados do equipamento</div>
+      <div class="info-grid">
+        <article class="info-item">
+          <span class="info-icon" aria-hidden="true">{{ ui_icon('barcode') }}</span>
+          <div>
+            <span class="info-label">Patrimônio</span>
+            <div class="info-value mono">{{ public_card.code }}</div>
+          </div>
+        </article>
+        <article class="info-item">
+          <span class="info-icon" aria-hidden="true">{{ ui_icon('tag') }}</span>
+          <div>
+            <span class="info-label">Categoria</span>
+            <div class="info-value">{{ public_card.type }}</div>
+          </div>
+        </article>
+        <article class="info-item">
+          <span class="info-icon" aria-hidden="true">{{ ui_icon('factory') }}</span>
+          <div>
+            <span class="info-label">Marca / Modelo</span>
+            <div class="info-value">{{ public_card.brand_model }}</div>
+          </div>
+        </article>
+        <article class="info-item">
+          <span class="info-icon" aria-hidden="true">{{ ui_icon('serial') }}</span>
+          <div>
+            <span class="info-label">Nº de série / S/Tag</span>
+            <div class="info-value mono">{{ public_card.serial }}</div>
+          </div>
+        </article>
+        <article class="info-item">
+          <span class="info-icon" aria-hidden="true">{{ ui_icon('map') }}</span>
+          <div>
+            <span class="info-label">Localização</span>
+            <div class="info-value">{{ public_card.location }}</div>
+          </div>
+        </article>
+        <article class="info-item">
+          <span class="info-icon" aria-hidden="true">{{ ui_icon('user') }}</span>
+          <div>
+            <span class="info-label">Responsável</span>
+            <div class="info-value">{{ public_card.owner }}</div>
+          </div>
+        </article>
       </div>
-      {% endif %}
 
-      <div class="clausulas">
-        Ao assinar este documento declaro ter recebido os itens acima e comprometo-me a:<br>
-        1. Utilizar exclusivamente para fins profissionais;<br>
-        2. Zelar pela conservação e comunicar ao TI qualquer dano, perda ou furto;<br>
-        3. Devolver os equipamentos ao encerramento do vínculo.
-      </div>
-    </div>
-
-    {# ─── Formulário de assinatura ─── #}
-    <div class="card">
-      <h2>Sua Assinatura</h2>
-
-      {% if erro %}
-      <div class="alert alert-err"><span>Atenção</span><div>{{ erro }}</div></div>
-      {% endif %}
-
-      <form method="POST" action="/assinar/{{ token }}" id="form-assinar">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <input type="hidden" name="assinatura" id="sig-data">
-
-        <div class="form-group">
-          <label>Confirme seu nome para assinar</label>
-          <input type="text" name="nome_confirm" id="nome-confirm"
-                 placeholder="Digite seu primeiro nome ou nome completo"
-                 autocomplete="name" required>
-          <div class="hint">Ex: {{ al.colaborador.split()[0] }}</div>
+      <section class="activity-band" aria-label="Última movimentação">
+        <span class="info-icon" aria-hidden="true">{{ ui_icon('activity') }}</span>
+        <div>
+          <span class="info-label">Última manutenção / movimentação</span>
+          <div class="activity-title">{{ public_card.last_event }}</div>
+          <p class="activity-detail">{{ public_card.last_event_detail }}</p>
         </div>
+      </section>
+    </section>
 
-        <div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:8px">
-          Desenhe sua assinatura abaixo
-        </div>
-        <canvas id="sig-canvas"></canvas>
-        <div class="sig-actions">
-          <button type="button" class="btn btn-danger" onclick="clearSig()">Limpar</button>
-          <button type="submit" class="btn btn-success" id="btn-assinar">Confirmar e Assinar</button>
-        </div>
-
-        <div class="hint" style="text-align:center">
-          Ao confirmar você declara ter lido e aceito os termos acima.<br>
-          IP registrado: visível pelo TI.
-        </div>
-      </form>
-    </div>
-  {% endif %}
-
-  <footer>TI Control — Gestão de Ativos de TI</footer>
+    <footer class="card-footer">
+      <span class="footer-brand">{{ ui_icon('rack') }} TI Control</span>
+      <span class="footer-right">Rastreabilidade operacional · dados críticos protegidos</span>
+    </footer>
+  </main>
 </div>
 
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<dialog id="qrDialog" class="qr-dialog" aria-labelledby="qrDialogTitle">
+  <div class="qr-panel">
+    <div class="qr-panel-head">
+      <div>
+        <div class="qr-asset-id">{{ public_card.code }}</div>
+        <div id="qrDialogTitle" class="qr-panel-title">{{ public_card.title }}</div>
+      </div>
+      <button class="action-btn" type="button" onclick="closeQrDialog()" title="Fechar" aria-label="Fechar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" style="width:15px;height:15px" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="qr-code-box">
+      {% if public_card.qr_data_uri %}
+        <img src="{{ public_card.qr_data_uri }}" alt="QR Code · {{ public_card.code }}">
+      {% else %}
+        <div class="activity-detail" style="padding:20px;text-align:center">Gerador de QR Code indisponível.</div>
+      {% endif %}
+    </div>
+    <div class="qr-meta">
+      <div class="qr-meta-item">Tipo <strong>{{ public_card.type }}</strong></div>
+      <div class="qr-meta-item">Status <strong>{{ public_card.status_label }}</strong></div>
+      <div class="qr-meta-item">Marca/Modelo <strong>{{ public_card.brand_model }}</strong></div>
+      <div class="qr-meta-item">Localização <strong>{{ public_card.location }}</strong></div>
+    </div>
+    <div class="qr-panel-actions">
+      {% if public_card.qr_data_uri %}
+        <a href="{{ public_card.qr_data_uri }}" download="qrcode-{{ public_card.code }}.png">{{ ui_icon('qr') }} Baixar</a>
+      {% else %}
+        <button type="button" onclick="showProtectedNotice('QR Code indisponível.')">{{ ui_icon('qr') }} Baixar</button>
+      {% endif %}
+      <button type="button" onclick="copyPublicLink()">{{ ui_icon('barcode') }} Copiar link</button>
+    </div>
+  </div>
+</dialog>
+
 <script>
-const themeIcons = {
-  sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>',
-  moon: '<path d="M12 3a6 6 0 0 0 9 7.5A9 9 0 1 1 12 3Z"/>'
-};
-function applyTheme(theme) {
-  document.documentElement.dataset.theme = theme;
-  localStorage.setItem('ticontrol-theme', theme);
-  const icon = document.getElementById('theme-icon');
-  const label = document.getElementById('theme-label');
-  if (icon) icon.innerHTML = theme === 'dark' ? themeIcons.sun : themeIcons.moon;
-  if (label) label.textContent = theme === 'dark' ? 'Claro' : 'Escuro';
+// --- Controle de Tema ---
+function setTheme(t) {
+  document.documentElement.dataset.theme = t;
+  localStorage.setItem('ticontrol-theme', t);
+  document.getElementById('theme-label').textContent = t === 'dark' ? 'Claro' : 'Escuro';
 }
+
 function toggleTheme() {
-  applyTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark');
+  setTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark');
 }
-applyTheme(localStorage.getItem('ticontrol-theme') || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'));
 
-// ── Canvas de assinatura ─────────────────────────────────────────────────
-const canvas = document.getElementById('sig-canvas');
-if (canvas) {
-  const ctx = canvas.getContext('2d');
-  let drawing = false;
-  let hasSig  = false;
+// Inicialização de tema respeitando preferência do sistema
+setTheme(localStorage.getItem('ticontrol-theme') || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'));
 
-  function resize() {
-    const rect = canvas.getBoundingClientRect();
-    // Salva o conteúdo atual antes de redimensionar
-    const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    canvas.width  = rect.width  * window.devicePixelRatio;
-    canvas.height = rect.height * window.devicePixelRatio;
-    ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
-    ctx.lineWidth   = 2.5;
-    ctx.lineCap     = 'round';
-    ctx.lineJoin    = 'round';
-    ctx.strokeStyle = '#111827';
-  }
-  resize();
-  window.addEventListener('resize', resize);
 
-  function getPos(e) {
-    const rect = canvas.getBoundingClientRect();
-    const src  = e.touches ? e.touches[0] : e;
-    return { x: src.clientX - rect.left, y: src.clientY - rect.top };
-  }
+// --- Sistema de Toast isolado ---
+const ToastSystem = (() => {
+  let timer;
+  const el = document.getElementById('toast');
 
-  function startDraw(e) {
-    e.preventDefault();
-    drawing = true;
-    const p = getPos(e);
-    ctx.beginPath();
-    ctx.moveTo(p.x, p.y);
-  }
-  function draw(e) {
-    if (!drawing) return;
-    e.preventDefault();
-    const p = getPos(e);
-    ctx.lineTo(p.x, p.y);
-    ctx.stroke();
-    if (!hasSig) { hasSig = true; canvas.classList.add('has-sig'); }
-  }
-  function endDraw(e) { drawing = false; }
-
-  canvas.addEventListener('mousedown',  startDraw);
-  canvas.addEventListener('mousemove',  draw);
-  canvas.addEventListener('mouseup',    endDraw);
-  canvas.addEventListener('mouseleave', endDraw);
-  canvas.addEventListener('touchstart', startDraw, { passive: false });
-  canvas.addEventListener('touchmove',  draw,      { passive: false });
-  canvas.addEventListener('touchend',   endDraw);
-
-  window.clearSig = function() {
-    ctx.clearRect(0, 0, canvas.width / window.devicePixelRatio,
-                        canvas.height / window.devicePixelRatio);
-    hasSig = false;
-    canvas.classList.remove('has-sig');
-    document.getElementById('sig-data').value = '';
-  };
-
-  function exportSignaturePng() {
-    const out = document.createElement('canvas');
-    out.width = canvas.width;
-    out.height = canvas.height;
-    const outCtx = out.getContext('2d');
-    outCtx.fillStyle = '#ffffff';
-    outCtx.fillRect(0, 0, out.width, out.height);
-    outCtx.drawImage(canvas, 0, 0);
-    return out.toDataURL('image/png');
-  }
-
-  document.getElementById('form-assinar')?.addEventListener('submit', function(e) {
-    if (!hasSig) {
-      e.preventDefault();
-      alert('Desenhe sua assinatura antes de confirmar.');
-      return;
+  return {
+    show: (msg) => {
+      el.textContent = msg;
+      el.classList.add('show');
+      clearTimeout(timer);
+      timer = setTimeout(() => el.classList.remove('show'), 2800);
     }
-    // Exporta canvas como PNG base64
-    document.getElementById('sig-data').value = exportSignaturePng();
-  });
+  };
+})();
+
+function showToast(msg) { ToastSystem.show(msg); }
+function showProtectedNotice(msg) { ToastSystem.show(msg); }
+
+
+// --- Interatividade ---
+const qrDialog = document.getElementById('qrDialog');
+
+// Utilizando API nativa do dialog
+function openQrDialog()  { qrDialog.showModal(); }
+function closeQrDialog() { qrDialog.close(); }
+
+// Fechar ao clicar fora do painel nativamente
+qrDialog.addEventListener('click', (e) => {
+  if (e.target === qrDialog) {
+    closeQrDialog();
+  }
+});
+
+function scrollToAsset() {
+  document.getElementById('asset-title').scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+async function copyPublicLink() {
+  try {
+    await navigator.clipboard.writeText(window.location.href);
+    showToast('Link copiado para a área de transferência.');
+  } catch {
+    showToast('Link: ' + window.location.href);
+  }
 }
 </script>
 </body>

@@ -18,7 +18,7 @@
   {% if name == 'eye' %}
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>
   {% elif name == 'edit' %}
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z"/></svg>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 12.5-12.5Z"/></svg>
   {% elif name == 'qr' %}
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM20 14h1M14 20h1M18 20h3v1"/></svg>
   {% elif name == 'history' %}
@@ -41,15 +41,15 @@
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg>
   {% elif name == 'rack' %}
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><rect x="2" y="4" width="20" height="6" rx="2"/><rect x="2" y="14" width="20" height="6" rx="2"/><circle cx="6" cy="7" r="1.5" fill="currentColor" stroke="none"/><circle cx="6" cy="17" r="1.5" fill="currentColor" stroke="none"/><path d="M10 7h5M10 17h5"/></svg>
+  {% elif name == 'moon' %}
+    <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 7.5A9 9 0 1 1 12 3Z"/></svg>
   {% elif name == 'sun' %}
-    <svg id="theme-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
-  {% else %}
-    <svg id="theme-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 7.5A9 9 0 1 1 12 3Z"/></svg>
+    <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
   {% endif %}
 {%- endmacro %}
 
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-BR" data-theme="light">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -57,8 +57,14 @@
 <title>{{ public_card.title }} · TI Control</title>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
   :root {
-    color-scheme: light;
+    color-scheme: light dark;
+    /* Transições suaves adicionadas para troca de tema */
+    --theme-transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+  }
+
+  html[data-theme="light"] {
     --bg:           #f1f5f9;
     --surface:      #ffffff;
     --surface-soft: #f8fafc;
@@ -89,8 +95,8 @@
     --radius-sm:    10px;
     --radius-xs:    8px;
   }
+
   html[data-theme="dark"] {
-    color-scheme: dark;
     --bg:           #0f172a;
     --surface:      #111827;
     --surface-soft: #1e293b;
@@ -127,6 +133,7 @@
     padding: 20px 16px 40px;
     font-size: 14px;
     line-height: 1.5;
+    transition: var(--theme-transition);
   }
 
   .page { width: min(100%, 900px); margin: 0 auto; }
@@ -154,9 +161,9 @@
     font-size: 15px; font-weight: 800; color: var(--ink); line-height: 1.2;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
-  .brand-name span { color: var(--muted); font-weight: 500; }
   .brand-sub { font-size: 11px; color: var(--muted); margin-top: 1px; }
 
+  /* Ajuste no botão de tema para usar CSS na troca de ícones */
   .theme-btn {
     min-height: 36px; padding: 0 12px;
     border: 1px solid var(--line); border-radius: var(--radius-xs);
@@ -164,9 +171,13 @@
     cursor: pointer; display: inline-flex; align-items: center; gap: 7px;
     font: inherit; font-size: 12px; font-weight: 700;
     box-shadow: var(--shadow-sm); white-space: nowrap;
+    transition: var(--theme-transition);
   }
   .theme-btn:hover { border-color: var(--line-strong); background: var(--surface-soft); }
   .theme-btn svg { width: 15px; height: 15px; stroke-width: 2.2; flex-shrink: 0; }
+
+  html[data-theme="light"] .icon-sun { display: none; }
+  html[data-theme="dark"] .icon-moon { display: none; }
 
   /* ── Main card ── */
   .asset-card {
@@ -175,8 +186,8 @@
     border-radius: var(--radius);
     box-shadow: var(--shadow-lg);
     overflow: hidden;
-    /* Accent line brand guide */
     border-top: 3px solid var(--primary);
+    transition: var(--theme-transition);
   }
 
   /* ── Card header ── */
@@ -187,6 +198,7 @@
     padding: 24px 24px 20px;
     border-bottom: 1px solid var(--line);
     background: linear-gradient(135deg, var(--surface) 55%, var(--primary-soft) 100%);
+    transition: background 0.3s ease;
   }
   .asset-identity { display: flex; align-items: flex-start; gap: 18px; min-width: 0; }
 
@@ -221,6 +233,7 @@
     border: 1px solid var(--line); border-radius: 999px;
     background: var(--surface); color: var(--text);
     font-size: 11px; font-weight: 700;
+    transition: var(--theme-transition);
   }
   .meta-chip svg { width: 13px; height: 13px; stroke-width: 2.2; color: var(--muted); }
   .meta-chip code {
@@ -291,10 +304,10 @@
   }
   .info-item {
     display: flex; gap: 11px;
-    padding: 14px 14px 14px 14px;
+    padding: 14px;
     border: 1px solid var(--line); border-radius: var(--radius-sm);
     background: var(--surface-soft);
-    transition: border-color .15s, box-shadow .15s;
+    transition: var(--theme-transition), box-shadow 0.15s ease;
   }
   .info-item:hover { border-color: var(--primary-border); box-shadow: 0 0 0 3px var(--primary-soft); }
   .info-icon {
@@ -333,13 +346,14 @@
     display: flex; align-items: center; justify-content: space-between; gap: 12px;
     padding: 14px 24px; border-top: 1px solid var(--line);
     background: var(--surface-soft);
+    transition: var(--theme-transition);
   }
   .footer-brand {
     display: inline-flex; align-items: center; gap: 7px;
     color: var(--ink); font-size: 12px; font-weight: 800;
   }
   .footer-brand svg { width: 16px; height: 16px; stroke-width: 2; color: var(--primary); }
-  .footer-right { font-size: 11px; color: var(--muted); }
+  .footer-right { font-size: 11px; color: var(--muted); text-align: right; }
 
   /* ── Toast ── */
   .toast {
@@ -354,15 +368,21 @@
   }
   .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
-  /* ── QR Dialog ── */
+  /* ── Native Dialog (Modal) ── */
   .qr-dialog {
-    position: fixed; inset: 0; display: none;
-    align-items: center; justify-content: center; padding: 18px;
-    background: rgba(15,23,42,.55); backdrop-filter: blur(3px); z-index: 20;
+    border: none;
+    background: transparent;
+    margin: auto;
+    padding: 18px;
+    outline: none;
+    max-width: 100vw;
   }
-  .qr-dialog.open { display: flex; }
+  .qr-dialog::backdrop {
+    background: rgba(15,23,42,.55);
+    backdrop-filter: blur(3px);
+  }
   .qr-panel {
-    width: min(100%, 340px); border: 1px solid var(--line);
+    width: min(100vw - 36px, 340px); border: 1px solid var(--line);
     border-radius: 16px; border-top: 3px solid var(--primary);
     background: var(--surface); box-shadow: var(--shadow-lg); overflow: hidden;
   }
@@ -376,7 +396,7 @@
   .qr-panel-title { font-size: 15px; font-weight: 800; color: var(--ink); }
   .qr-code-box {
     display: grid; place-items: center; padding: 20px;
-    background: #ffffff;
+    background: #ffffff; /* Fundo branco fixo para leitura eficiente do QR Code */
   }
   .qr-code-box img { width: 200px; height: 200px; object-fit: contain; display: block; }
   .qr-meta {
@@ -388,12 +408,12 @@
   .qr-meta-item { font-size: 11px; color: var(--muted); }
   .qr-meta-item strong { display: block; font-size: 12px; color: var(--ink); font-weight: 700; }
   .qr-panel-actions {
-    display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 0 18px 18px;
+    display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 0 18px 18px; background: var(--surface-soft);
   }
   .qr-panel-actions a,
   .qr-panel-actions button {
     min-height: 36px; border-radius: var(--radius-xs);
-    border: 1px solid var(--line); background: var(--surface-soft); color: var(--text);
+    border: 1px solid var(--line); background: var(--surface); color: var(--text);
     cursor: pointer; display: inline-flex; align-items: center; justify-content: center;
     gap: 6px; font: inherit; font-size: 12px; font-weight: 700; text-decoration: none;
     transition: all .15s;
@@ -435,7 +455,8 @@
       </div>
     </div>
     <button class="theme-btn" type="button" onclick="toggleTheme()" aria-label="Alternar tema">
-      <span id="theme-icon-wrap">{{ ui_icon('moon') }}</span>
+      {{ ui_icon('sun') }}
+      {{ ui_icon('moon') }}
       <span id="theme-label">Escuro</span>
     </button>
   </header>
@@ -538,7 +559,7 @@
 
 <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
-<div id="qrDialog" class="qr-dialog" role="dialog" aria-modal="true" aria-labelledby="qrDialogTitle">
+<dialog id="qrDialog" class="qr-dialog" aria-labelledby="qrDialogTitle">
   <div class="qr-panel">
     <div class="qr-panel-head">
       <div>
@@ -564,36 +585,67 @@
     </div>
     <div class="qr-panel-actions">
       {% if public_card.qr_data_uri %}
-        <a href="{{ public_card.qr_data_uri }}" download="qrcode-{{ asset.id }}.png">{{ ui_icon('qr') }} Baixar</a>
+        <a href="{{ public_card.qr_data_uri }}" download="qrcode-{{ public_card.code }}.png">{{ ui_icon('qr') }} Baixar</a>
       {% else %}
         <button type="button" onclick="showProtectedNotice('QR Code indisponível.')">{{ ui_icon('qr') }} Baixar</button>
       {% endif %}
       <button type="button" onclick="copyPublicLink()">{{ ui_icon('barcode') }} Copiar link</button>
     </div>
   </div>
-</div>
+</dialog>
 
 <script>
+// --- Controle de Tema ---
 function setTheme(t) {
   document.documentElement.dataset.theme = t;
   localStorage.setItem('ticontrol-theme', t);
-  document.getElementById('theme-icon-wrap').innerHTML = t === 'dark'
-    ? '<svg id="theme-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="width:15px;height:15px" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>'
-    : '<svg id="theme-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="width:15px;height:15px" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 7.5A9 9 0 1 1 12 3Z"/></svg>';
   document.getElementById('theme-label').textContent = t === 'dark' ? 'Claro' : 'Escuro';
 }
-function toggleTheme() { setTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'); }
 
-function showToast(msg) {
-  const el = document.getElementById('toast');
-  el.textContent = msg; el.classList.add('show');
-  clearTimeout(window.__toastTimer);
-  window.__toastTimer = setTimeout(() => el.classList.remove('show'), 2800);
+function toggleTheme() {
+  setTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark');
 }
-function showProtectedNotice(msg) { showToast(msg); }
-function openQrDialog()  { document.getElementById('qrDialog').classList.add('open'); }
-function closeQrDialog() { document.getElementById('qrDialog').classList.remove('open'); }
-function scrollToAsset() { document.getElementById('asset-title').scrollIntoView({ behavior: 'smooth', block: 'center' }); }
+
+// Inicialização de tema respeitando preferência do sistema
+setTheme(localStorage.getItem('ticontrol-theme') || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'));
+
+
+// --- Sistema de Toast isolado ---
+const ToastSystem = (() => {
+  let timer;
+  const el = document.getElementById('toast');
+
+  return {
+    show: (msg) => {
+      el.textContent = msg;
+      el.classList.add('show');
+      clearTimeout(timer);
+      timer = setTimeout(() => el.classList.remove('show'), 2800);
+    }
+  };
+})();
+
+function showToast(msg) { ToastSystem.show(msg); }
+function showProtectedNotice(msg) { ToastSystem.show(msg); }
+
+
+// --- Interatividade ---
+const qrDialog = document.getElementById('qrDialog');
+
+// Utilizando API nativa do dialog
+function openQrDialog()  { qrDialog.showModal(); }
+function closeQrDialog() { qrDialog.close(); }
+
+// Fechar ao clicar fora do painel nativamente
+qrDialog.addEventListener('click', (e) => {
+  if (e.target === qrDialog) {
+    closeQrDialog();
+  }
+});
+
+function scrollToAsset() {
+  document.getElementById('asset-title').scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
 
 async function copyPublicLink() {
   try {
@@ -603,9 +655,6 @@ async function copyPublicLink() {
     showToast('Link: ' + window.location.href);
   }
 }
-
-document.getElementById('qrDialog').addEventListener('click', e => { if (e.target.id === 'qrDialog') closeQrDialog(); });
-setTheme(localStorage.getItem('ticontrol-theme') || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'));
 </script>
 </body>
 </html>

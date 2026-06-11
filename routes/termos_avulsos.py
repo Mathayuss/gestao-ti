@@ -1,4 +1,4 @@
-"""Rotas para Termos Avulsos — VPN, BYOD, Confidencialidade etc."""
+"""Rotas para termos personalizados, mantendo nomes legados para compatibilidade."""
 import base64
 from datetime import timedelta
 from app import _export_route_globals
@@ -89,10 +89,11 @@ def _send_termo_avulso_pdf(t, empresa, logo_b64, titulo, preambulo, clausulas, r
 
     doc.build(story, onFirstPage=footer, onLaterPages=footer)
     buf.seek(0)
-    nome_pdf = f"termo_avulso_{safe_filename(t.tipo)}_{safe_filename(t.colaborador)}.pdf"
+    nome_pdf = f"termo_{safe_filename(t.tipo)}_{safe_filename(t.colaborador)}.pdf"
     return send_file(buf, mimetype="application/pdf", as_attachment=True, download_name=nome_pdf)
 
 
+@app.route("/api/termos", methods=["GET"])
 @app.route("/api/termos-avulsos", methods=["GET"])
 @api_auth
 def list_termos_avulsos():
@@ -109,6 +110,7 @@ def list_termos_avulsos():
     return jsonify([t.to_dict() for t in db.session.execute(stmt).scalars().all()])
 
 
+@app.route("/api/termos", methods=["POST"])
 @app.route("/api/termos-avulsos", methods=["POST"])
 @requires("Administrador", "Técnico TI")
 def create_termo_avulso():
@@ -158,6 +160,7 @@ def create_termo_avulso():
         raise
 
 
+@app.route("/api/termos/<tid>", methods=["GET"])
 @app.route("/api/termos-avulsos/<tid>", methods=["GET"])
 @api_auth
 def get_termo_avulso(tid):
@@ -165,6 +168,7 @@ def get_termo_avulso(tid):
     return jsonify(t.to_dict())
 
 
+@app.route("/api/termos/<tid>", methods=["PUT"])
 @app.route("/api/termos-avulsos/<tid>", methods=["PUT"])
 @requires("Administrador", "Técnico TI")
 def update_termo_avulso(tid):
@@ -192,6 +196,7 @@ def update_termo_avulso(tid):
     return jsonify(t.to_dict())
 
 
+@app.route("/api/termos/<tid>", methods=["DELETE"])
 @app.route("/api/termos-avulsos/<tid>", methods=["DELETE"])
 @requires("Administrador")
 def delete_termo_avulso(tid):
@@ -203,6 +208,7 @@ def delete_termo_avulso(tid):
     return jsonify({"ok": True})
 
 
+@app.route("/api/termos/<tid>/sign-link", methods=["POST"])
 @app.route("/api/termos-avulsos/<tid>/sign-link", methods=["POST"])
 @requires("Administrador", "Técnico TI")
 def gerar_link_termo_avulso(tid):
@@ -215,7 +221,7 @@ def gerar_link_termo_avulso(tid):
     audit("GERAR_LINK_TERMO_AVULSO", "alocacoes", tid,
           f"Link de assinatura gerado para {t.colaborador}")
     db.session.commit()
-    url = f"{get_app_base_url()}/assinar-avulso/{token}"
+    url = f"{get_app_base_url()}/assinar-termo/{token}"
     email_enviado = False
     if t.email:
         empresa = _get_setting("empresa", {})
@@ -232,6 +238,7 @@ def gerar_link_termo_avulso(tid):
                     "emailEnviado": email_enviado})
 
 
+@app.route("/api/termos/<tid>/termo.pdf")
 @app.route("/api/termos-avulsos/<tid>/termo.pdf")
 @api_auth
 def gerar_termo_avulso_pdf(tid):
@@ -242,9 +249,7 @@ def gerar_termo_avulso_pdf(tid):
     empresa  = _get_setting("empresa", {}) or {}
     logo_b64 = empresa.get("logo_base64", "") if isinstance(empresa, dict) else ""
 
-    # Seleciona template conforme tipo
-    tpl_key = "termo_vpn" if t.tipo == "VPN" else "termo_vpn"
-    tr_cfg  = _get_setting(tpl_key, {}) or {}
+    tr_cfg = _get_termo_avulso_modelo(t.tipo)
 
     ctx = {
         "colaborador": t.colaborador, "setor": t.setor, "unidade": t.unidade,
@@ -265,7 +270,7 @@ def gerar_termo_avulso_pdf(tid):
     try:
         return _send_termo_avulso_pdf(t, empresa, logo_b64, titulo, preambulo, clausulas, rodape_txt, ctx, detalhes_dict)
     except Exception:
-        app.logger.exception("Falha no layout novo do termo avulso; usando gerador legado.")
+        app.logger.exception("Falha no layout novo do termo; usando gerador legado.")
 
     try:
         buf = io.BytesIO()
@@ -349,7 +354,7 @@ def gerar_termo_avulso_pdf(tid):
 
         c.save()
         buf.seek(0)
-        nome_pdf = f"termo_avulso_{safe_filename(t.tipo)}_{safe_filename(t.colaborador)}.pdf"
+        nome_pdf = f"termo_{safe_filename(t.tipo)}_{safe_filename(t.colaborador)}.pdf"
         return send_file(buf, mimetype="application/pdf", as_attachment=True, download_name=nome_pdf)
     except Exception as exc:
         return jsonify({"error": f"Erro ao gerar PDF: {exc.__class__.__name__} — {exc}"}), 500
@@ -357,6 +362,29 @@ def gerar_termo_avulso_pdf(tid):
 
 # ── Página pública de assinatura ──────────────────────────────────────────────
 
+def _termo_avulso_assinatura_modelo(t):
+    if not t:
+        return {}
+    empresa = _get_setting("empresa", {}) or {}
+    cfg = _get_termo_avulso_modelo(t.tipo)
+    ctx = {
+        "colaborador": t.colaborador,
+        "setor": t.setor,
+        "unidade": t.unidade,
+        "empresa": empresa.get("nome", "") if isinstance(empresa, dict) else "",
+        "tipo": t.tipo,
+        "validade": t.validade or "—",
+        "data": t.created_at.strftime("%Y-%m-%d") if t.created_at else str(date.today()),
+    }
+    return {
+        "titulo": _render_termo_text(cfg.get("titulo", f"TERMO DE {str(t.tipo or 'TERMO').upper()}"), ctx),
+        "preambulo": _render_termo_text(cfg.get("preambulo", ""), ctx),
+        "clausulas": [_render_termo_text(cl, ctx) for cl in (cfg.get("clausulas") or [])],
+        "rodape": _render_termo_text(cfg.get("rodape", ""), ctx),
+    }
+
+
+@app.route("/assinar-termo/<token>", methods=["GET"])
 @app.route("/assinar-avulso/<token>", methods=["GET"])
 def pagina_assinatura_avulso(token):
     t = db.session.execute(
@@ -369,9 +397,10 @@ def pagina_assinatura_avulso(token):
         erro = "Este termo já foi assinado."
     elif t.sign_token_expiry and datetime.now() > t.sign_token_expiry:
         erro = "Este link de assinatura expirou."
-    return render_template("assinar_avulso.html", termo=t, erro=erro, token=token)
+    return render_template("assinar_avulso.html", termo=t, termo_modelo=_termo_avulso_assinatura_modelo(t), erro=erro, token=token)
 
 
+@app.route("/assinar-termo/<token>", methods=["POST"])
 @app.route("/assinar-avulso/<token>", methods=["POST"])
 def submeter_assinatura_avulso(token):
     t = db.session.execute(
@@ -379,12 +408,14 @@ def submeter_assinatura_avulso(token):
     ).scalar_one_or_none()
     if t is None:
         return render_template("assinar_avulso.html", termo=None, token=token,
-                               erro="Link inválido.", sucesso=False)
+                               termo_modelo={}, erro="Link inválido.", sucesso=False)
     if t.status == "Assinado":
         return render_template("assinar_avulso.html", termo=t, token=token,
+                               termo_modelo=_termo_avulso_assinatura_modelo(t),
                                erro="Já assinado.", sucesso=False)
     if t.sign_token_expiry and datetime.now() > t.sign_token_expiry:
         return render_template("assinar_avulso.html", termo=t, token=token,
+                               termo_modelo=_termo_avulso_assinatura_modelo(t),
                                erro="Link expirado.", sucesso=False)
 
     sig_data = request.form.get("assinatura", "").strip()
@@ -392,10 +423,12 @@ def submeter_assinatura_avulso(token):
 
     if not sig_data or not sig_data.startswith("data:image/png;base64,"):
         return render_template("assinar_avulso.html", termo=t, token=token,
+                               termo_modelo=_termo_avulso_assinatura_modelo(t),
                                erro="Assinatura não capturada. Desenhe sua assinatura antes de confirmar.",
                                sucesso=False)
     if nome.lower() != t.colaborador.split()[0].lower() and nome.lower() != t.colaborador.lower():
         return render_template("assinar_avulso.html", termo=t, token=token,
+                               termo_modelo=_termo_avulso_assinatura_modelo(t),
                                erro="Nome digitado não confere. Digite seu primeiro nome ou nome completo.",
                                sucesso=False)
 
@@ -406,4 +439,4 @@ def submeter_assinatura_avulso(token):
     t.sign_token      = None
     t.sign_token_expiry = None
     db.session.commit()
-    return render_template("assinar_avulso.html", termo=t, token=token, sucesso=True)
+    return render_template("assinar_avulso.html", termo=t, token=token, termo_modelo=_termo_avulso_assinatura_modelo(t), sucesso=True)

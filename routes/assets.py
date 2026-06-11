@@ -172,9 +172,7 @@ def _asset_public_qr_data_uri():
 @api_auth
 def get_assets():
     q   = request.args.get("q","").lower()
-    cat = clean_text(request.args.get("categoria",""), 40)
-    if cat in ("Todos", "Todas", "all", "__all__"):
-        cat = ""
+    cat = normalize_asset_category_filter(request.args.get("categoria",""))
     stmt = db.select(Asset)
     if q:
         stmt = stmt.where(db.or_(Asset.hostname.ilike(f"%{q}%"),
