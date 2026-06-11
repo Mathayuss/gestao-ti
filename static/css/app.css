@@ -325,13 +325,14 @@ input:focus,select:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 
 
 /* ── Etiqueta / Label Print ── */
 .label-preview-wrap{display:flex;flex-wrap:wrap;gap:12px;margin-top:14px}
-.label-card{background:#fff;border:1.5px solid #222;border-radius:6px;padding:8px 10px;font-family:system-ui,sans-serif;box-shadow:1px 1px 4px rgba(0,0,0,.12);position:relative;overflow:hidden;cursor:pointer;transition:box-shadow .15s,border-color .15s}
+.label-card,.label-print-item{background:#fff;border:1.5px solid #222;border-radius:2mm;font-family:system-ui,sans-serif;position:relative;overflow:hidden;color:#000;break-inside:avoid}
+.label-card{padding:8px 10px;box-shadow:1px 1px 4px rgba(0,0,0,.12);cursor:pointer;transition:box-shadow .15s,border-color .15s}
 .label-card:hover,.label-card.sel{border-color:var(--blue);box-shadow:0 0 0 3px rgba(37,99,235,.18)}
 .label-card .lbl-qr{float:right;margin-left:8px}
-.label-card .lbl-hostname{font-size:13px;font-weight:800;letter-spacing:-.3px;line-height:1.2;color:#000;white-space:nowrap;overflow:hidden}
-.label-card .lbl-field{font-size:10px;color:#444;line-height:1.5;margin-top:2px}
-.label-card .lbl-empresa{font-size:9px;font-weight:700;color:#666;text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px}
-.label-card .lbl-tag{display:inline-block;background:#000;color:#fff;font-size:8px;font-weight:700;padding:1px 4px;border-radius:2px;margin-top:3px}
+.label-card .lbl-hostname,.label-print-item .lbl-hostname{font-weight:800;letter-spacing:0;line-height:1.12;color:#000;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.label-card .lbl-field,.label-print-item .lbl-field{font-size:7pt;color:#444;line-height:1.25;margin-top:.7mm;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.label-card .lbl-empresa,.label-print-item .lbl-empresa{font-size:6.5pt;font-weight:700;color:#666;text-transform:uppercase;letter-spacing:.04em;margin-bottom:.8mm}
+.label-card .lbl-tag,.label-print-item .lbl-tag{display:inline-block;background:#000;color:#fff;font-size:6pt;font-weight:700;padding:.3mm 1.3mm;border-radius:.8mm;margin-top:1mm;line-height:1.2}
 
 /* ── Sidebar collapse ── */
 #sidebar{transition:width .22s ease,transform .22s ease}
@@ -396,13 +397,25 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
   .print-zone,
   .print-zone *{visibility:visible!important}
   .print-zone{
-    display:flex!important;position:fixed!important;top:0!important;left:0!important;
-    width:100%!important;padding:6mm!important;
-    flex-wrap:wrap!important;gap:4mm!important;
+    display:flex!important;position:absolute!important;top:0!important;left:0!important;
+    width:100%!important;min-height:100%!important;padding:var(--label-print-margin,6mm)!important;
+    flex-wrap:wrap!important;gap:var(--label-print-gap,3mm)!important;
+    align-content:flex-start!important;align-items:flex-start!important;
     background:#fff!important;
   }
+  .print-zone[data-paper="unitaria"]{
+    width:auto!important;min-height:0!important;padding:0!important;gap:0!important;display:block!important;
+  }
   .label-print-item{
-    border:1px solid #000!important;border-radius:3px!important;
-    page-break-inside:avoid!important;background:#fff!important;
+    border-radius:1mm!important;
+    page-break-inside:avoid!important;break-inside:avoid!important;background:#fff!important;
+    box-shadow:none!important;color:#000!important;overflow:hidden!important;
+    print-color-adjust:exact!important;-webkit-print-color-adjust:exact!important;
+  }
+  .print-zone[data-paper="unitaria"] .label-print-item{
+    page-break-after:always!important;break-after:page!important;
+  }
+  .print-zone[data-paper="unitaria"] .label-print-item:last-child{
+    page-break-after:auto!important;break-after:auto!important;
   }
 }

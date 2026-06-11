@@ -184,6 +184,192 @@ def get_assets():
     return jsonify([a.to_dict() for a in db.session.execute(stmt).scalars().all()])
 
 
+@app.route("/api/assets/labels.pdf", methods=["POST"])
+@api_auth
+def asset_labels_pdf():
+    if not PDF_OK:
+        return jsonify({"error": "Geracao de PDF indisponivel. Instale reportlab."}), 503
+    if not QR_OK:
+        return jsonify({"error": "Geracao de QR Code indisponivel. Instale qrcode[pil]."}), 503
+
+    from reportlab.lib.utils import ImageReader
+
+    payload = request.get_json(silent=True) or {}
+    ids = payload.get("ids") or []
+    if not isinstance(ids, list):
+        return jsonify({"error": "Lista de ativos invalida."}), 400
+
+    ids = [clean_text(str(aid), 40) for aid in ids if clean_text(str(aid), 40)]
+    ids = list(dict.fromkeys(ids))[:200]
+    if not ids:
+        return jsonify({"error": "Selecione ao menos um ativo para gerar etiquetas."}), 400
+
+    cfg = payload.get("config") if isinstance(payload.get("config"), dict) else {}
+    size_cfg = {
+        "pequena": {"w": 58, "h": 38, "qr": 18, "font": 8.5},
+        "media": {"w": 88, "h": 38, "qr": 22, "font": 9.5},
+        "grande": {"w": 100, "h": 70, "qr": 30, "font": 11},
+    }.get(clean_text(cfg.get("size"), 20) or "media", {"w": 88, "h": 38, "qr": 22, "font": 9.5})
+    def _clamped_int(value, default, min_value, max_value):
+        try:
+            number = int(value)
+        except (TypeError, ValueError):
+            number = default
+        return max(min_value, min(max_value, number))
+
+    mm = cm / 10
+    label_w = size_cfg["w"] * mm
+    label_h = size_cfg["h"] * mm
+    qr_delta = 5 if cfg.get("qr") == "grande" else (-5 if cfg.get("qr") == "compacto" else 0)
+    qr_size = max(14, size_cfg["qr"] + qr_delta) * mm
+    page_mode = "unitaria" if cfg.get("papel") == "unitaria" else "a4"
+    page_size = (label_w, label_h) if page_mode == "unitaria" else A4
+    margin = 0 if page_mode == "unitaria" else _clamped_int(cfg.get("margem"), 6, 0, 20) * mm
+    gap = _clamped_int(cfg.get("gap"), 3, 0, 10) * mm
+    copies = _clamped_int(cfg.get("copias"), 1, 1, 20)
+    campos = cfg.get("campos") if isinstance(cfg.get("campos"), dict) else {}
+    empresa = clean_text(cfg.get("empresa"), 80)
+    mostrar_sistema = cfg.get("mostrarSistema", True) is not False
+    mostrar_logo = cfg.get("logoEmpresa") is True
+    logo_no_qr = cfg.get("logoNoQr") is True
+    empresa_cfg = _get_setting("empresa", {}) or {}
+    logo_b64 = empresa_cfg.get("logo_base64", "") if isinstance(empresa_cfg, dict) else ""
+    border_color = {"azul": (0.15, 0.39, 0.92), "cinza": (0.58, 0.64, 0.72), "sem": None}.get(
+        clean_text(cfg.get("borda"), 20), (0.07, 0.09, 0.15)
+    )
+
+    def _logo_reader():
+        if not logo_b64:
+            return None
+        try:
+            raw_b64 = logo_b64.split(",", 1)[1] if "," in logo_b64 else logo_b64
+            return ImageReader(io.BytesIO(base64.b64decode(raw_b64)))
+        except Exception:
+            return None
+
+    logo_reader = _logo_reader()
+
+    assets = db.session.execute(db.select(Asset).where(Asset.id.in_(ids))).scalars().all()
+    by_id = {a.id: a for a in assets}
+    ordered_assets = [by_id[aid] for aid in ids if aid in by_id]
+    if not ordered_assets:
+        return jsonify({"error": "Nenhum ativo encontrado para gerar etiquetas."}), 404
+
+    def _qr_reader(asset_id):
+        url = f"{get_app_base_url()}/asset/{asset_id}"
+        qr = qrcode.QRCode(
+            version=None,
+            error_correction=qrcode.constants.ERROR_CORRECT_H,
+            box_size=8,
+            border=2,
+        )
+        qr.add_data(url)
+        qr.make(fit=True)
+        img = qr.make_image(fill_color="black", back_color="white")
+        raw = io.BytesIO()
+        img.save(raw, format="PNG")
+        raw.seek(0)
+        return ImageReader(raw)
+
+    def _draw_line(cv, text, x, y, size=7, bold=False, max_chars=34):
+        if not text:
+            return y
+        cv.setFont("Helvetica-Bold" if bold else "Helvetica", size)
+        cv.drawString(x, y, str(text)[:max_chars])
+        return y - (size + 2)
+
+    def _draw_label(cv, asset, x, y):
+        pad = 2.4 * mm
+        if border_color:
+            cv.setStrokeColorRGB(*border_color)
+            cv.roundRect(x, y - label_h, label_w, label_h, 1.2 * mm, stroke=1, fill=0)
+
+        text_x = x + pad
+        text_top = y - pad - 7
+        qr_x = x + label_w - pad - qr_size
+        qr_y = y - pad - qr_size
+
+        if mostrar_logo and logo_reader:
+            logo_w = min(20 * mm, label_w - qr_size - 10 * mm)
+            logo_h = 5 * mm
+            cv.drawImage(logo_reader, text_x, text_top - logo_h + 2, width=logo_w, height=logo_h,
+                         preserveAspectRatio=True, mask="auto")
+            text_top -= logo_h + 2
+
+        if empresa:
+            text_top = _draw_line(cv, empresa.upper(), text_x, text_top, 5.8, True, 36)
+
+        if campos.get("hostname", True):
+            name = asset.hostname or asset.id
+            font_size = max(6.5, min(size_cfg["font"], (label_w - qr_size - 8 * mm) / max(1, len(name)) * 1.7))
+            text_top = _draw_line(cv, name, text_x, text_top, font_size, True, 30)
+
+        lines = []
+        if campos.get("patrimonio", True) and asset.patrimonio:
+            lines.append(f"Pat: {asset.patrimonio}")
+        if campos.get("serviceTag", True) and asset.service_tag:
+            lines.append(f"ST: {asset.service_tag}")
+        if campos.get("setor") and asset.setor:
+            lines.append(f"Setor: {asset.setor}")
+        if campos.get("colaborador") and asset.colaborador:
+            lines.append(f"Usuario: {asset.colaborador}")
+        if campos.get("ip") and asset.ip:
+            lines.append(f"IP: {asset.ip}")
+        if campos.get("garantia") and asset.garantia:
+            lines.append(f"Gar: {asset.garantia}")
+        for line in lines[:5]:
+            text_top = _draw_line(cv, line, text_x, text_top, 6.8, False, 30)
+
+        cv.drawImage(_qr_reader(asset.id), qr_x, qr_y, width=qr_size, height=qr_size, mask="auto")
+        if logo_no_qr and logo_reader:
+            overlay = qr_size * 0.26
+            overlay_x = qr_x + (qr_size - overlay) / 2
+            overlay_y = qr_y + (qr_size - overlay) / 2
+            cv.setFillColorRGB(1, 1, 1)
+            cv.roundRect(overlay_x - 0.5 * mm, overlay_y - 0.5 * mm,
+                         overlay + 1 * mm, overlay + 1 * mm, 0.8 * mm, stroke=0, fill=1)
+            cv.drawImage(logo_reader, overlay_x, overlay_y, width=overlay, height=overlay,
+                         preserveAspectRatio=True, mask="auto")
+            cv.setFillColorRGB(0, 0, 0)
+
+        if mostrar_sistema:
+            cv.setFillColorRGB(0, 0, 0)
+            cv.roundRect(text_x, y - label_h + pad, 18 * mm, 4 * mm, 0.7 * mm, stroke=0, fill=1)
+            cv.setFillColorRGB(1, 1, 1)
+            cv.setFont("Helvetica-Bold", 5.5)
+            cv.drawString(text_x + 1.2 * mm, y - label_h + pad + 1.2 * mm, "TI Control")
+            cv.setFillColorRGB(0, 0, 0)
+
+    buf = io.BytesIO()
+    cv = rl_canvas.Canvas(buf, pagesize=page_size)
+    page_w, page_h = page_size
+    x = margin
+    y = page_h - margin
+
+    for asset in ordered_assets:
+        for _ in range(copies):
+            if page_mode == "a4":
+                if x + label_w > page_w - margin + 0.1:
+                    x = margin
+                    y -= label_h + gap
+                if y - label_h < margin - 0.1:
+                    cv.showPage()
+                    x = margin
+                    y = page_h - margin
+            else:
+                x = 0
+                y = page_h
+            _draw_label(cv, asset, x, y)
+            if page_mode == "unitaria":
+                cv.showPage()
+            else:
+                x += label_w + gap
+
+    cv.save()
+    buf.seek(0)
+    return send_file(buf, mimetype="application/pdf", as_attachment=True, download_name="etiquetas_ativos.pdf")
+
+
 @app.route("/api/assets/proximo-patrimonio", methods=["GET"])
 @api_auth
 def get_proximo_patrimonio():
@@ -445,7 +631,16 @@ def asset_qrcode(aid):
     base = get_app_base_url()
     url  = f"{base}/asset/{aid}"
     if QR_OK:
-        img = qrcode.make(url); buf = io.BytesIO(); img.save(buf, format="PNG"); buf.seek(0)
+        qr = qrcode.QRCode(
+            version=None,
+            error_correction=qrcode.constants.ERROR_CORRECT_H,
+            box_size=10,
+            border=2,
+        )
+        qr.add_data(url)
+        qr.make(fit=True)
+        img = qr.make_image(fill_color="black", back_color="white")
+        buf = io.BytesIO(); img.save(buf, format="PNG"); buf.seek(0)
         return send_file(buf, mimetype="image/png")
     svg = f'<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120"><rect width="120" height="120" fill="white"/><text x="60" y="60" text-anchor="middle" font-size="10" fill="#333">QR:{aid}</text></svg>'
     return svg, 200, {"Content-Type":"image/svg+xml"}
