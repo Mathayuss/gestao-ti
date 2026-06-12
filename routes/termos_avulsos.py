@@ -397,7 +397,14 @@ def pagina_assinatura_avulso(token):
         erro = "Este termo já foi assinado."
     elif t.sign_token_expiry and datetime.now() > t.sign_token_expiry:
         erro = "Este link de assinatura expirou."
-    return render_template("assinar_avulso.html", termo=t, termo_modelo=_termo_avulso_assinatura_modelo(t), erro=erro, token=token)
+    colab = None
+    if t:
+        if t.email:
+            colab = db.session.execute(db.select(Colaborador).filter_by(email=t.email)).scalar_one_or_none()
+        if not colab:
+            colab = db.session.execute(db.select(Colaborador).filter_by(nome=t.colaborador)).scalar_one_or_none()
+    return render_template("assinar_avulso.html", termo=t, termo_modelo=_termo_avulso_assinatura_modelo(t), erro=erro, token=token,
+                           cpf_required=bool(colab and colab.cpf))
 
 
 @app.route("/assinar-termo/<token>", methods=["POST"])
@@ -409,28 +416,38 @@ def submeter_assinatura_avulso(token):
     if t is None:
         return render_template("assinar_avulso.html", termo=None, token=token,
                                termo_modelo={}, erro="Link inválido.", sucesso=False)
+    colab = db.session.execute(db.select(Colaborador).filter_by(email=t.email)).scalar_one_or_none() if t.email else None
+    if not colab:
+        colab = db.session.execute(db.select(Colaborador).filter_by(nome=t.colaborador)).scalar_one_or_none()
+    cpf_required = bool(colab and colab.cpf)
     if t.status == "Assinado":
         return render_template("assinar_avulso.html", termo=t, token=token,
                                termo_modelo=_termo_avulso_assinatura_modelo(t),
-                               erro="Já assinado.", sucesso=False)
+                               erro="Já assinado.", sucesso=False, cpf_required=cpf_required)
     if t.sign_token_expiry and datetime.now() > t.sign_token_expiry:
         return render_template("assinar_avulso.html", termo=t, token=token,
                                termo_modelo=_termo_avulso_assinatura_modelo(t),
-                               erro="Link expirado.", sucesso=False)
+                               erro="Link expirado.", sucesso=False, cpf_required=cpf_required)
 
     sig_data = request.form.get("assinatura", "").strip()
     nome     = request.form.get("nome_confirm", "").strip()
+    cpf      = request.form.get("cpf_confirm", "").strip()
 
     if not sig_data or not sig_data.startswith("data:image/png;base64,"):
         return render_template("assinar_avulso.html", termo=t, token=token,
                                termo_modelo=_termo_avulso_assinatura_modelo(t),
                                erro="Assinatura não capturada. Desenhe sua assinatura antes de confirmar.",
-                               sucesso=False)
-    if nome.lower() != t.colaborador.split()[0].lower() and nome.lower() != t.colaborador.lower():
+                               sucesso=False, cpf_required=cpf_required)
+    if cpf_required and not cpf_matches(cpf, colab.cpf):
+        return render_template("assinar_avulso.html", termo=t, token=token,
+                               termo_modelo=_termo_avulso_assinatura_modelo(t),
+                               erro="CPF digitado não confere com o cadastro do colaborador.",
+                               sucesso=False, cpf_required=cpf_required)
+    if not cpf_required and nome.lower() != t.colaborador.split()[0].lower() and nome.lower() != t.colaborador.lower():
         return render_template("assinar_avulso.html", termo=t, token=token,
                                termo_modelo=_termo_avulso_assinatura_modelo(t),
                                erro="Nome digitado não confere. Digite seu primeiro nome ou nome completo.",
-                               sucesso=False)
+                               sucesso=False, cpf_required=cpf_required)
 
     t.assinatura_img  = sig_data
     t.status          = "Assinado"
@@ -439,4 +456,4 @@ def submeter_assinatura_avulso(token):
     t.sign_token      = None
     t.sign_token_expiry = None
     db.session.commit()
-    return render_template("assinar_avulso.html", termo=t, token=token, termo_modelo=_termo_avulso_assinatura_modelo(t), sucesso=True)
+    return render_template("assinar_avulso.html", termo=t, token=token, termo_modelo=_termo_avulso_assinatura_modelo(t), sucesso=True, cpf_required=cpf_required)

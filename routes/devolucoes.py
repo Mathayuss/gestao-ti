@@ -71,6 +71,14 @@ def _send_devolucao_term_pdf(dev, c, empresa, logo_b64, titulo, preambulo, claus
 
     item_table("Equipamentos devolvidos", ativos)
     item_table("Perifericos / insumos devolvidos", perifs)
+    if dev.cobranca_aplicada is not None or dev.cobranca_obs:
+        status_cobranca = "Sera cobrado" if dev.cobranca_aplicada else "Nao sera cobrado"
+        linhas_cobranca = [f"Decisao do RH: {status_cobranca}"]
+        if dev.cobranca_aplicada:
+            linhas_cobranca.append(f"Valor confirmado: R$ {(dev.cobranca_valor or 0):.2f}")
+        if dev.cobranca_obs:
+            linhas_cobranca.append(f"Observacao do RH: {dev.cobranca_obs}")
+        item_table("Cobranca por dano", linhas_cobranca)
     for cl in clausulas:
         story.append(para(_render_termo_text(cl, ctx)))
     if declaracao:
@@ -104,9 +112,12 @@ def devolucao_pdf(did):
     td_cfg   = _get_setting("termo_devolucao", {}) or {}
     logo_b64 = empresa.get("logo_base64", "") if isinstance(empresa, dict) else ""
 
+    cobranca_status = "Será cobrado" if dev.cobranca_aplicada else "Não será cobrado"
     ctx = {"colaborador": dev.colaborador, "setor": dev.setor or "—",
            "unidade": dev.unidade or "—", "data": dev.data_devolucao or str(date.today()),
            "matricula": (c.matricula if c else "—") or "—",
+           "cobranca_status": cobranca_status, "cobranca_valor": f"{(dev.cobranca_valor or 0):.2f}",
+           "cobranca_obs": dev.cobranca_obs or "",
            "empresa": empresa.get("nome", "") if isinstance(empresa, dict) else ""}
 
     titulo   = _render_termo_text(td_cfg.get("titulo", "TERMO DE DEVOLUÇÃO DE EQUIPAMENTOS"), ctx)
@@ -168,6 +179,18 @@ def devolucao_pdf(did):
             for item in perifs:
                 cv.drawString(2.5*cm, y, f"• {item}"); y -= 0.6*cm
             y -= 0.3*cm
+
+        if dev.cobranca_aplicada is not None or dev.cobranca_obs:
+            cv.setFont("Helvetica-Bold", 11)
+            cv.drawString(2*cm, y, "Cobrança por dano:"); y -= 0.65*cm
+            cv.setFont("Helvetica", 10)
+            cv.drawString(2.5*cm, y, f"Decisão do RH: {'Será cobrado' if dev.cobranca_aplicada else 'Não será cobrado'}"); y -= 0.55*cm
+            if dev.cobranca_aplicada:
+                cv.drawString(2.5*cm, y, f"Valor confirmado: R$ {(dev.cobranca_valor or 0):.2f}"); y -= 0.55*cm
+            if dev.cobranca_obs:
+                for linha in str(dev.cobranca_obs).split("\n"):
+                    cv.drawString(2.5*cm, y, f"Obs.: {linha[:90]}"); y -= 0.55*cm
+            y -= 0.2*cm
 
         if clausulas:
             cv.setFont("Helvetica", 10)
@@ -334,6 +357,64 @@ def editar_laudo(did):
     })
 
 
+@app.route("/api/devolucoes/<did>/reenviar-rh", methods=["POST"])
+@requires("Administrador", "Técnico TI")
+def reenviar_laudo_rh(did):
+    """Reenvia ou renova o link de ciência do laudo para o RH.
+
+    A resposta sempre inclui o link para cópia manual, funcionando como backup
+    quando o SMTP estiver desabilitado ou o envio falhar.
+    """
+    dev = db.get_or_404(Devolucao, did)
+    if not dev.laudo_status or dev.laudo_status == "Aguardando Laudo":
+        return jsonify({"error": "Registre o laudo técnico antes de enviar para o RH."}), 400
+    if dev.laudo_status == "Aprovado":
+        return jsonify({"error": "O RH já deu ciência deste laudo."}), 400
+
+    laudo = db.session.execute(
+        db.select(LaudoTecnico).filter_by(devolucao_id=did)
+        .order_by(LaudoTecnico.data_avaliacao.desc())
+    ).scalar_one_or_none()
+    if not laudo:
+        return jsonify({"error": "Laudo técnico não encontrado para esta devolução."}), 404
+
+    d = json_payload()
+    rh_email = clean_text(d.get("rhEmail") or dev.rh_email, 120)
+    if not rh_email:
+        return jsonify({"error": "Informe o e-mail do RH para reenviar o laudo."}), 400
+    err_email = validate_email(rh_email)
+    if err_email:
+        return jsonify({"error": err_email}), 400
+
+    renovado = False
+    if not dev.rh_token or (dev.rh_token_expiry and datetime.now() > dev.rh_token_expiry):
+        dev.rh_token = uuid.uuid4().hex + uuid.uuid4().hex
+        renovado = True
+    dev.rh_token_expiry = datetime.now() + timedelta(days=7)
+    dev.rh_email = rh_email
+    dev.laudo_status = "Aguardando RH"
+    db.session.commit()
+
+    link_rh = f"{get_app_base_url()}/rh/laudo/{dev.rh_token}"
+    cfg = _get_email_config()
+    email_configurado = bool(cfg.get("enabled") and cfg.get("host") and cfg.get("from_email"))
+    email_result = {"ok": False, "error": "SMTP não configurado."}
+    if email_configurado:
+        email_result = send_email_laudo_rh(rh_email, dev.colaborador, laudo.tecnico, link_rh)
+
+    audit("REENVIAR_LAUDO_RH", "devolucoes", did,
+          f"Link RH reenviado para {rh_email}; email_ok={email_result.get('ok', False)}; renovado={renovado}")
+    return jsonify({
+        "ok": True,
+        "url": link_rh,
+        "expiry": dev.rh_token_expiry.isoformat(),
+        "rhEmail": rh_email,
+        "emailEnviado": bool(email_result.get("ok")),
+        "emailErro": "" if email_result.get("ok") else clean_text(email_result.get("error"), 300),
+        "renovado": renovado,
+    })
+
+
 @app.route("/rh/laudo/<rh_token>", methods=["GET"])
 def pagina_rh_laudo(rh_token):
     """Página pública para o RH visualizar o laudo e dar ciência (sem login)."""
@@ -377,17 +458,26 @@ def submeter_ciencia_rh(rh_token):
         return render_template("rh_laudo.html", dev=dev, laudo=laudo, rh_token=rh_token,
                                erro="Link expirado.")
 
-    cobranca_obs   = request.form.get("cobranca_obs", "").strip()[:2000]
-    cobranca_valor = request.form.get("cobranca_valor", "0").strip()
-    try:
-        cobranca_valor = float(cobranca_valor)
-    except ValueError:
-        cobranca_valor = dev.cobranca_valor or 0.0
+    cobranca_obs = request.form.get("cobranca_obs", "").strip()[:2000]
+    cobranca_decisao = request.form.get("cobranca_decisao", "").strip().lower()
+    cobranca_aplicada = False
+    cobranca_valor = 0.0
+    if laudo and laudo.tem_cobranca:
+        if cobranca_decisao not in ("sim", "nao"):
+            return render_template("rh_laudo.html", dev=dev, laudo=laudo, rh_token=rh_token,
+                                   erro="Informe se o valor do dano será cobrado ou não.")
+        cobranca_aplicada = cobranca_decisao == "sim"
+        if cobranca_aplicada:
+            cobranca_valor = parse_float(request.form.get("cobranca_valor"), default=0.0, minimum=0.0)
+            if cobranca_valor <= 0:
+                return render_template("rh_laudo.html", dev=dev, laudo=laudo, rh_token=rh_token,
+                                       erro="Informe um valor maior que zero para confirmar a cobrança.")
 
     dev.laudo_status    = "Aprovado"
     dev.rh_ciencia_ip   = request.remote_addr
     dev.rh_data_ciencia = datetime.now()
     dev.cobranca_obs    = cobranca_obs
+    dev.cobranca_aplicada = cobranca_aplicada if laudo and laudo.tem_cobranca else False
     dev.cobranca_valor  = cobranca_valor
     dev.rh_token        = None
     dev.rh_token_expiry = None
@@ -467,7 +557,9 @@ def pagina_devolucao(token):
         erro = "Esta devolução já foi assinada."
     elif dev.sign_token_expiry and datetime.now() > dev.sign_token_expiry:
         erro = "Este link expirou."
-    return render_template("devolver.html", dev=dev, erro=erro, token=token)
+    colab = db.session.get(Colaborador, dev.colaborador_id) if dev and dev.colaborador_id else None
+    return render_template("devolver.html", dev=dev, erro=erro, token=token,
+                           cpf_required=bool(colab and colab.cpf))
 
 
 @app.route("/devolver/<token>", methods=["POST"])
@@ -475,20 +567,31 @@ def submeter_devolucao(token):
     dev = db.session.execute(db.select(Devolucao).filter_by(sign_token=token)).scalar_one_or_none()
     if dev is None:
         return render_template("devolver.html", dev=None, token=token, erro="Link inválido.")
+    colab = db.session.get(Colaborador, dev.colaborador_id) if dev.colaborador_id else None
+    cpf_required = bool(colab and colab.cpf)
     if dev.status == "Assinado":
-        return render_template("devolver.html", dev=dev, token=token, erro="Já assinado.", sucesso=False)
+        return render_template("devolver.html", dev=dev, token=token, erro="Já assinado.", sucesso=False,
+                               cpf_required=cpf_required)
     if dev.sign_token_expiry and datetime.now() > dev.sign_token_expiry:
-        return render_template("devolver.html", dev=dev, token=token, erro="Link expirado.")
+        return render_template("devolver.html", dev=dev, token=token, erro="Link expirado.",
+                               cpf_required=cpf_required)
 
     sig_data = request.form.get("assinatura", "").strip()
     nome     = request.form.get("nome_confirm", "").strip()
+    cpf      = request.form.get("cpf_confirm", "").strip()
 
     if not sig_data or not sig_data.startswith("data:image/png;base64,"):
         return render_template("devolver.html", dev=dev, token=token,
-                               erro="Assinatura não capturada. Desenhe sua assinatura antes de confirmar.")
-    if nome.lower() != dev.colaborador.split()[0].lower() and nome.lower() != dev.colaborador.lower():
+                               erro="Assinatura não capturada. Desenhe sua assinatura antes de confirmar.",
+                               cpf_required=cpf_required)
+    if cpf_required and not cpf_matches(cpf, colab.cpf):
         return render_template("devolver.html", dev=dev, token=token,
-                               erro="Nome digitado não confere. Digite seu primeiro nome ou nome completo.")
+                               erro="CPF digitado não confere com o cadastro do colaborador.",
+                               cpf_required=cpf_required)
+    if not cpf_required and nome.lower() != dev.colaborador.split()[0].lower() and nome.lower() != dev.colaborador.lower():
+        return render_template("devolver.html", dev=dev, token=token,
+                               erro="Nome digitado não confere. Digite seu primeiro nome ou nome completo.",
+                               cpf_required=cpf_required)
 
     dev.assinatura_img   = sig_data
     dev.assinatura_ip    = request.remote_addr
@@ -499,7 +602,7 @@ def submeter_devolucao(token):
     audit("ASSINAR_DEVOLUCAO", "devolucoes", dev.id,
           f"Devolução {dev.id} assinada por {dev.colaborador}")
     db.session.commit()
-    return render_template("devolver.html", dev=dev, token=token, sucesso=True)
+    return render_template("devolver.html", dev=dev, token=token, sucesso=True, cpf_required=cpf_required)
 
 
 @app.route("/api/devolucoes/<did>/assinatura.png")
@@ -510,4 +613,3 @@ def get_assinatura_devolucao(did):
         return jsonify({"error": "Sem assinatura capturada."}), 404
     raw = base64.b64decode(dev.assinatura_img.split(",", 1)[1])
     return Response(raw, mimetype="image/png", headers={"Cache-Control": "private, max-age=3600"})
-

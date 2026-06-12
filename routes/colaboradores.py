@@ -14,7 +14,8 @@ def get_colaboradores():
     q=request.args.get("q","").lower(); setor=request.args.get("setor",""); status=request.args.get("status","")
     stmt = db.select(Colaborador)
     if q:      stmt = stmt.where(db.or_(Colaborador.nome.ilike(f"%{q}%"), Colaborador.email.ilike(f"%{q}%"),
-                                         Colaborador.cargo.ilike(f"%{q}%"), Colaborador.matricula.ilike(f"%{q}%")))
+                                         Colaborador.cargo.ilike(f"%{q}%"), Colaborador.matricula.ilike(f"%{q}%"),
+                                         Colaborador.cpf.ilike(f"%{q}%")))
     if setor:  stmt = stmt.where(Colaborador.setor == setor)
     if status: stmt = stmt.where(Colaborador.status == status)
     return jsonify([c.to_dict() for c in db.session.execute(stmt).scalars().all()])
@@ -35,13 +36,17 @@ def create_colaborador():
     err_phone = validate_phone(d.get("telefone"))
     if err_phone:
         return jsonify({"error": err_phone}), 400
+    err_cpf = validate_cpf(d.get("cpf"))
+    if err_cpf:
+        return jsonify({"error": err_cpf}), 400
     matricula = clean_text(d.get("matricula"), 40)
     if matricula:
         dup = db.session.execute(db.select(Colaborador).filter_by(matricula=matricula)).scalar_one_or_none()
         if dup:
             return jsonify({"error": f"Matrícula '{matricula}' já cadastrada para {dup.nome}."}), 409
     c = Colaborador(id=new_id("C"), nome=clean_text(d.get("nome"),120), email=clean_text(d.get("email"),120),
-                    telefone=clean_text(d.get("telefone"),30), cargo=clean_text(d.get("cargo"),80),
+                    telefone=clean_text(d.get("telefone"),30), cpf=clean_text(d.get("cpf"),20),
+                    cargo=clean_text(d.get("cargo"),80),
                     setor=clean_text(d.get("setor"),80), unidade=clean_text(d.get("unidade"),80),
                     status=status, matricula=matricula,
                     data_admissao=clean_text(d.get("dataAdmissao"),10) or None, data_cadastro=str(date.today()),
@@ -108,6 +113,10 @@ def update_colaborador(cid):
         err = validate_phone(d.get("telefone"))
         if err:
             return jsonify({"error": err}), 400
+    if "cpf" in d:
+        err = validate_cpf(d.get("cpf"))
+        if err:
+            return jsonify({"error": err}), 400
     if "matricula" in d:
         mat = clean_text(d.get("matricula"), 40)
         if mat:
@@ -116,7 +125,7 @@ def update_colaborador(cid):
             ).scalar_one_or_none()
             if dup:
                 return jsonify({"error": f"Matrícula '{mat}' já cadastrada para {dup.nome}."}), 409
-    for k,v,max_len in [("nome","nome",120),("email","email",120),("telefone","telefone",30),("cargo","cargo",80),
+    for k,v,max_len in [("nome","nome",120),("email","email",120),("telefone","telefone",30),("cpf","cpf",20),("cargo","cargo",80),
                  ("setor","setor",80),("unidade","unidade",80),("status","status",20),
                  ("matricula","matricula",40),("dataAdmissao","data_admissao",10),("observacao","observacao",None)]:
         if k in d: setattr(c, v, clean_text(d[k], max_len))

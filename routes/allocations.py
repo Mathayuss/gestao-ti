@@ -608,8 +608,15 @@ def pagina_assinatura(token):
         erro = "Esta alocação foi encerrada."
 
     perifericos = al.items if al else []
+    colab = None
+    if al:
+        if al.email:
+            colab = db.session.execute(db.select(Colaborador).filter_by(email=al.email)).scalar_one_or_none()
+        if not colab:
+            colab = db.session.execute(db.select(Colaborador).filter_by(nome=al.colaborador)).scalar_one_or_none()
     return render_template("assinar.html", al=al, erro=erro,
-                           perifericos=perifericos, token=token)
+                           perifericos=perifericos, token=token,
+                           cpf_required=bool(colab and colab.cpf))
 
 
 @app.route("/assinar/<token>", methods=["POST"])
@@ -620,22 +627,33 @@ def submeter_assinatura(token):
     if al is None:
         return render_template("assinar.html", al=None, token=token,
                                erro="Link inválido.", perifericos=[])
+    colab = db.session.execute(db.select(Colaborador).filter_by(email=al.email)).scalar_one_or_none() if al.email else None
+    if not colab:
+        colab = db.session.execute(db.select(Colaborador).filter_by(nome=al.colaborador)).scalar_one_or_none()
+    cpf_required = bool(colab and colab.cpf)
     if al.termo_status == "Assinado":
         return render_template("assinar.html", al=al, token=token,
-                               erro="Já assinado.", perifericos=al.items)
+                               erro="Já assinado.", perifericos=al.items, cpf_required=cpf_required)
     if al.sign_token_expiry and datetime.now() > al.sign_token_expiry:
         return render_template("assinar.html", al=al, token=token,
-                               erro="Link expirado.", perifericos=al.items)
+                               erro="Link expirado.", perifericos=al.items, cpf_required=cpf_required)
 
     sig_data = request.form.get("assinatura", "").strip()
     nome     = request.form.get("nome_confirm", "").strip()
+    cpf      = request.form.get("cpf_confirm", "").strip()
 
     if not sig_data or not sig_data.startswith("data:image/png;base64,"):
         return render_template("assinar.html", al=al, token=token, perifericos=al.items,
-                               erro="Assinatura não capturada. Desenhe sua assinatura antes de confirmar.")
-    if nome.lower() != al.colaborador.split()[0].lower() and nome.lower() != al.colaborador.lower():
+                               erro="Assinatura não capturada. Desenhe sua assinatura antes de confirmar.",
+                               cpf_required=cpf_required)
+    if cpf_required and not cpf_matches(cpf, colab.cpf):
         return render_template("assinar.html", al=al, token=token, perifericos=al.items,
-                               erro=f"Nome digitado não confere. Digite seu primeiro nome ou nome completo.")
+                               erro="CPF digitado não confere com o cadastro do colaborador.",
+                               cpf_required=cpf_required)
+    if not cpf_required and nome.lower() != al.colaborador.split()[0].lower() and nome.lower() != al.colaborador.lower():
+        return render_template("assinar.html", al=al, token=token, perifericos=al.items,
+                               erro=f"Nome digitado não confere. Digite seu primeiro nome ou nome completo.",
+                               cpf_required=cpf_required)
 
     al.assinatura_img  = sig_data
     al.termo_status    = "Assinado"
@@ -647,7 +665,7 @@ def submeter_assinatura(token):
           f"Termo {al.termo} assinado remotamente por {al.colaborador}")
     db.session.commit()
     return render_template("assinar.html", al=al, token=token,
-                           sucesso=True, perifericos=al.items)
+                           sucesso=True, perifericos=al.items, cpf_required=cpf_required)
 
 
 @app.route("/api/emprestimos/vencidos")

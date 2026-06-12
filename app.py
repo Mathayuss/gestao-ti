@@ -75,7 +75,7 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
 
 
-def _version_from_file(default="1.2.2-beta"):
+def _version_from_file(default="1.2.7-beta"):
     version_path = os.path.join(os.path.dirname(__file__), "VERSION")
     try:
         with open(version_path, "r", encoding="utf-8") as fh:
@@ -328,6 +328,36 @@ def clean_text(value, max_len=None):
     if max_len and len(value) > max_len:
         value = value[:max_len]
     return value
+
+
+def only_digits(value):
+    return re.sub(r"\D+", "", "" if value is None else str(value))
+
+
+def validate_cpf(value):
+    cpf = only_digits(value)
+    if not cpf:
+        return None
+    if len(cpf) != 11 or cpf == cpf[0] * 11:
+        return "CPF inválido."
+    total = sum(int(cpf[i]) * (10 - i) for i in range(9))
+    digit = (total * 10) % 11
+    if digit == 10:
+        digit = 0
+    if digit != int(cpf[9]):
+        return "CPF inválido."
+    total = sum(int(cpf[i]) * (11 - i) for i in range(10))
+    digit = (total * 10) % 11
+    if digit == 10:
+        digit = 0
+    if digit != int(cpf[10]):
+        return "CPF inválido."
+    return None
+
+
+def cpf_matches(typed, expected):
+    expected_digits = only_digits(expected)
+    return bool(expected_digits) and only_digits(typed) == expected_digits
 
 
 def parse_int(value, default=0, minimum=None):
@@ -733,15 +763,23 @@ def internal_error(err):
     return "Erro interno no servidor", 500
 
 def _render_termo_text(template_str: str, ctx: dict) -> str:
-    """Renderiza texto de termo com substituição de variáveis {chave}."""
-    try:
-        from jinja2 import Template
-        return Template(template_str).render(**ctx)
-    except Exception:
+    """Renderiza texto com variáveis no formato {chave} e, se usado, {{ chave }}."""
+    text = str(template_str or "")
+    values = {k: ("" if v is None else v) for k, v in (ctx or {}).items()}
+
+    def replace_brace_var(match):
+        key = match.group(1)
+        return str(values.get(key, match.group(0)))
+
+    rendered = re.sub(r"(?<!\{)\{([A-Za-z_][A-Za-z0-9_]*)\}(?!\})", replace_brace_var, text)
+
+    if "{{" in rendered or "{%" in rendered:
         try:
-            return template_str.format_map({k: v or "" for k, v in ctx.items()})
+            from jinja2 import Template
+            return Template(rendered).render(**values)
         except Exception:
-            return template_str
+            return rendered
+    return rendered
 
 
 def _pdf_draw_logo(cv, logo_b64: str, x, y, max_w=None, max_h=None):
@@ -1968,7 +2006,7 @@ def _restore_from_payload(payload, restored_by="sistema"):
     for c in colabs:
         db.session.add(Colaborador(
             id=c["id"], nome=c.get("nome", ""), email=c.get("email"),
-            telefone=c.get("telefone"), cargo=c.get("cargo"), setor=c.get("setor"),
+            telefone=c.get("telefone"), cpf=c.get("cpf"), cargo=c.get("cargo"), setor=c.get("setor"),
             unidade=c.get("unidade"), status=c.get("status", "Ativo"),
             matricula=c.get("matricula"), data_admissao=c.get("dataAdmissao"),
             data_cadastro=c.get("dataCadastro"), data_desligamento=c.get("dataDesligamento"),
@@ -2101,6 +2139,7 @@ def _restore_from_payload(payload, restored_by="sistema"):
             rh_email=d.get("rhEmail"),
             rh_ciencia_ip=d.get("rhCienciaIp"),
             rh_data_ciencia=_parse_backup_dt(d.get("rhDataCiencia")),
+            cobranca_aplicada=d.get("cobrancaAplicada"),
             cobranca_valor=d.get("cobrancaValor", 0.0),
             cobranca_obs=d.get("cobrancaObs", ""),
         ))
@@ -2501,8 +2540,12 @@ def _migrate_db():
             ("rh_email",        "VARCHAR(120)"),
             ("rh_ciencia_ip",   "VARCHAR(50)"),
             ("rh_data_ciencia", "TEXT"),
+            ("cobranca_aplicada", "BOOLEAN"),
             ("cobranca_valor",  "REAL"),
             ("cobranca_obs",    "TEXT"),
+        ],
+        "colaboradores": [
+            ("cpf", "VARCHAR(20)"),
         ],
         "laudos_tecnicos": [
             ("editado_em",    "TEXT"),

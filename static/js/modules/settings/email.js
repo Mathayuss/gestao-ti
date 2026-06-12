@@ -42,6 +42,24 @@ const EMAIL_TEMPLATE_DEFAULTS = {
     button_label: 'Assinar Devolução',
     footer: '{empresa} - Sistema de Gestão de TI',
   },
+  laudo_rh: {
+    subject: '[{empresa}] Laudo técnico aguardando sua ciência — {colaborador}',
+    body: 'Olá!\n\nO técnico {tecnico} concluiu a avaliação dos equipamentos de {colaborador} no processo de desligamento.\n\nPor favor, acesse o link abaixo para visualizar o laudo e dar ciência. Não é necessário fazer login.\n\nEste link expira em 7 dias.',
+    button_label: 'Ver Laudo e Dar Ciência',
+    footer: '{empresa} - Sistema de Gestão de TI',
+  },
+  laudo_editado_rh: {
+    subject: '[{empresa}] Laudo técnico corrigido — {colaborador}',
+    body: 'Olá!\n\nO laudo técnico referente à devolução de equipamentos de {colaborador} foi corrigido pelo administrador {editor}.\n\nMotivo da correção: {motivo}\n\nAcesse o sistema para verificar as alterações.',
+    button_label: 'Acessar o Sistema',
+    footer: '{empresa} - Sistema de Gestão de TI',
+  },
+  laudo_editado_colab: {
+    subject: '[{empresa}] Atualização no laudo técnico — devolução de equipamentos',
+    body: 'Olá, {colaborador}!\n\nInformamos que o laudo técnico referente à devolução dos equipamentos sob sua responsabilidade foi atualizado.\n\nMotivo da correção: {motivo}\n\nEm caso de dúvidas, entre em contato com o setor de TI.',
+    button_label: 'Acessar o Sistema',
+    footer: '{empresa} - Sistema de Gestão de TI',
+  },
 };
 
 function carregarTemplateEmailPadrao(kind){
@@ -68,9 +86,11 @@ async function saveEmailTemplates(){
     await api('/settings/email/templates','PUT',{
       assinatura: getEmailTemplatePayload('assinatura'),
       devolucao: getEmailTemplatePayload('devolucao'),
+      laudo_rh: getEmailTemplatePayload('laudo_rh'),
+      laudo_editado_rh: getEmailTemplatePayload('laudo_editado_rh'),
+      laudo_editado_colab: getEmailTemplatePayload('laudo_editado_colab'),
     });
     toast('Templates de e-mail salvos');
     renderConfiguracoes();
   }catch(e){ toast(e.message,'error'); }
 }
-

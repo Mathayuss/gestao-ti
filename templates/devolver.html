@@ -209,6 +209,15 @@
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <input type="hidden" name="assinatura" id="sig-data">
 
+        {% if cpf_required %}
+        <div class="form-group">
+          <label>Confirme seu CPF para assinar</label>
+          <input type="text" name="cpf_confirm" id="cpf-confirm"
+                 placeholder="000.000.000-00"
+                 inputmode="numeric" autocomplete="off" required>
+          <div class="hint">Digite o CPF cadastrado para confirmar sua identidade.</div>
+        </div>
+        {% else %}
         <div class="form-group">
           <label>Confirme seu nome para assinar</label>
           <input type="text" name="nome_confirm" id="nome-confirm"
@@ -216,6 +225,7 @@
                  autocomplete="name" required>
           <div class="hint">Ex: {{ dev.colaborador.split()[0] }}</div>
         </div>
+        {% endif %}
 
         <div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:8px">
           Desenhe sua assinatura abaixo

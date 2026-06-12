@@ -31,7 +31,7 @@ async function renderColaboradores(q='',setor='',status=''){
   <div class="flex-between mb-16" style="flex-wrap:wrap;gap:8px">
     <div class="flex-gap" style="flex-wrap:wrap">
       <div class="search-wrap"><span class="search-icon">${inlineIcon('search')}</span>
-        <input id="cs" placeholder="Nome, e-mail, cargo, matrícula..." value="${esc(q)}"
+        <input id="cs" placeholder="Nome, e-mail, cargo, matrícula, CPF..." value="${esc(q)}"
           onkeyup="debounce(()=>renderColaboradores(this.value,document.getElementById('cst').value,document.getElementById('css').value))">
       </div>
       <select id="cst" style="width:auto" onchange="renderColaboradores(document.getElementById('cs').value,this.value,document.getElementById('css').value)">
@@ -143,7 +143,7 @@ async function viewColab(id){
     </div>
   </div>
   <div class="form-grid-2" style="margin-bottom:14px">
-    ${[['E-mail',c.email],['Telefone',c.telefone],['Matrícula',c.matricula],['Unidade',c.unidade],['Admissão',fmtDate(c.dataAdmissao)],['Cadastro',fmtDate(c.dataCadastro)]].map(([k,v])=>`
+    ${[['E-mail',c.email],['Telefone',c.telefone],['CPF',c.cpf],['Matrícula',c.matricula],['Unidade',c.unidade],['Admissão',fmtDate(c.dataAdmissao)],['Cadastro',fmtDate(c.dataCadastro)]].map(([k,v])=>`
     <div style="background:var(--bg3);border-radius:var(--r);padding:8px 10px">
       <div style="font-size:11px;color:var(--text2);margin-bottom:2px">${k}</div>
       <div style="font-size:13px;font-weight:600">${esc(v)||'—'}</div>
@@ -176,6 +176,7 @@ function colabFormHtml(c={}){
     <div class="form-group span-2"><label>Nome Completo</label><input id="fc-nome" value="${esc(c.nome||'')}"></div>
     <div class="form-group"><label>E-mail</label><input id="fc-email" type="email" value="${esc(c.email||'')}"></div>
     <div class="form-group"><label>Telefone</label><input id="fc-tel" value="${esc(c.telefone||'')}"></div>
+    <div class="form-group"><label>CPF</label><input id="fc-cpf" value="${esc(c.cpf||'')}" inputmode="numeric" placeholder="000.000.000-00"></div>
     <div class="form-group"><label>Cargo</label><input id="fc-cargo" value="${esc(c.cargo||'')}"></div>
     <div class="form-group"><label>Matrícula</label><input id="fc-mat" value="${esc(c.matricula||'')}"></div>
     <div class="form-group"><label>Setor</label>
@@ -192,7 +193,7 @@ function colabFormHtml(c={}){
   <div class="form-group"><label>Observação</label><textarea id="fc-obs" rows="2">${esc(c.observacao||'')}</textarea></div>`;
 }
 function getColabForm(){
-  return {nome:$('fc-nome').value,email:$('fc-email').value,telefone:$('fc-tel').value,cargo:$('fc-cargo').value,matricula:$('fc-mat').value,setor:$('fc-setor').value,unidade:$('fc-uni').value,status:$('fc-status').value,dataAdmissao:$('fc-adm').value,observacao:$('fc-obs').value};
+  return {nome:$('fc-nome').value,email:$('fc-email').value,telefone:$('fc-tel').value,cpf:$('fc-cpf').value,cargo:$('fc-cargo').value,matricula:$('fc-mat').value,setor:$('fc-setor').value,unidade:$('fc-uni').value,status:$('fc-status').value,dataAdmissao:$('fc-adm').value,observacao:$('fc-obs').value};
 }
 function openNewColab(){
   openModal('Novo Colaborador',colabFormHtml()+`<div class="modal-footer"><button class="btn btn-default" onclick="closeModal()">Cancelar</button><button class="btn btn-primary" onclick="saveNewColab()">Cadastrar</button></div>`,true);
@@ -365,4 +366,3 @@ async function confirmaReativacao(id){
   _colabView='ativos';
   renderColaboradores();
 }
-

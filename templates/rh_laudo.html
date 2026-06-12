@@ -136,6 +136,15 @@
     .input-wrapper { position: relative; display: flex; align-items: center; }
     .input-prefix { position: absolute; left: 12px; color: var(--text2); font-size: 14px; font-weight: 600; pointer-events: none; }
     .input-wrapper input { padding-left: 36px; }
+    .choice-group { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+    .choice-card {
+      display: flex; align-items: flex-start; gap: 8px; padding: 12px;
+      border: 1px solid var(--border); border-radius: var(--r);
+      background: var(--soft); cursor: pointer;
+    }
+    .choice-card input { width: auto; margin-top: 2px; flex-shrink: 0; }
+    .choice-title { display: block; font-size: 13px; font-weight: 800; color: var(--text); }
+    .choice-hint { display: block; font-size: 11px; color: var(--text2); line-height: 1.4; margin-top: 2px; }
 
     .btn {
       width: 100%; padding: 12px 18px; border-radius: var(--r); font-size: 15px;
@@ -295,16 +304,37 @@
 
         {% if laudo.tem_cobranca %}
         <div class="form-group">
+          <label>O valor do dano será cobrado do colaborador?</label>
+          <div class="choice-group">
+            <label class="choice-card">
+              <input type="radio" name="cobranca_decisao" value="sim" required onchange="toggleCobrancaValor()">
+              <span>
+                <span class="choice-title">Sim, será cobrado</span>
+                <span class="choice-hint">Confirma cobrança e permite ajustar o valor final.</span>
+              </span>
+            </label>
+            <label class="choice-card">
+              <input type="radio" name="cobranca_decisao" value="nao" required onchange="toggleCobrancaValor()">
+              <span>
+                <span class="choice-title">Não será cobrado</span>
+                <span class="choice-hint">Registra ciência sem cobrança financeira.</span>
+              </span>
+            </label>
+          </div>
+        </div>
+
+        <div class="form-group" id="cobranca-valor-group" style="display:none">
           <label for="cobranca_valor">Valor de cobrança confirmado pelo RH</label>
           <div class="input-wrapper">
             <span class="input-prefix" aria-hidden="true">R$</span>
-            <input id="cobranca_valor" type="number" name="cobranca_valor" step="0.01" min="0"
+            <input id="cobranca_valor" type="number" name="cobranca_valor" step="0.01" min="0.01"
                    value="{{ "%.2f"|format(laudo.valor_cobranca) }}"
                    placeholder="0.00">
           </div>
         </div>
         {% else %}
         <input type="hidden" name="cobranca_valor" value="0">
+        <input type="hidden" name="cobranca_decisao" value="nao">
         {% endif %}
 
         <div class="form-group">
@@ -349,6 +379,15 @@ function toggleTheme() {
 applyTheme(localStorage.getItem('ticontrol-theme') || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'));
 
 const form = document.getElementById('form-ciencia');
+function toggleCobrancaValor() {
+  const selected = document.querySelector('input[name="cobranca_decisao"]:checked');
+  const group = document.getElementById('cobranca-valor-group');
+  const input = document.getElementById('cobranca_valor');
+  const cobrar = selected && selected.value === 'sim';
+  if (group) group.style.display = cobrar ? 'block' : 'none';
+  if (input) input.required = !!cobrar;
+}
+toggleCobrancaValor();
 if (form) {
   form.addEventListener('submit', function() {
     const btn = document.getElementById('btn-submit');

@@ -37,6 +37,7 @@ async function renderAlocacoes(q=''){
       btns.push(`<button class="btn btn-primary btn-sm" onclick="abrirLaudoPorId('${d.id}')">Registrar Laudo</button>`);
     if(ls==='Aguardando RH'){
       btns.push(`<span style="font-size:11px;color:var(--text3)">Aguardando ciência do RH</span>`);
+      btns.push(`<button class="btn btn-default btn-sm" onclick="reenviarLaudoRh('${d.id}')" title="Reenviar link de ciência para o RH">Reenviar RH</button>`);
       btns.push(`<button class="btn btn-warning btn-sm" onclick="editarLaudo('${d.id}')" title="Corrigir laudo enviado ao RH">Editar Laudo</button>`);
     }
     if(ls==='Aprovado'){
@@ -431,6 +432,86 @@ async function salvarEdicaoLaudo(devId){
     closeModal();
     renderAlocacoes();
   }catch(e){ toast(e.message,'error'); }
+}
+
+async function reenviarLaudoRh(devId){
+  const d = _devCache[devId] || await api(`/devolucoes/${devId}`).catch(()=>null);
+  if(!d) return;
+  const atual = d.rhEmail || '';
+  openModal('Reenviar laudo para RH', `
+    <div style="display:flex;flex-direction:column;gap:14px">
+      <div class="info-box blue" style="margin:0">
+        Confirme o e-mail do RH. Se o envio automático falhar, o sistema exibirá um link de backup para cópia manual.
+      </div>
+      <div class="form-group">
+        <label>E-mail do RH</label>
+        <input id="rh-resend-email" type="email" value="${escAttr(atual)}" placeholder="rh@empresa.com">
+      </div>
+      <div style="font-size:12px;color:var(--text3)">
+        Devolução: <strong>${esc(d.colaborador)}</strong> · ${esc(d.setor||'—')} · ${fmtDate(d.dataDevolucao)}
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-default" onclick="closeModal()">Cancelar</button>
+      <button id="btn-rh-resend" class="btn btn-primary" onclick="confirmarReenvioLaudoRh('${devId}')">Reenviar para RH</button>
+    </div>`, false, true);
+  setTimeout(()=>$('rh-resend-email')?.focus(),0);
+}
+
+async function confirmarReenvioLaudoRh(devId){
+  const rhEmail = $('rh-resend-email')?.value?.trim() || '';
+  if(!rhEmail){ toast('Informe o e-mail do RH.','error'); return; }
+  const d = _devCache[devId] || {};
+  const btn = $('btn-rh-resend');
+  const emailInput = $('rh-resend-email');
+  let loading = $('rh-resend-loading');
+  if(!loading && emailInput){
+    loading = document.createElement('div');
+    loading.id = 'rh-resend-loading';
+    loading.className = 'info-box blue';
+    loading.style.margin = '0';
+    loading.innerHTML = 'Enviando e-mail para o RH... aguarde alguns instantes.';
+    emailInput.closest('.form-group')?.after(loading);
+  }
+  if(btn){
+    btn.disabled = true;
+    btn.textContent = 'Enviando...';
+  }
+  if(emailInput) emailInput.disabled = true;
+  try{
+    const r = await api(`/devolucoes/${devId}/reenviar-rh`, 'POST', {rhEmail});
+    const expiry = r.expiry ? new Date(r.expiry).toLocaleDateString('pt-BR') : '7 dias';
+    const statusHtml = r.emailEnviado
+      ? `<div class="info-box green" style="margin:0">E-mail reenviado para <strong>${esc(r.rhEmail)}</strong>.</div>`
+      : `<div class="info-box amber" style="margin:0">Não foi possível confirmar o envio por e-mail${r.emailErro?`: ${esc(r.emailErro)}`:''}. Use o link abaixo como backup.</div>`;
+    openModal('Reenvio para RH', `
+      <div style="display:flex;flex-direction:column;gap:14px">
+        ${statusHtml}
+        <div style="font-size:13px;color:var(--text2)">
+          Link de ciência do RH válido até <strong>${expiry}</strong>.
+        </div>
+        <div style="width:100%;display:flex;gap:8px;align-items:center">
+          <input id="rh-link-url" value="${esc(r.url)}" readonly
+            style="flex:1;padding:9px 12px;border:1px solid var(--border);border-radius:var(--r);
+                   font-size:11px;font-family:var(--mono);color:var(--text);background:var(--bg3)">
+          <button class="btn btn-primary btn-sm" onclick="navigator.clipboard.writeText($('rh-link-url').value).then(()=>toast('Link copiado'))">Copiar</button>
+        </div>
+        <a href="${escAttr(r.url)}" target="_blank" style="font-size:12px;color:var(--blue)">Abrir link do RH em nova aba</a>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-default" onclick="closeModal()">Fechar</button>
+      </div>`, false, true);
+    _devCache[devId] = {...d, rhEmail: r.rhEmail};
+    renderAlocacoes();
+  }catch(e){
+    toast(e.message,'error');
+    if(loading) loading.remove();
+    if(btn){
+      btn.disabled = false;
+      btn.textContent = 'Reenviar para RH';
+    }
+    if(emailInput) emailInput.disabled = false;
+  }
 }
 
 async function verQrDevolucao(devId){
@@ -864,4 +945,3 @@ async function saveSignTi(aid){
   closeModal();
   renderAlocacoes();
 }
-

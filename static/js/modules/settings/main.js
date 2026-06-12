@@ -58,6 +58,9 @@ async function renderConfiguracoes(){
     : `Execute no servidor: <span class="mono">${esc(updateState.manualCommand || './scripts/update-linux.sh')}</span>`;
   const tplAss = cfg_tpl.assinatura || {};
   const tplDev = cfg_tpl.devolucao || {};
+  const tplLaudoRh = cfg_tpl.laudo_rh || {};
+  const tplLaudoEditRh = cfg_tpl.laudo_editado_rh || {};
+  const tplLaudoEditColab = cfg_tpl.laudo_editado_colab || {};
   const emailTemplateCard = (kind,title,subtitle,variables,tpl) => `
     <div class="card" style="margin-top:16px">
       <div class="flex-between" style="margin-bottom:12px;gap:12px;align-items:flex-start;flex-wrap:wrap">
@@ -500,6 +503,9 @@ async function renderConfiguracoes(){
         </div>
         ${emailTemplateCard('assinatura','Termo de Responsabilidade','Usado ao enviar link de assinatura para alocação de ativo.',['empresa','colaborador','ativo','link'],tplAss)}
         ${emailTemplateCard('devolucao','Termo de Devolução','Usado ao enviar link de assinatura para devolução de equipamentos.',['empresa','colaborador','link'],tplDev)}
+        ${emailTemplateCard('laudo_rh','Laudo Técnico para RH','Usado quando o técnico envia o laudo para ciência do RH.',['empresa','colaborador','tecnico','link'],tplLaudoRh)}
+        ${emailTemplateCard('laudo_editado_rh','Laudo Corrigido para RH','Usado quando um administrador corrige um laudo já enviado.',['empresa','colaborador','editor','motivo','link'],tplLaudoEditRh)}
+        ${emailTemplateCard('laudo_editado_colab','Laudo Corrigido para Colaborador','Usado para avisar o colaborador sobre correções no laudo.',['empresa','colaborador','motivo','link'],tplLaudoEditColab)}
       </div>
     </div>
   </div>`;
@@ -839,4 +845,3 @@ function cfgTab(tab){
   });
   if(tab==='termos') setTimeout(()=>initTermsPanel(), 0);
 }
-

@@ -56,6 +56,31 @@ class TermSettingsTest(unittest.TestCase):
 
             self.assertEqual(error, "Cláusulas do termo 'VPN' precisam ser uma lista.")
 
+    def test_email_template_single_brace_tags_are_rendered(self):
+        with tic.app.app_context():
+            subject, html, text = tic._render_email_template("laudo_rh", {
+                "empresa": "Platinaa",
+                "colaborador": "Maria Silva",
+                "tecnico": "Analista TI",
+                "link": "https://ti.example/rh/laudo/token",
+            })
+
+            combined = subject + html + text
+            self.assertIn("Analista TI", combined)
+            self.assertIn("Maria Silva", combined)
+            self.assertIn("Platinaa", combined)
+            self.assertNotIn("{tecnico}", combined)
+            self.assertNotIn("{colaborador}", combined)
+            self.assertNotIn("{empresa}", combined)
+
+    def test_render_text_keeps_jinja_style_support(self):
+        rendered = tic._render_termo_text("Olá {{ colaborador }} de {empresa}", {
+            "colaborador": "Ana",
+            "empresa": "TI Control",
+        })
+
+        self.assertEqual(rendered, "Olá Ana de TI Control")
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -36,6 +36,7 @@ class Colaborador(db.Model):
     nome         = db.Column(db.String(120), nullable=False, index=True)
     email        = db.Column(db.String(120))
     telefone     = db.Column(db.String(30))
+    cpf          = db.Column(db.String(20))
     cargo        = db.Column(db.String(80))
     setor        = db.Column(db.String(80))
     unidade      = db.Column(db.String(80))
@@ -47,7 +48,7 @@ class Colaborador(db.Model):
     observacao   = db.Column(db.Text, default="")
 
     def to_dict(self):
-        return {"id":self.id,"nome":self.nome,"email":self.email,"telefone":self.telefone,
+        return {"id":self.id,"nome":self.nome,"email":self.email,"telefone":self.telefone,"cpf":self.cpf,
                 "cargo":self.cargo,"setor":self.setor,"unidade":self.unidade,"status":self.status,
                 "matricula":self.matricula,"dataAdmissao":self.data_admissao,
                 "dataCadastro":self.data_cadastro,"dataDesligamento":self.data_desligamento,
@@ -459,6 +460,7 @@ class Devolucao(db.Model):
     rh_email              = db.Column(db.String(120))
     rh_ciencia_ip         = db.Column(db.String(50))
     rh_data_ciencia       = db.Column(db.DateTime)
+    cobranca_aplicada     = db.Column(db.Boolean, nullable=True)
     cobranca_valor        = db.Column(db.Float, default=0.0)
     cobranca_obs          = db.Column(db.Text, default="")
 
@@ -476,6 +478,7 @@ class Devolucao(db.Model):
             "laudoStatus": self.laudo_status,
             "rhEmail": self.rh_email,
             "rhDataCiencia": self.rh_data_ciencia.isoformat() if self.rh_data_ciencia else None,
+            "cobrancaAplicada": self.cobranca_aplicada,
             "cobrancaValor": self.cobranca_valor,
             "cobrancaObs": self.cobranca_obs,
         }
