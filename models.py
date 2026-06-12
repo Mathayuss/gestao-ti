@@ -150,9 +150,15 @@ class Allocation(db.Model):
     data_devolucao_prevista = db.Column(db.String(10))
     items           = db.relationship("AllocationItem", backref="allocation",
                                      cascade="all, delete-orphan", lazy=True)
+    asset_items     = db.relationship("AllocationAsset", backref="allocation",
+                                     cascade="all, delete-orphan", lazy=True)
 
     def to_dict(self, include_items=False):
+        ativos = [i.to_dict() for i in self.asset_items]
+        if not ativos and self.ativo_id:
+            ativos = [{"id": self.ativo_id, "nome": self.ativo_nome or self.ativo_id}]
         d = {"id":self.id,"ativo":self.ativo_id,"ativoNome":self.ativo_nome,
+             "ativos": ativos,
              "colaborador":self.colaborador,"setor":self.setor,"unidade":self.unidade,
              "email":self.email,"dataAloc":self.data_aloc,"motivo":self.motivo,
              "dataEncerramento":self.data_encerramento,
@@ -182,6 +188,28 @@ class AllocationItem(db.Model):
 
     def to_dict(self):
         return {"id":self.id,"supplyId":self.supply_id,"nome":self.supply_nome,"quantidade":self.quantidade}
+
+
+class AllocationAsset(db.Model):
+    """Ativos patrimoniais vinculados ao mesmo termo de alocação."""
+    __tablename__ = "allocation_assets"
+    id            = db.Column(db.String(20), primary_key=True)
+    allocation_id = db.Column(db.String(16), db.ForeignKey("allocations.id"), index=True)
+    asset_id      = db.Column(db.String(16), db.ForeignKey("assets.id"), index=True)
+    asset_nome    = db.Column(db.String(200))
+    categoria     = db.Column(db.String(40))
+    patrimonio    = db.Column(db.String(40))
+    service_tag   = db.Column(db.String(40))
+
+    def to_dict(self):
+        return {
+            "id": self.asset_id,
+            "itemId": self.id,
+            "nome": self.asset_nome,
+            "categoria": self.categoria,
+            "patrimonio": self.patrimonio,
+            "serviceTag": self.service_tag,
+        }
 
 
 class License(db.Model):

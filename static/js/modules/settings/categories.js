@@ -288,16 +288,27 @@ function _renderPerifList(items){
 
 function onAllocAtivoChange(sel){
   _allocPerifs = [];
-  const cat = sel.options[sel.selectedIndex]?.dataset?.cat || '';
-  if(!cat){
-    $('perf-list').innerHTML='<p style="font-size:12px;color:var(--text3);text-align:center;padding:20px">Selecione um ativo para ver os insumos compatíveis.</p>';
+  const cats = (typeof _allocAssets !== 'undefined' && Array.isArray(_allocAssets) && _allocAssets.length)
+    ? _allocAssets.map(a => a.categoria).filter(Boolean)
+    : [sel?.options?.[sel.selectedIndex]?.dataset?.cat || ''].filter(Boolean);
+  if(!cats.length){
+    $('perf-list').innerHTML='<p style="font-size:12px;color:var(--text3);text-align:center;padding:20px">Adicione ao menos um ativo para ver os insumos compatíveis.</p>';
     _updatePerifCount();
     return;
   }
   const compat = _settings.categorias_compat || {};
+  let allowed = null;
+  cats.forEach(cat => {
+    if(Object.hasOwn(compat, cat) && compat[cat].length > 0){
+      const set = new Set(compat[cat]);
+      allowed = allowed === null ? set : new Set([...allowed].filter(x => set.has(x)));
+    }
+  });
   let filtered;
-  if(Object.hasOwn(compat, cat) && compat[cat].length > 0){
-    filtered = _allAllocSupplies.filter(s => compat[cat].includes(s.categoria));
+  if(allowed && allowed.size > 0){
+    filtered = _allAllocSupplies.filter(s => allowed.has(s.categoria));
+  } else if(allowed && allowed.size === 0) {
+    filtered = [];
   } else {
     // sem restrição configurada → exibe todos com estoque
     filtered = _allAllocSupplies;
@@ -313,4 +324,3 @@ function _updatePerifCount(){
   badge.textContent = n;
   badge.style.display = n > 0 ? 'inline-flex' : 'none';
 }
-

@@ -455,7 +455,13 @@ def get_asset(aid):
     a = db.get_or_404(Asset, aid)
     d = a.to_dict()
     d["incidentes"]    = [i.to_dict() for i in db.session.execute(db.select(Incident).filter_by(ref_id=aid)).scalars().all()]
-    d["alocacoes"]     = [al.to_dict() for al in db.session.execute(db.select(Allocation).filter_by(ativo_id=aid)).scalars().all()]
+    alocs = db.session.execute(
+        db.select(Allocation)
+        .outerjoin(AllocationAsset, AllocationAsset.allocation_id == Allocation.id)
+        .where(db.or_(Allocation.ativo_id == aid, AllocationAsset.asset_id == aid))
+        .distinct()
+    ).scalars().all()
+    d["alocacoes"]     = [al.to_dict(include_items=True) for al in alocs]
     d["auditLogs"]     = [l.to_dict() for l in db.session.execute(db.select(AuditLog).filter_by(ref_id=aid).order_by(AuditLog.data.desc()).limit(20)).scalars().all()]
     return jsonify(d)
 
@@ -503,7 +509,11 @@ def upload_asset_attachment(aid):
 def delete_asset(aid):
     """Baixa lógica — não remove fisicamente se houver histórico."""
     a = db.get_or_404(Asset, aid)
-    has_allocs  = db.session.execute(db.select(Allocation).filter_by(ativo_id=aid)).scalar_one_or_none()
+    has_allocs  = db.session.execute(
+        db.select(Allocation)
+        .outerjoin(AllocationAsset, AllocationAsset.allocation_id == Allocation.id)
+        .where(db.or_(Allocation.ativo_id == aid, AllocationAsset.asset_id == aid))
+    ).scalar_one_or_none()
     has_inc     = db.session.execute(db.select(Incident).filter_by(ref_id=aid)).scalar_one_or_none()
     if has_allocs or has_inc:
         a.status = "Baixado"
@@ -562,7 +572,10 @@ def get_asset_history(aid):
 
     # 2. Alocações (estruturado — tem dados de termo e status)
     for al in db.session.execute(
-            db.select(Allocation).where(Allocation.ativo_id == aid)).scalars().all():
+            db.select(Allocation)
+            .outerjoin(AllocationAsset, AllocationAsset.allocation_id == Allocation.id)
+            .where(db.or_(Allocation.ativo_id == aid, AllocationAsset.asset_id == aid))
+            .distinct()).scalars().all():
         events.append(_ev("alocacao","ALOCAR",
                           f"Alocado para {al.colaborador} — {al.setor} / {al.unidade}",
                           al.colaborador,

@@ -133,6 +133,19 @@
           <div class="field"><div class="label">E-mail</div><div class="value">{{ al.email or '—' }}</div></div>
         </div>
 
+        {% set ativos_assinatura = al.asset_items if al.asset_items else [] %}
+        {% if ativos_assinatura %}
+        <h2>Ativos patrimoniais</h2>
+        <div class="items">
+          {% for item in ativos_assinatura %}
+          <div class="item">
+            <div class="value">{{ item.asset_nome or item.asset_id }}</div>
+            <div class="hint">{{ item.categoria or 'Ativo' }}{% if item.patrimonio %} · Patrimônio: {{ item.patrimonio }}{% endif %}{% if item.service_tag %} · S/Tag: {{ item.service_tag }}{% endif %}</div>
+          </div>
+          {% endfor %}
+        </div>
+        {% endif %}
+
         {% if perifericos %}
         <h2>Itens vinculados</h2>
         <div class="items">

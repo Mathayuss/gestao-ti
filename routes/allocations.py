@@ -95,20 +95,35 @@ def _send_allocation_term_pdf(al, aid, empresa, logo_b64, titulo, preambulo, cla
         if linha.strip():
             story.append(para(linha.strip()))
 
+    ativos = al.asset_items or []
+    ativo_rows = [[para("Ativo", "TermLabel"), para("Identificacao", "TermLabel")]]
+    if ativos:
+        for item in ativos:
+            detalhes = []
+            if item.categoria:
+                detalhes.append(item.categoria)
+            if item.patrimonio:
+                detalhes.append(f"Patrimonio: {item.patrimonio}")
+            if item.service_tag:
+                detalhes.append(f"S/Tag: {item.service_tag}")
+            ativo_rows.append([para(item.asset_nome or item.asset_id or "-", "TermBody"), para(" | ".join(detalhes) or "-", "TermBody")])
+    else:
+        ativo_rows.append([para(al.ativo_nome or al.ativo_id or "-", "TermBody"), para("-", "TermBody")])
     ativo_table = Table(
-        [[para("Ativo", "TermLabel"), para(al.ativo_nome or al.ativo_id or "-", "TermBody")]],
-        colWidths=[2.5 * cm, doc.width - 2.5 * cm],
+        ativo_rows,
+        colWidths=[doc.width * 0.58, doc.width * 0.42],
+        repeatRows=1,
     )
     ativo_table.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#f1f3f5")),
-        ("BOX", (0, 0), (-1, -1), 0.5, colors.HexColor("#d8dee4")),
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#eef2f7")),
+        ("GRID", (0, 0), (-1, -1), 0.4, colors.HexColor("#d8dee4")),
         ("VALIGN", (0, 0), (-1, -1), "TOP"),
         ("LEFTPADDING", (0, 0), (-1, -1), 8),
         ("RIGHTPADDING", (0, 0), (-1, -1), 8),
         ("TOPPADDING", (0, 0), (-1, -1), 7),
         ("BOTTOMPADDING", (0, 0), (-1, -1), 7),
     ]))
-    story.extend([Spacer(1, 0.15 * cm), ativo_table, Spacer(1, 0.35 * cm)])
+    story.extend([Spacer(1, 0.15 * cm), para("Ativos patrimoniais entregues:", "TermLabel"), ativo_table, Spacer(1, 0.35 * cm)])
 
     if (al.tipo or "Responsabilidade") == "Empréstimo" and al.data_devolucao_prevista:
         story.append(para(f"Devolucao prevista: {al.data_devolucao_prevista}", "TermLabel"))
@@ -192,13 +207,35 @@ def create_allocation():
     erros = []
     regras = _get_setting("regras_usuario", {})
 
-    # ── Valida ativo ─────────────────────────────────────────────────────
-    asset = db.session.get(Asset, d.get("ativo",""))
-    if not asset: erros.append("Ativo não encontrado.")
-    elif asset.status not in ("Disponível","Ativo"):
-        erros.append(f"Ativo não disponível para alocação (status: {asset.status}).")
-    elif db.session.execute(db.select(Allocation).filter_by(ativo_id=asset.id, status="Ativo")).scalar_one_or_none():
-        erros.append("Ativo já possui alocação ativa.")
+    # ── Valida ativos patrimoniais ───────────────────────────────────────
+    ativos_raw = d.get("ativos")
+    if not isinstance(ativos_raw, list) or not ativos_raw:
+        ativos_raw = [d.get("ativo")]
+    asset_ids = []
+    for raw_id in ativos_raw:
+        asset_id = clean_text(raw_id, 16)
+        if asset_id and asset_id not in asset_ids:
+            asset_ids.append(asset_id)
+    if not asset_ids:
+        erros.append("Selecione ao menos um ativo para alocar.")
+
+    assets = []
+    for asset_id in asset_ids:
+        asset = db.session.get(Asset, asset_id)
+        if not asset:
+            erros.append(f"Ativo '{asset_id}' não encontrado.")
+            continue
+        if asset.status not in ("Disponível", "Ativo"):
+            erros.append(f"Ativo {asset.hostname} não disponível para alocação (status: {asset.status}).")
+        if db.session.execute(db.select(Allocation).filter_by(ativo_id=asset.id, status="Ativo")).scalar_one_or_none():
+            erros.append(f"Ativo {asset.hostname} já possui alocação ativa.")
+        if db.session.execute(
+            db.select(AllocationAsset)
+            .join(Allocation, AllocationAsset.allocation_id == Allocation.id)
+            .where(AllocationAsset.asset_id == asset.id, Allocation.status == "Ativo")
+        ).scalar_one_or_none():
+            erros.append(f"Ativo {asset.hostname} já está vinculado a uma alocação ativa.")
+        assets.append(asset)
 
     # ── Valida colaborador ───────────────────────────────────────────────
     colab_nome = clean_text(d.get("colaborador", ""), 120)
@@ -247,9 +284,13 @@ def create_allocation():
         if tipo_aloc not in ("Responsabilidade", "Empréstimo"):
             tipo_aloc = "Responsabilidade"
         data_dev = clean_text(d.get("dataDevolucaoPrevista") or "", 10) or None
+        primary = assets[0]
+        ativo_nome = f"{primary.hostname} ({primary.fabricante} {primary.modelo})"
+        if len(assets) > 1:
+            ativo_nome = f"{ativo_nome} + {len(assets)-1} ativo(s)"
         alloc = Allocation(
-            id=aid, ativo_id=asset.id,
-            ativo_nome=f"{asset.hostname} ({asset.fabricante} {asset.modelo})",
+            id=aid, ativo_id=primary.id,
+            ativo_nome=ativo_nome,
             colaborador=colab.nome, setor=clean_text(d.get("setor") or colab.setor, 80),
             unidade=clean_text(d.get("unidade") or colab.unidade, 80), email=clean_text(d.get("email") or colab.email, 120),
             data_aloc=str(date.today()), motivo=clean_text(d.get("motivo") or "Uso contínuo", 80),
@@ -258,8 +299,17 @@ def create_allocation():
         )
         db.session.add(alloc)
 
-        asset.status="Alocado"; asset.colaborador=colab.nome
-        asset.setor=alloc.setor; asset.unidade=alloc.unidade
+        for asset in assets:
+            asset.status = "Alocado"
+            asset.colaborador = colab.nome
+            asset.setor = alloc.setor
+            asset.unidade = alloc.unidade
+            db.session.add(AllocationAsset(
+                id=new_id("AA"), allocation_id=aid, asset_id=asset.id,
+                asset_nome=f"{asset.hostname} ({asset.fabricante} {asset.modelo})",
+                categoria=asset.categoria, patrimonio=asset.patrimonio,
+                service_tag=asset.service_tag,
+            ))
 
         for p in perifericos_in:
             s = db.session.get(Supply, p["supplyId"]); qty = parse_int(p["quantidade"], default=1, minimum=1)
@@ -271,10 +321,10 @@ def create_allocation():
             db.session.add(SupplyMovement(
                 id=new_id("MOV"), tipo="SAIDA", ref_id=s.id, supply_nome=s.nome,
                 descricao=f"Alocação {aid} — {colab.nome}: {s.nome} x{qty}", quantidade=-qty,
-                colaborador=colab.nome, ativo_id=asset.id, motivo="Alocação",
+                colaborador=colab.nome, ativo_id=primary.id, motivo="Alocação",
             ))
 
-        audit("ALOCACAO","alocacoes",aid,f"{asset.hostname} → {colab.nome} ({len(perifericos_in)} periféricos)")
+        audit("ALOCACAO","alocacoes",aid,f"{len(assets)} ativo(s) → {colab.nome} ({len(perifericos_in)} periféricos)")
         db.session.commit()
         return jsonify(alloc.to_dict(include_items=True)), 201
     except Exception:

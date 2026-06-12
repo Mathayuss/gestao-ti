@@ -63,11 +63,16 @@ async function renderAlocacoes(q=''){
     }
     return '';
   };
+  const ativosResumo = a => {
+    const ativos = Array.isArray(a.ativos) && a.ativos.length ? a.ativos : [{nome:a.ativoNome||a.ativo||'—'}];
+    const first = ativos[0]?.nome || ativos[0]?.id || '—';
+    return ativos.length > 1 ? `${first.split(' ')[0]} + ${ativos.length-1}` : first.split(' ')[0];
+  };
 
   const rowPend = a=>`<tr>
     <td class="mono" style="color:var(--text3);font-size:11px">${esc(a.id)}</td>
     <td style="font-weight:600">${esc(a.colaborador)}${tipoBadge(a)?'<br>'+tipoBadge(a):''}</td>
-    <td class="mono" style="font-size:12px">${esc((a.ativoNome||'').split(' ')[0])}</td>
+    <td class="mono" style="font-size:12px">${esc(ativosResumo(a))}</td>
     <td style="font-size:12px">${esc(a.setor)}</td>
     <td style="font-size:12px">${esc(a.unidade)}</td>
     <td style="font-size:12px">${fmtDate(a.dataAloc)}</td>
@@ -81,7 +86,7 @@ async function renderAlocacoes(q=''){
   const rowSign = a=>`<tr>
     <td class="mono" style="color:var(--text3);font-size:11px">${esc(a.id)}</td>
     <td style="font-weight:600">${esc(a.colaborador)}${tipoBadge(a)?'<br>'+tipoBadge(a):''}</td>
-    <td class="mono" style="font-size:12px">${esc((a.ativoNome||'').split(' ')[0])}</td>
+    <td class="mono" style="font-size:12px">${esc(ativosResumo(a))}</td>
     <td style="font-size:12px">${esc(a.setor)}</td>
     <td style="font-size:12px">${esc(a.unidade)}</td>
     <td style="font-size:12px">${fmtDate(a.dataAloc)}</td>
@@ -560,25 +565,31 @@ async function verQrTermo(aid){
 }
 
 let _allocPerifs = []; // periféricos selecionados na modal de alocação
+let _allocAssets = []; // ativos patrimoniais selecionados na modal de alocação
 let _allAllocSupplies = []; // todos os insumos com estoque (para filtro dinâmico)
+let _allAllocAssets = []; // ativos disponíveis para seleção múltipla
 
 async function openNewAlloc(avail){
   const supplies = await api('/supplies');
   _allAllocSupplies = (supplies || []).filter(s => s.estoque > 0);
   const colabOpts = _colab_cache.filter(c=>c.status==='Ativo'||c.status==='Férias');
   _allocPerifs = [];
+  _allocAssets = [];
+  _allAllocAssets = avail || [];
 
   openModal('Nova Alocação', `
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
 
     <!-- Coluna esquerda: ativo + colaborador -->
     <div>
-      <div class="section-title" style="font-size:13px">Ativo a Alocar</div>
-      <div class="form-group"><label>Ativo Disponível</label>
-        <select id="al-ativo" onchange="onAllocAtivoChange(this)">
-          <option value="" data-cat="">Selecione um ativo...</option>
-          ${avail.map(a=>`<option value="${a.id}" data-cat="${esc(a.categoria||'')}">${esc(a.hostname)} — ${esc(a.fabricante)} ${esc(a.modelo)} (${esc(a.categoria||'')})</option>`).join('')}
-        </select>
+      <div class="section-title" style="font-size:13px">Ativos a Alocar <span id="al-asset-count" class="badge badge-blue" style="display:none">0</span></div>
+      <div class="info-box blue" style="margin-bottom:10px;font-size:12px">Selecione todos os ativos que sairão no mesmo termo: notebook, desktop, monitor, smartphone, tablet ou outros patrimônios.</div>
+      <div class="form-group"><label>Buscar ativo disponível</label>
+        <input id="al-asset-search" placeholder="Hostname, patrimônio, categoria..." onkeyup="renderAllocAssetPicker(this.value)">
+      </div>
+      <div id="al-selected-assets" style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px"></div>
+      <div id="al-asset-picker" style="display:flex;flex-direction:column;gap:4px;max-height:210px;overflow-y:auto"></div>
+      <input type="hidden" id="al-ativo">
       </div>
 
       <hr class="divider">
@@ -614,7 +625,7 @@ async function openNewAlloc(avail){
       <div class="section-title" style="font-size:13px">Insumos no Termo <span id="al-perf-count" class="badge badge-blue" style="display:none">0</span></div>
       <div class="info-box blue" style="margin-bottom:10px;font-size:12px">Opcional. Os itens selecionados serão entregues e incluídos no termo.</div>
       <div style="display:flex;flex-direction:column;gap:4px;max-height:320px;overflow-y:auto" id="perf-list">
-        <p style="font-size:12px;color:var(--text3);text-align:center;padding:20px">Selecione um ativo para ver os insumos compatíveis.</p>
+        <p style="font-size:12px;color:var(--text3);text-align:center;padding:20px">Adicione ao menos um ativo para ver os insumos compatíveis.</p>
       </div>
     </div>
   </div>
@@ -623,6 +634,71 @@ async function openNewAlloc(avail){
     <button class="btn btn-default" onclick="closeModal()">Cancelar</button>
     <button class="btn btn-primary" onclick="saveNewAlloc()">Criar Alocação + Termo</button>
   </div>`, true);
+  renderAllocAssetPicker('');
+  renderSelectedAllocAssets();
+}
+
+function assetLabel(a){
+  return `${a.hostname||a.id} — ${a.fabricante||''} ${a.modelo||''} (${a.categoria||'Ativo'})`.replace(/\s+/g,' ').trim();
+}
+
+function renderSelectedAllocAssets(){
+  const wrap = $('al-selected-assets');
+  const cnt = $('al-asset-count');
+  if(!wrap) return;
+  if(cnt){
+    cnt.style.display = _allocAssets.length ? '' : 'none';
+    cnt.textContent = _allocAssets.length;
+  }
+  $('al-ativo').value = _allocAssets[0]?.id || '';
+  wrap.innerHTML = _allocAssets.length
+    ? _allocAssets.map((a,i)=>`
+      <div style="display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--blue-border);border-radius:var(--r);background:var(--blue-bg)">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:12px;font-weight:700;color:var(--blue-text)">${i===0?'Principal · ':''}${esc(a.hostname||a.id)}</div>
+          <div style="font-size:11px;color:var(--blue-text);opacity:.82">${esc(a.categoria||'')} ${a.patrimonio?'· '+esc(a.patrimonio):''}</div>
+        </div>
+        <button class="btn btn-default btn-sm" onclick="removeAllocAsset('${a.id}')">Remover</button>
+      </div>`).join('')
+    : `<div style="font-size:12px;color:var(--text3);padding:10px;border:1px dashed var(--border);border-radius:var(--r);text-align:center">Nenhum ativo selecionado.</div>`;
+  onAllocAtivoChange();
+}
+
+function renderAllocAssetPicker(q=''){
+  const wrap = $('al-asset-picker');
+  if(!wrap) return;
+  const term = (q||'').toLowerCase();
+  const selected = new Set(_allocAssets.map(a=>a.id));
+  const list = _allAllocAssets
+    .filter(a=>!selected.has(a.id))
+    .filter(a=>{
+      const hay = `${a.hostname||''} ${a.fabricante||''} ${a.modelo||''} ${a.categoria||''} ${a.patrimonio||''} ${a.serviceTag||''}`.toLowerCase();
+      return !term || hay.includes(term);
+    })
+    .slice(0, 40);
+  wrap.innerHTML = list.length ? list.map(a=>`
+    <div style="display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);background:var(--bg3)">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:12px;font-weight:700">${esc(a.hostname||a.id)}</div>
+        <div style="font-size:11px;color:var(--text3)">${esc(a.fabricante||'')} ${esc(a.modelo||'')} · ${esc(a.categoria||'')} ${a.patrimonio?'· '+esc(a.patrimonio):''}</div>
+      </div>
+      <button class="btn btn-primary btn-sm" onclick="addAllocAsset('${a.id}')">Adicionar</button>
+    </div>`).join('')
+    : `<div style="font-size:12px;color:var(--text3);text-align:center;padding:14px">Nenhum ativo disponível encontrado.</div>`;
+}
+
+function addAllocAsset(id){
+  const a = _allAllocAssets.find(x=>x.id===id);
+  if(!a || _allocAssets.some(x=>x.id===id)) return;
+  _allocAssets.push(a);
+  renderSelectedAllocAssets();
+  renderAllocAssetPicker($('al-asset-search')?.value || '');
+}
+
+function removeAllocAsset(id){
+  _allocAssets = _allocAssets.filter(a=>a.id!==id);
+  renderSelectedAllocAssets();
+  renderAllocAssetPicker($('al-asset-search')?.value || '');
 }
 
 function preencheColab(id){
@@ -669,7 +745,7 @@ function onAllocTipoChange(){
 }
 
 async function saveNewAlloc(){
-  if(!$('al-ativo').value){toast('Selecione um ativo','error');return;}
+  if(!_allocAssets.length){toast('Selecione ao menos um ativo','error');return;}
   if(!$('al-colab').value){toast('Informe o colaborador','error');return;}
   const tipo = $('al-tipo')?.value || 'Responsabilidade';
   const dataDev = $('al-devol-data')?.value || '';
@@ -678,10 +754,10 @@ async function saveNewAlloc(){
     return;
   }
   try{
-    const ativoId = $('al-ativo').value;
-    const ativoNome = $('al-ativo').options[$('al-ativo').selectedIndex]?.text || '';
+    const ativoId = _allocAssets[0].id;
+    const ativoNome = _allocAssets.map(assetLabel).join(', ');
     const r = await api('/allocations','POST',{
-      ativo:ativoId, colaborador:$('al-colab').value,
+      ativo:ativoId, ativos:_allocAssets.map(a=>a.id), colaborador:$('al-colab').value,
       setor:$('al-setor').value, unidade:$('al-uni').value,
       email:$('al-email').value, perifericos:_allocPerifs,
       tipo, dataDevolucaoPrevista: dataDev || null,
@@ -690,11 +766,12 @@ async function saveNewAlloc(){
     closeModal();
     renderAlocacoes();
     // Verificação de etiqueta patrimonial
-    perguntarEtiqueta(ativoId, ativoNome, nPerifs);
+    perguntarEtiqueta(_allocAssets.map(a=>a.id), ativoNome, nPerifs);
   }catch(e){toast(e.message,'error');}
 }
 
-function perguntarEtiqueta(ativoId, ativoNome, nPerifs){
+function perguntarEtiqueta(ativoIds, ativoNome, nPerifs){
+  const ids = Array.isArray(ativoIds) ? ativoIds : [ativoIds];
   const msg = nPerifs ? ` + ${nPerifs} periférico(s)` : '';
   openModal('Alocação Criada', `
   <div style="text-align:center;padding:10px 0 18px">
@@ -707,8 +784,8 @@ function perguntarEtiqueta(ativoId, ativoNome, nPerifs){
     </div>
     <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
       <button class="btn btn-default" onclick="closeModal()">Sim, já possui etiqueta</button>
-      <button class="btn btn-primary" onclick="closeModal();irParaEtiqueta('${ativoId}')">
-        ${inlineIcon('qrcode')} Não — Gerar Etiqueta Agora
+      <button class="btn btn-primary" onclick="closeModal();irParaEtiqueta('${ids[0]}')">
+        ${inlineIcon('qrcode')} Gerar Etiqueta do Principal
       </button>
     </div>
   </div>
@@ -724,6 +801,12 @@ function irParaEtiqueta(ativoId){
 async function viewTermo(a){
   const perifericos=await api(`/allocations/${a.id}/perifericos`);
   const podeTrocar=a.status==='Ativo';
+  const ativos = Array.isArray(a.ativos) && a.ativos.length ? a.ativos : [{nome:a.ativoNome, categoria:'Ativo'}];
+  const ativosList = ativos.map(item=>`
+    <div style="margin-bottom:6px;padding:8px 10px;background:var(--blue-bg);border-radius:var(--r);font-family:var(--mono);font-size:12px;font-weight:700;color:var(--blue-text)">
+      [${esc(item.categoria||'ATIVO')}] ${esc(item.nome||item.id||'—')}
+      ${item.patrimonio?`<span style="font-family:inherit;font-weight:600;opacity:.75"> · ${esc(item.patrimonio)}</span>`:''}
+    </div>`).join('');
   const perfList=perifericos.length
     ? perifericos.map(p=>`<div style="display:flex;gap:10px;align-items:center;padding:6px 10px;background:var(--bg3);border-radius:var(--r);margin-bottom:4px;font-size:13px">
         <span style="font-size:16px"></span>
@@ -746,7 +829,7 @@ async function viewTermo(a){
       <div style="font-size:12px;color:var(--text2)">Nº ${esc(a.termo)} — ${fmtDate(a.dataAloc)}</div>
     </div>
     <p>Eu, <strong>${esc(a.colaborador)}</strong>, lotado(a) no setor de <strong>${esc(a.setor)}</strong>, unidade <strong>${esc(a.unidade)}</strong>, declaro ter recebido:</p>
-    <div style="margin:12px 0;padding:10px 14px;background:var(--blue-bg);border-radius:var(--r);font-family:var(--mono);font-size:12px;font-weight:700;color:var(--blue-text)">[ATIVO] ${esc(a.ativoNome)}</div>
+    <div style="margin:12px 0">${ativosList}</div>
     ${perifericos.length?`<div style="margin-bottom:10px"><div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:6px">PERIFÉRICOS VINCULADOS:</div>${perfList}</div>`:''}
     <p>Comprometo-me a utilizar exclusivamente para fins profissionais, zelar pela conservação, comunicar danos/perdas e devolver ao encerramento do vínculo.</p>
     <div style="display:flex;gap:16px;margin-top:22px;flex-wrap:wrap">

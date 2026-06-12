@@ -75,7 +75,7 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
 
 
-def _version_from_file(default="1.2.7-beta"):
+def _version_from_file(default="1.2.8-beta"):
     version_path = os.path.join(os.path.dirname(__file__), "VERSION")
     try:
         with open(version_path, "r", encoding="utf-8") as fh:
@@ -266,6 +266,7 @@ from models import (
     ASSET_STATUS_VALID,
     PERFIL_PERMISSOES,
     Allocation,
+    AllocationAsset,
     AllocationItem,
     Asset,
     Attachment,
@@ -1996,7 +1997,7 @@ def _restore_from_payload(payload, restored_by="sistema"):
 
     # Deleção em ordem segura de FK
     for model in (AuditCampaignItem, AuditCampaign, LaudoTecnico, TermoAvulso, MaintenancePart,
-                  AllocationItem, Devolucao, Allocation, Incident, MaintenanceOrder,
+                  AllocationItem, AllocationAsset, Devolucao, Allocation, Incident, MaintenanceOrder,
                   Attachment, SupplyMovement, Supply, License, Asset, Colaborador):
         db.session.execute(db.delete(model))
 
@@ -2114,6 +2115,21 @@ def _restore_from_payload(payload, restored_by="sistema"):
                 id=item["id"], allocation_id=al["id"],
                 supply_id=item.get("supplyId"), supply_nome=item.get("nome"),
                 quantidade=item.get("quantidade", 1),
+            ))
+        ativos_al = al.get("ativos") or []
+        if not ativos_al and al.get("ativo"):
+            ativos_al = [{"id": al.get("ativo"), "nome": al.get("ativoNome")}]
+        for idx, item in enumerate(ativos_al):
+            if not isinstance(item, dict) or not item.get("id"):
+                continue
+            db.session.add(AllocationAsset(
+                id=item.get("itemId") or new_id("AA"),
+                allocation_id=al["id"],
+                asset_id=item.get("id"),
+                asset_nome=item.get("nome") or item.get("assetNome") or item.get("id"),
+                categoria=item.get("categoria"),
+                patrimonio=item.get("patrimonio"),
+                service_tag=item.get("serviceTag"),
             ))
     stats["allocations"] = len(allocations)
 
@@ -2606,6 +2622,30 @@ def _migrate_db():
                         created_at TEXT,
                         created_by VARCHAR(120)
                     )
+                """))
+            except Exception:
+                pass
+        if "allocation_assets" not in existing_tables:
+            try:
+                conn.execute(_text("""
+                    CREATE TABLE allocation_assets (
+                        id VARCHAR(20) PRIMARY KEY,
+                        allocation_id VARCHAR(16),
+                        asset_id VARCHAR(16),
+                        asset_nome VARCHAR(200),
+                        categoria VARCHAR(40),
+                        patrimonio VARCHAR(40),
+                        service_tag VARCHAR(40)
+                    )
+                """))
+            except Exception:
+                pass
+            try:
+                conn.execute(_text("""
+                    INSERT INTO allocation_assets (id, allocation_id, asset_id, asset_nome, categoria, patrimonio, service_tag)
+                    SELECT 'AA' || substr(id, 3), id, ativo_id, ativo_nome, NULL, NULL, NULL
+                    FROM allocations
+                    WHERE ativo_id IS NOT NULL AND ativo_id <> ''
                 """))
             except Exception:
                 pass
