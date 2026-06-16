@@ -11,10 +11,13 @@ const LABEL_CUSTOM_TEMPLATES_KEY = 'ticontrol-label-templates-v1';
 const LABEL_SIZES = {
   pequena:{label:'Pequena',dim:'58 x 38 mm',w:58,h:38,qr:18,fs:9},
   media:{label:'Media',dim:'88 x 38 mm',w:88,h:38,qr:22,fs:10},
-  grande:{label:'Grande',dim:'100 x 70 mm',w:100,h:70,qr:30,fs:12}
+  grande:{label:'Grande',dim:'100 x 70 mm',w:100,h:70,qr:30,fs:12},
+  personalizada:{label:'Personalizada',dim:'definida pelo usuário',w:88,h:38,qr:22,fs:10}
 };
 const LABEL_DEFAULT_CFG = {
   size:'media',
+  customW:88,
+  customH:38,
   campos:{hostname:true,patrimonio:true,serviceTag:true,setor:true,colaborador:false,ip:false,garantia:false},
   copias:1,
   empresa:'',
@@ -57,6 +60,20 @@ function saveLabelConfig(){
 }
 
 function labelSizeDef(size){
+  if(size === 'personalizada'){
+    const w = Math.min(150, Math.max(25, Number(_lblCfg.customW) || 88));
+    const h = Math.min(100, Math.max(15, Number(_lblCfg.customH) || 38));
+    const base = Math.min(w, h);
+    const maxQr = Math.max(10, Math.min(w - 14, h - 10));
+    return {
+      label:'Personalizada',
+      dim:`${w} x ${h} mm`,
+      w,
+      h,
+      qr:Math.min(Math.max(10, Math.round(base * 0.58)), maxQr),
+      fs:Math.min(12, Math.max(7, Math.round(w / 9)))
+    };
+  }
   return LABEL_SIZES[size]||LABEL_SIZES.media;
 }
 
@@ -202,6 +219,19 @@ function renderEtiquetaPanel(sel){
               <div style="font-size:11px;color:var(--text3)">${s.dim}</div>
             </div>
           </label>`).join('')}
+        </div>
+        <div id="lbl-custom-size" class="form-grid-2" style="gap:8px;margin-top:-10px;margin-bottom:18px;${_lblCfg.size==='personalizada'?'':'display:none'}">
+          <div class="form-group" style="margin-bottom:0">
+            <label>Largura (mm)</label>
+            <input id="lbl-custom-w" type="number" min="25" max="150" step="1" value="${_lblCfg.customW||88}" oninput="lblSetCustomSize('customW',this.value,'${sel.id}')">
+          </div>
+          <div class="form-group" style="margin-bottom:0">
+            <label>Altura (mm)</label>
+            <input id="lbl-custom-h" type="number" min="15" max="100" step="1" value="${_lblCfg.customH||38}" oninput="lblSetCustomSize('customH',this.value,'${sel.id}')">
+          </div>
+          <div class="info-box blue" style="grid-column:span 2;font-size:11px;line-height:1.45;margin:0">
+            Use medidas reais da etiqueta. O PDF respeita este tamanho em impressão 100%.
+          </div>
         </div>
         <div style="font-size:12px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.04em;margin-bottom:10px">Campos</div>
         <div style="display:flex;flex-direction:column;gap:5px;margin-bottom:16px">
@@ -361,6 +391,15 @@ function lblSetSize(size){
   saveLabelConfig();
   // Re-render the etiqueta panel for the current asset
   renderQRCode().then(()=>{qrTab('etq');});
+}
+
+function lblSetCustomSize(key,val,aid){
+  const min = key === 'customW' ? 25 : 15;
+  const max = key === 'customW' ? 150 : 100;
+  _lblCfg[key]=Math.min(max,Math.max(min,+val||_lblCfg[key]||min));
+  _lblCfg.size='personalizada';
+  saveLabelConfig();
+  atualizarPreviewEtiqueta(aid);
 }
 
 function applyLabelTemplate(aid){

@@ -256,7 +256,7 @@ function _renderPerifList(items){
   const list = $('perf-list');
   if(!list) return;
   if(!items||!items.length){
-    list.innerHTML='<p style="font-size:12px;color:var(--text3);text-align:center;padding:20px">Nenhum insumo compatível disponível em estoque.</p>';
+    list.innerHTML='<p style="font-size:12px;color:var(--text3);text-align:center;padding:20px">Nenhum periférico compatível disponível em estoque.</p>';
     return;
   }
   list.innerHTML = items.map(s=>`
@@ -292,7 +292,7 @@ function onAllocAtivoChange(sel){
     ? _allocAssets.map(a => a.categoria).filter(Boolean)
     : [sel?.options?.[sel.selectedIndex]?.dataset?.cat || ''].filter(Boolean);
   if(!cats.length){
-    $('perf-list').innerHTML='<p style="font-size:12px;color:var(--text3);text-align:center;padding:20px">Adicione ao menos um ativo para ver os insumos compatíveis.</p>';
+    $('perf-list').innerHTML='<p style="font-size:12px;color:var(--text3);text-align:center;padding:20px">Adicione ao menos um ativo para ver os periféricos compatíveis.</p>';
     _updatePerifCount();
     return;
   }

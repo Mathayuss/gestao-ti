@@ -566,7 +566,7 @@ async function verQrTermo(aid){
 
 let _allocPerifs = []; // periféricos selecionados na modal de alocação
 let _allocAssets = []; // ativos patrimoniais selecionados na modal de alocação
-let _allAllocSupplies = []; // todos os insumos com estoque (para filtro dinâmico)
+let _allAllocSupplies = []; // todos os periféricos/insumos com estoque (para filtro dinâmico)
 let _allAllocAssets = []; // ativos disponíveis para seleção múltipla
 
 async function openNewAlloc(avail){
@@ -620,12 +620,12 @@ async function openNewAlloc(avail){
       </div>
     </div>
 
-    <!-- Coluna direita: insumos compatíveis -->
+    <!-- Coluna direita: periféricos compatíveis -->
     <div>
-      <div class="section-title" style="font-size:13px">Insumos no Termo <span id="al-perf-count" class="badge badge-blue" style="display:none">0</span></div>
+      <div class="section-title" style="font-size:13px">Periféricos no Termo <span id="al-perf-count" class="badge badge-blue" style="display:none">0</span></div>
       <div class="info-box blue" style="margin-bottom:10px;font-size:12px">Opcional. Os itens selecionados serão entregues e incluídos no termo.</div>
       <div style="display:flex;flex-direction:column;gap:4px;max-height:320px;overflow-y:auto" id="perf-list">
-        <p style="font-size:12px;color:var(--text3);text-align:center;padding:20px">Adicione ao menos um ativo para ver os insumos compatíveis.</p>
+        <p style="font-size:12px;color:var(--text3);text-align:center;padding:20px">Adicione ao menos um ativo para ver os periféricos compatíveis.</p>
       </div>
     </div>
   </div>

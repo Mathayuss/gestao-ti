@@ -205,17 +205,32 @@ def asset_labels_pdf():
         return jsonify({"error": "Selecione ao menos um ativo para gerar etiquetas."}), 400
 
     cfg = payload.get("config") if isinstance(payload.get("config"), dict) else {}
-    size_cfg = {
-        "pequena": {"w": 58, "h": 38, "qr": 18, "font": 8.5},
-        "media": {"w": 88, "h": 38, "qr": 22, "font": 9.5},
-        "grande": {"w": 100, "h": 70, "qr": 30, "font": 11},
-    }.get(clean_text(cfg.get("size"), 20) or "media", {"w": 88, "h": 38, "qr": 22, "font": 9.5})
     def _clamped_int(value, default, min_value, max_value):
         try:
             number = int(value)
         except (TypeError, ValueError):
             number = default
         return max(min_value, min(max_value, number))
+
+    size_key = clean_text(cfg.get("size"), 20) or "media"
+    base_sizes = {
+        "pequena": {"w": 58, "h": 38, "qr": 18, "font": 8.5},
+        "media": {"w": 88, "h": 38, "qr": 22, "font": 9.5},
+        "grande": {"w": 100, "h": 70, "qr": 30, "font": 11},
+    }
+    if size_key == "personalizada":
+        custom_w = _clamped_int(cfg.get("customW"), 88, 25, 150)
+        custom_h = _clamped_int(cfg.get("customH"), 38, 15, 100)
+        base = min(custom_w, custom_h)
+        max_qr = max(10, min(custom_w - 14, custom_h - 10))
+        size_cfg = {
+            "w": custom_w,
+            "h": custom_h,
+            "qr": min(max(10, round(base * 0.58)), max_qr),
+            "font": min(12, max(7, round(custom_w / 9))),
+        }
+    else:
+        size_cfg = base_sizes.get(size_key, base_sizes["media"])
 
     mm = cm / 10
     label_w = size_cfg["w"] * mm
