@@ -75,7 +75,7 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
 
 
-def _version_from_file(default="1.2.9-beta"):
+def _version_from_file(default="1.3.0-beta"):
     version_path = os.path.join(os.path.dirname(__file__), "VERSION")
     try:
         with open(version_path, "r", encoding="utf-8") as fh:
@@ -281,6 +281,8 @@ from models import (
     LoginAttempt,
     MaintenanceOrder,
     MaintenancePart,
+    PrintJob,
+    PrintPrinter,
     Setting,
     Supply,
     SupplyMovement,
@@ -910,6 +912,18 @@ def send_email(to: str, subject: str, body_html: str, body_text: str = "") -> di
 
 
 DEFAULT_EMAIL_TEMPLATES = {
+    "pacote_termos": {
+        "subject": "[{empresa}] Termos aguardando sua assinatura",
+        "body": (
+            "Olá, {colaborador}!\n\n"
+            "Você possui {quantidade} termo(s) para revisar e assinar: {termos}.\n\n"
+            "Acesse a Central de Assinaturas pelo botão abaixo para visualizar cada documento "
+            "e registrar sua assinatura.\n\n"
+            "Este link expira em 7 dias. Em caso de dúvidas, contate o setor de TI."
+        ),
+        "button_label": "Revisar e Assinar Termos",
+        "footer": "{empresa} - Sistema de Gestão de TI",
+    },
     "assinatura": {
         "subject": "[{empresa}] Termo de Responsabilidade - assinatura necessária",
         "body": (
@@ -1809,6 +1823,7 @@ def _termo_avulso_backup_dict(termo):
     data.update({
         "detalhesRaw": termo.detalhes,
         "signToken": termo.sign_token,
+        "packageToken": termo.package_token,
         "assinaturaImg": termo.assinatura_img,
     })
     return data
@@ -1995,11 +2010,21 @@ def _restore_from_payload(payload, restored_by="sistema"):
     except Exception as exc:
         logger.warning("Backup pré-restauração falhou: %s", exc)
 
-    # Deleção em ordem segura de FK
+    def flush_stage(stage):
+        try:
+            db.session.flush()
+        except Exception as exc:
+            logger.exception("Falha na etapa de restauração: %s", stage)
+            raise RuntimeError(f"Falha ao restaurar {stage} ({exc.__class__.__name__}).") from exc
+
+    # Deleção em ordem segura de FK. O flush separa definitivamente os
+    # registros antigos dos novos objetos que reutilizam as mesmas chaves.
     for model in (AuditCampaignItem, AuditCampaign, LaudoTecnico, TermoAvulso, MaintenancePart,
                   AllocationItem, AllocationAsset, Devolucao, Allocation, Incident, MaintenanceOrder,
                   Attachment, SupplyMovement, Supply, License, Asset, Colaborador):
-        db.session.execute(db.delete(model))
+        db.session.execute(db.delete(model).execution_options(synchronize_session=False))
+    flush_stage("limpeza dos dados atuais")
+    db.session.expunge_all()
 
     stats = {}
 
@@ -2067,7 +2092,12 @@ def _restore_from_payload(payload, restored_by="sistema"):
         ))
     stats["incidents"] = len(incidents)
 
+    # PostgreSQL valida as FKs durante cada flush. Pais precisam existir antes
+    # de ordens, alocações e demais entidades dependentes.
+    flush_stage("entidades principais")
+
     maintenances = [m for m in payload.get("maintenance", []) if isinstance(m, dict) and m.get("id")]
+    maintenance_parts = []
     for mo in maintenances:
         db.session.add(MaintenanceOrder(
             id=mo["id"], asset_id=mo.get("assetId"), asset_nome=mo.get("assetNome"),
@@ -2081,14 +2111,19 @@ def _restore_from_payload(payload, restored_by="sistema"):
         for p in (mo.get("pecas") or []):
             if not isinstance(p, dict) or not p.get("id"):
                 continue
-            db.session.add(MaintenancePart(
+            maintenance_parts.append(MaintenancePart(
                 id=p["id"], maintenance_id=mo["id"],
                 supply_id=p.get("supplyId"), supply_nome=p.get("nome"),
                 quantidade=p.get("quantidade", 1), custo_unitario=p.get("custoUnitario", 0.0),
             ))
     stats["maintenance"] = len(maintenances)
+    flush_stage("ordens de manutenção")
+    db.session.add_all(maintenance_parts)
+    flush_stage("peças de manutenção")
 
     allocations = [a for a in payload.get("allocations", []) if isinstance(a, dict) and a.get("id")]
+    allocation_items = []
+    allocation_assets = []
     for al in allocations:
         db.session.add(Allocation(
             id=al["id"], ativo_id=al.get("ativo"), ativo_nome=al.get("ativoNome"),
@@ -2111,7 +2146,7 @@ def _restore_from_payload(payload, restored_by="sistema"):
         for item in (al.get("perifericos") or []):
             if not isinstance(item, dict) or not item.get("id"):
                 continue
-            db.session.add(AllocationItem(
+            allocation_items.append(AllocationItem(
                 id=item["id"], allocation_id=al["id"],
                 supply_id=item.get("supplyId"), supply_nome=item.get("nome"),
                 quantidade=item.get("quantidade", 1),
@@ -2122,7 +2157,7 @@ def _restore_from_payload(payload, restored_by="sistema"):
         for idx, item in enumerate(ativos_al):
             if not isinstance(item, dict) or not item.get("id"):
                 continue
-            db.session.add(AllocationAsset(
+            allocation_assets.append(AllocationAsset(
                 id=item.get("itemId") or new_id("AA"),
                 allocation_id=al["id"],
                 asset_id=item.get("id"),
@@ -2132,6 +2167,10 @@ def _restore_from_payload(payload, restored_by="sistema"):
                 service_tag=item.get("serviceTag"),
             ))
     stats["allocations"] = len(allocations)
+    flush_stage("alocações")
+    db.session.add_all(allocation_items)
+    db.session.add_all(allocation_assets)
+    flush_stage("itens das alocações")
 
     devolucoes = [d for d in payload.get("devolucoes", []) if isinstance(d, dict) and d.get("id")]
     for d in devolucoes:
@@ -2160,6 +2199,7 @@ def _restore_from_payload(payload, restored_by="sistema"):
             cobranca_obs=d.get("cobrancaObs", ""),
         ))
     stats["devolucoes"] = len(devolucoes)
+    flush_stage("devoluções")
 
     laudos = [l for l in payload.get("laudosTecnicos", []) if isinstance(l, dict) and l.get("id")]
     for l in laudos:
@@ -2177,8 +2217,10 @@ def _restore_from_payload(payload, restored_by="sistema"):
             motivo_edicao=l.get("motivoEdicao"),
         ))
     stats["laudosTecnicos"] = len(laudos)
+    flush_stage("laudos técnicos")
 
     campaigns = [c for c in payload.get("auditCampaigns", []) if isinstance(c, dict) and c.get("id")]
+    campaign_items = []
     for campaign in campaigns:
         db.session.add(AuditCampaign(
             id=campaign["id"], nome=campaign.get("nome", ""),
@@ -2193,7 +2235,7 @@ def _restore_from_payload(payload, restored_by="sistema"):
         for item in (campaign.get("items") or []):
             if not isinstance(item, dict) or not item.get("id"):
                 continue
-            db.session.add(AuditCampaignItem(
+            campaign_items.append(AuditCampaignItem(
                 id=item["id"], campaign_id=campaign["id"],
                 asset_id=item.get("assetId"), asset_nome=item.get("assetNome"),
                 patrimonio=item.get("patrimonio"), service_tag=item.get("serviceTag"),
@@ -2211,6 +2253,9 @@ def _restore_from_payload(payload, restored_by="sistema"):
                 auditado_em=_parse_backup_dt(item.get("auditadoEm")),
             ))
     stats["auditCampaigns"] = len(campaigns)
+    flush_stage("campanhas de auditoria")
+    db.session.add_all(campaign_items)
+    flush_stage("itens das campanhas de auditoria")
 
     termos_avulsos = [t for t in payload.get("termosAvulsos", []) if isinstance(t, dict) and t.get("id")]
     for t in termos_avulsos:
@@ -2225,6 +2270,9 @@ def _restore_from_payload(payload, restored_by="sistema"):
             status=t.get("status", "Pendente"),
             sign_token=t.get("signToken"),
             sign_token_expiry=_parse_backup_dt(t.get("signTokenExpiry")),
+            package_id=t.get("packageId"),
+            package_token=t.get("packageToken"),
+            package_token_expiry=_parse_backup_dt(t.get("packageTokenExpiry")),
             assinatura_img=t.get("assinaturaImg"),
             assinatura_ip=t.get("assinaturaIp"),
             data_assinatura=_parse_backup_dt(t.get("dataAssinatura")),
@@ -2244,6 +2292,7 @@ def _restore_from_payload(payload, restored_by="sistema"):
             uploaded_at=_parse_backup_dt(a.get("uploadedAt")),
         ))
     stats["attachments"] = len(att_list)
+    flush_stage("dados complementares")
 
     settings_payload = payload.get("settings", {})
     count = 0
@@ -2585,8 +2634,17 @@ def _migrate_db():
             ("tipo",                    "VARCHAR(30)"),
             ("data_devolucao_prevista", "VARCHAR(10)"),
         ],
+        "print_printers": [
+            ("dpi", "INTEGER"),
+        ],
+        "termos_avulsos": [
+            ("package_id", "VARCHAR(16)"),
+            ("package_token", "VARCHAR(64)"),
+            ("package_token_expiry", "TIMESTAMP"),
+        ],
     }
-    is_sqlite = "sqlite" in app.config["SQLALCHEMY_DATABASE_URI"]
+    dialect_name = db.engine.dialect.name
+    is_sqlite = dialect_name == "sqlite"
     with db.engine.connect() as conn:
         inspector = _inspect(db.engine)
         existing_tables = inspector.get_table_names()
@@ -2616,12 +2674,24 @@ def _migrate_db():
                         status VARCHAR(20) DEFAULT 'Pendente',
                         sign_token VARCHAR(64) UNIQUE,
                         sign_token_expiry TEXT,
+                        package_id VARCHAR(16),
+                        package_token VARCHAR(64),
+                        package_token_expiry TIMESTAMP,
                         assinatura_img TEXT,
                         assinatura_ip VARCHAR(50),
                         data_assinatura TEXT,
                         created_at TEXT,
                         created_by VARCHAR(120)
                     )
+                """))
+            except Exception:
+                pass
+        if dialect_name == "postgresql" and "termos_avulsos" in existing_tables:
+            try:
+                conn.execute(_text("""
+                    ALTER TABLE termos_avulsos
+                    ALTER COLUMN package_token_expiry TYPE TIMESTAMP WITHOUT TIME ZONE
+                    USING NULLIF(package_token_expiry::text, '')::timestamp
                 """))
             except Exception:
                 pass
@@ -2647,6 +2717,50 @@ def _migrate_db():
                     FROM allocations
                     WHERE ativo_id IS NOT NULL AND ativo_id <> ''
                 """))
+            except Exception:
+                pass
+        if "print_printers" not in existing_tables:
+            try:
+                conn.execute(_text("""
+                    CREATE TABLE print_printers (
+                        id VARCHAR(60) PRIMARY KEY,
+                        name VARCHAR(120),
+                        location VARCHAR(120),
+                        printer_type VARCHAR(40),
+                        windows_name VARCHAR(120),
+                        dpi INTEGER,
+                        token_hash VARCHAR(64),
+                        status VARCHAR(20),
+                        last_seen TEXT,
+                        created_at TEXT
+                    )
+                """))
+            except Exception:
+                pass
+        if "print_jobs" not in existing_tables:
+            try:
+                if is_sqlite:
+                    print_job_id_sql = "INTEGER PRIMARY KEY AUTOINCREMENT"
+                elif dialect_name == "postgresql":
+                    print_job_id_sql = "SERIAL PRIMARY KEY"
+                else:
+                    print_job_id_sql = "INTEGER PRIMARY KEY AUTO_INCREMENT"
+                conn.execute(_text("""
+                    CREATE TABLE print_jobs (
+                        id %s,
+                        printer_id VARCHAR(60),
+                        template VARCHAR(80),
+                        status VARCHAR(20),
+                        copies INTEGER,
+                        data JSON,
+                        zpl TEXT,
+                        message TEXT,
+                        created_by VARCHAR(80),
+                        created_at TEXT,
+                        picked_at TEXT,
+                        finished_at TEXT
+                    )
+                """ % print_job_id_sql))
             except Exception:
                 pass
         conn.commit()
@@ -2702,9 +2816,9 @@ def register_route_modules():
     from routes import (
         setup, auth, assets, supplies, colaboradores, allocations,
         licenses, operations, users, settings, devolucoes, reports, audit_campaigns, attachments,
-        termos_avulsos,
+        termos_avulsos, print_jobs,
     )
-    return (setup, auth, assets, supplies, colaboradores, allocations, licenses, operations, users, settings, devolucoes, reports, audit_campaigns, attachments, termos_avulsos)
+    return (setup, auth, assets, supplies, colaboradores, allocations, licenses, operations, users, settings, devolucoes, reports, audit_campaigns, attachments, termos_avulsos, print_jobs)
 
 register_route_modules()
 

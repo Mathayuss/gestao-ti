@@ -30,6 +30,12 @@ async function testEmailCfg(){
 }
 
 const EMAIL_TEMPLATE_DEFAULTS = {
+  pacote_termos: {
+    subject: '[{empresa}] Termos aguardando sua assinatura',
+    body: 'Olá, {colaborador}!\n\nVocê possui {quantidade} termo(s) para revisar e assinar: {termos}.\n\nAcesse a Central de Assinaturas pelo botão abaixo para visualizar cada documento e registrar sua assinatura.\n\nEste link expira em 7 dias. Em caso de dúvidas, contate o setor de TI.',
+    button_label: 'Revisar e Assinar Termos',
+    footer: '{empresa} - Sistema de Gestão de TI',
+  },
   assinatura: {
     subject: '[{empresa}] Termo de Responsabilidade - assinatura necessária',
     body: 'Olá, {colaborador}!\n\nVocê recebeu o equipamento {ativo}.\n\nPara confirmar o recebimento, clique no botão abaixo e assine digitalmente o Termo de Responsabilidade.\n\nEste link expira em 7 dias. Em caso de dúvidas, contate o setor de TI.',
@@ -84,6 +90,7 @@ function getEmailTemplatePayload(kind){
 async function saveEmailTemplates(){
   try{
     await api('/settings/email/templates','PUT',{
+      pacote_termos: getEmailTemplatePayload('pacote_termos'),
       assinatura: getEmailTemplatePayload('assinatura'),
       devolucao: getEmailTemplatePayload('devolucao'),
       laudo_rh: getEmailTemplatePayload('laudo_rh'),

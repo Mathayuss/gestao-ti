@@ -86,7 +86,8 @@
       <div class="step-dot" data-nav-step="1"><b>2</b><span>Empresa</span></div>
       <div class="step-dot" data-nav-step="2"><b>3</b><span>Admin</span></div>
       <div class="step-dot" data-nav-step="3"><b>4</b><span>Serviços</span></div>
-      <div class="step-dot" data-nav-step="4"><b>5</b><span>Finalizar</span></div>
+      <div class="step-dot" data-nav-step="4"><b>5</b><span>Impressão</span></div>
+      <div class="step-dot" data-nav-step="5"><b>6</b><span>Finalizar</span></div>
     </div>
     <div class="side-note">v{{ build_version }}. O setup fica indisponível depois da criação do administrador.</div>
   </aside>
@@ -235,6 +236,42 @@
         </div>
 
         <div class="setup-step">
+          <h2>Agente de impressão</h2>
+          <div class="grid">
+            <div class="span-2 check-row">
+              <input id="print_agent_enabled" name="print_agent_enabled" type="checkbox" onchange="togglePrintAgent()" {% if values.print_agent_enabled %}checked{% endif %}>
+              <label for="print_agent_enabled" style="margin:0">Cadastrar agente de impressão de etiquetas</label>
+            </div>
+            <div data-print-agent>
+              <label>ID do agente</label>
+              <input name="print_agent_id" value="{{ values.print_agent_id|e }}" maxlength="60" placeholder="ETIQUETAS-01">
+              <div class="hint">Identificador único, sem espaços.</div>
+            </div>
+            <div data-print-agent>
+              <label>Nome amigável</label>
+              <input name="print_agent_name" value="{{ values.print_agent_name|e }}" maxlength="120" placeholder="Recepção">
+            </div>
+            <div data-print-agent>
+              <label>Nome da impressora no Windows</label>
+              <input name="print_agent_windows_name" value="{{ values.print_agent_windows_name|e }}" maxlength="120" placeholder="ELGIN L42Pro">
+            </div>
+            <div data-print-agent>
+              <label>Local</label>
+              <input name="print_agent_location" value="{{ values.print_agent_location|e }}" maxlength="120" placeholder="Almoxarifado">
+            </div>
+            <div data-print-agent>
+              <label>Resolução</label>
+              <select name="print_agent_dpi">
+                <option value="203" {% if values.print_agent_dpi == '203' %}selected{% endif %}>203 DPI</option>
+                <option value="300" {% if values.print_agent_dpi == '300' %}selected{% endif %}>300 DPI</option>
+                <option value="600" {% if values.print_agent_dpi == '600' %}selected{% endif %}>600 DPI</option>
+              </select>
+            </div>
+          </div>
+          <div class="success-note">O token e o pacote do agente serão disponibilizados após concluir a instalação.</div>
+        </div>
+
+        <div class="setup-step">
           <h2>Finalizar</h2>
           <div class="grid">
             <div class="span-2 check-row">
@@ -289,8 +326,12 @@ function toggleSmtp(){
   const enabled = document.getElementById('smtp_enabled')?.checked;
   document.querySelectorAll('[data-smtp]').forEach(el=>el.style.display = enabled ? '' : 'none');
 }
+function togglePrintAgent(){
+  const enabled = document.getElementById('print_agent_enabled')?.checked;
+  document.querySelectorAll('[data-print-agent]').forEach(el=>el.style.display = enabled ? '' : 'none');
+}
 dots.forEach((dot,i)=>dot.addEventListener('click',()=>{ step=i; renderStep(); }));
-if(steps.length){ toggleSmtp(); renderStep(); }
+if(steps.length){ toggleSmtp(); togglePrintAgent(); renderStep(); }
 </script>
 </body>
 </html>

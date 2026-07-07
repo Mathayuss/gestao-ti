@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TI Control - Instalação concluída</title>
+  <style>
+    :root{color-scheme:light;--bg:#f6f7fb;--panel:#fff;--text:#111827;--muted:#64748b;--line:#e2e8f0;--blue:#2563eb;--blue2:#1d4ed8;--green:#059669;--amber-bg:#fffbeb;--amber-line:#fcd34d;--amber-text:#92400e}
+    *{box-sizing:border-box}
+    body{margin:0;min-height:100vh;background:url('/static/bg.png') center/cover no-repeat fixed;color:var(--text);font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;font-size:14px;display:grid;place-items:center;padding:24px}
+    .panel{width:min(700px,100%);background:var(--panel);border:1px solid var(--line);border-radius:14px;box-shadow:0 24px 70px rgba(15,23,42,.12);overflow:hidden}
+    .head{padding:28px 30px;border-bottom:1px solid var(--line);display:flex;gap:14px;align-items:center}
+    .mark{width:42px;height:42px;border-radius:10px;background:#ecfdf5;color:var(--green);display:grid;place-items:center;font-size:22px;font-weight:800}
+    h1{font-size:22px;margin:0 0 3px}.subtitle{color:var(--muted);font-size:13px}
+    .body{padding:28px 30px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+    label{display:block;font-size:11px;font-weight:800;color:#475569;text-transform:uppercase;margin-bottom:6px}
+    input,textarea{width:100%;border:1px solid #cbd5e1;border-radius:8px;background:#f8fafc;color:var(--text);padding:10px 11px;font:inherit;outline:none}
+    textarea{resize:none;min-height:82px;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:12px}
+    .span-2{grid-column:span 2}.note{margin-top:16px;border-left:3px solid var(--amber-line);background:var(--amber-bg);color:var(--amber-text);padding:12px 14px;border-radius:8px;font-size:12px}
+    .actions{display:flex;justify-content:flex-end;gap:10px;padding:18px 30px;background:#f8fafc;border-top:1px solid var(--line);flex-wrap:wrap}
+    .btn{border:1px solid var(--line);background:#fff;color:var(--text);border-radius:8px;padding:10px 16px;min-height:40px;font-weight:750;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;justify-content:center}
+    .primary{background:var(--blue);border-color:var(--blue);color:#fff}.primary:hover{background:var(--blue2)}
+    @media(max-width:600px){.grid{grid-template-columns:1fr}.span-2{grid-column:auto}.head,.body,.actions{padding-left:20px;padding-right:20px}.actions{justify-content:stretch}.actions .btn{flex:1}}
+  </style>
+</head>
+<body>
+  <section class="panel">
+    <div class="head">
+      <div class="mark">OK</div>
+      <div>
+        <h1>Instalação concluída</h1>
+        <div class="subtitle">Administrador e agente de impressão configurados.</div>
+      </div>
+    </div>
+    <div class="body">
+      <div class="grid">
+        <div>
+          <label>ID do agente</label>
+          <input value="{{ printer.id|e }}" readonly>
+        </div>
+        <div>
+          <label>Impressora Windows</label>
+          <input value="{{ printer.windowsName|e }}" readonly>
+        </div>
+        <div class="span-2">
+          <label>Token</label>
+          <textarea id="agent-token" readonly>{{ printer_token|e }}</textarea>
+        </div>
+      </div>
+      <div class="note">Guarde o token antes de sair desta tela. Ele não será exibido novamente.</div>
+    </div>
+    <div class="actions">
+      <button class="btn" type="button" onclick="copyToken()">Copiar token</button>
+      <a class="btn" href="/api/print-agent/download?printer_id={{ printer.id|urlencode }}&windows_printer={{ printer.windowsName|urlencode }}">Baixar agente</a>
+      <a class="btn primary" href="/">Acessar sistema</a>
+    </div>
+  </section>
+  <script>
+    async function copyToken(){
+      const field = document.getElementById('agent-token');
+      try{ await navigator.clipboard.writeText(field.value); }
+      catch(e){ field.select(); document.execCommand('copy'); }
+    }
+  </script>
+</body>
+</html>

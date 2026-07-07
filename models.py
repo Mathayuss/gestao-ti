@@ -123,6 +123,67 @@ class SupplyMovement(db.Model):
                 "data":self.data.isoformat() if self.data else None}
 
 
+class PrintPrinter(db.Model):
+    __tablename__ = "print_printers"
+    id              = db.Column(db.String(60), primary_key=True)
+    name            = db.Column(db.String(120))
+    location        = db.Column(db.String(120))
+    printer_type    = db.Column(db.String(40), default="USB/ZPL")
+    windows_name    = db.Column(db.String(120))
+    dpi             = db.Column(db.Integer, default=203)
+    token_hash      = db.Column(db.String(64))
+    status          = db.Column(db.String(20), default="Offline")
+    last_seen       = db.Column(db.DateTime)
+    created_at      = db.Column(db.DateTime, default=datetime.now)
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "name": self.name,
+            "location": self.location,
+            "type": self.printer_type,
+            "windowsName": self.windows_name,
+            "dpi": self.dpi or 203,
+            "status": self.status,
+            "lastSeen": self.last_seen.isoformat() if self.last_seen else None,
+            "createdAt": self.created_at.isoformat() if self.created_at else None,
+        }
+
+
+class PrintJob(db.Model):
+    __tablename__ = "print_jobs"
+    id          = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    printer_id  = db.Column(db.String(60), index=True)
+    template    = db.Column(db.String(80))
+    status      = db.Column(db.String(20), default="pending", index=True)
+    copies      = db.Column(db.Integer, default=1)
+    data        = db.Column(db.JSON, default=dict)
+    zpl         = db.Column(db.Text)
+    message     = db.Column(db.Text, default="")
+    created_by  = db.Column(db.String(80))
+    created_at  = db.Column(db.DateTime, default=datetime.now)
+    picked_at   = db.Column(db.DateTime)
+    finished_at = db.Column(db.DateTime)
+
+    def to_dict(self, include_zpl=False):
+        data = {
+            "id": self.id,
+            "printerId": self.printer_id,
+            "template": self.template,
+            "status": self.status,
+            "copies": self.copies,
+            "data": self.data or {},
+            "message": self.message or "",
+            "createdBy": self.created_by,
+            "createdAt": self.created_at.isoformat() if self.created_at else None,
+            "pickedAt": self.picked_at.isoformat() if self.picked_at else None,
+            "finishedAt": self.finished_at.isoformat() if self.finished_at else None,
+        }
+        if include_zpl:
+            data["zpl"] = self.zpl
+        return data
+
+
 class Allocation(db.Model):
     __tablename__ = "allocations"
     id           = db.Column(db.String(16), primary_key=True)
@@ -557,6 +618,9 @@ class TermoAvulso(db.Model):
     status            = db.Column(db.String(20), default="Pendente")
     sign_token        = db.Column(db.String(64), unique=True)
     sign_token_expiry = db.Column(db.DateTime)
+    package_id        = db.Column(db.String(16), index=True)
+    package_token     = db.Column(db.String(64), index=True)
+    package_token_expiry = db.Column(db.DateTime)
     assinatura_img    = db.Column(db.Text)
     assinatura_ip     = db.Column(db.String(50))
     data_assinatura   = db.Column(db.DateTime)
@@ -564,6 +628,13 @@ class TermoAvulso(db.Model):
     created_by        = db.Column(db.String(120))
 
     def to_dict(self):
+        def iso(value):
+            if not value:
+                return None
+            return value.isoformat() if hasattr(value, "isoformat") else str(value)
+
+        details = json.loads(self.detalhes or "{}") if self.detalhes else {}
+        public_details = {key: value for key, value in details.items() if not str(key).startswith("_")}
         return {
             "id": self.id,
             "tipo": self.tipo,
@@ -571,14 +642,16 @@ class TermoAvulso(db.Model):
             "setor": self.setor,
             "unidade": self.unidade,
             "email": self.email,
-            "detalhes": json.loads(self.detalhes or "{}") if self.detalhes else {},
+            "detalhes": public_details,
             "validade": self.validade,
             "status": self.status,
-            "signTokenExpiry": self.sign_token_expiry.isoformat() if self.sign_token_expiry else None,
+            "signTokenExpiry": iso(self.sign_token_expiry),
+            "packageId": self.package_id,
+            "packageTokenExpiry": iso(self.package_token_expiry),
             "hasSignImg": bool(self.assinatura_img),
             "assinaturaIp": self.assinatura_ip,
-            "dataAssinatura": self.data_assinatura.isoformat() if self.data_assinatura else None,
-            "createdAt": self.created_at.isoformat() if self.created_at else None,
+            "dataAssinatura": iso(self.data_assinatura),
+            "createdAt": iso(self.created_at),
             "createdBy": self.created_by,
         }
 
@@ -626,6 +699,8 @@ __all__ = [
     "LoginAttempt",
     "MaintenanceOrder",
     "MaintenancePart",
+    "PrintJob",
+    "PrintPrinter",
     "Setting",
     "Supply",
     "SupplyMovement",

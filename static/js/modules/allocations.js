@@ -3,6 +3,7 @@
 // ══════════════════════════════════════════════════════════════════════════
 let _devCache = {};
 let _laudoPendente = null;
+let _newTermRowSeq = 0;
 
 async function renderAlocacoes(q=''){
   const [data,assets,devs]=await Promise.all([
@@ -203,6 +204,14 @@ async function renderTermosAvulsos(q=''){
     const statusBadgeAv = t => t.status==='Assinado'
       ? `<span style="display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700;background:var(--green-bg);color:var(--green-text);border:1px solid var(--green-border)">Assinado</span>`
       : `<span style="display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700;background:var(--amber-bg);color:var(--amber-text);border:1px solid var(--amber-border)">Pendente</span>`;
+    const renderedPackages = new Set();
+    const termLinkAction = t => {
+      if(t.status==='Assinado') return '';
+      if(!t.packageId) return `<button class="btn btn-default btn-sm" onclick="gerarLinkTermoAvulso('${t.id}')">Link Assinatura</button>`;
+      if(renderedPackages.has(t.packageId)) return '';
+      renderedPackages.add(t.packageId);
+      return `<button class="btn btn-default btn-sm" onclick="gerarLinkPacoteTermos('${t.packageId}')">Link do pacote</button>`;
+    };
 
     // Update tab count
     const tabBtn = document.getElementById('tab-alloc-avulso');
@@ -221,14 +230,14 @@ async function renderTermosAvulsos(q=''){
            <thead><tr><th>ID</th><th>Tipo</th><th>Colaborador</th><th>Setor</th><th>Validade</th><th>Status</th><th>Criado em</th><th>Ações</th></tr></thead>
            <tbody>${data.map(t=>`<tr>
              <td class="mono" style="color:var(--text3);font-size:11px">${esc(t.id)}</td>
-             <td>${tipoBadgeAv(t)}</td>
+             <td>${tipoBadgeAv(t)}${t.packageId?`<div class="mono" style="font-size:9px;color:var(--text3);margin-top:3px">${esc(t.packageId)}</div>`:''}</td>
              <td style="font-weight:600">${esc(t.colaborador)}</td>
              <td style="font-size:12px">${esc(t.setor||'—')}</td>
              <td style="font-size:12px">${esc(t.validade||'—')}</td>
              <td>${statusBadgeAv(t)}</td>
              <td style="font-size:11px;color:var(--text3)">${fmtDate(t.createdAt?.slice(0,10))}</td>
              <td><div class="flex-gap">
-               ${t.status!=='Assinado'?`<button class="btn btn-default btn-sm" onclick="gerarLinkTermoAvulso('${t.id}')">Link Assinatura</button>`:''}
+               ${termLinkAction(t)}
                <a class="btn btn-default btn-sm" href="/api/termos/${t.id}/termo.pdf" target="_blank">PDF</a>
                <button class="btn btn-danger btn-sm" onclick="deleteTermoAvulso('${t.id}','${escAttr(t.colaborador)}')">Excluir</button>
              </div></td>
@@ -240,22 +249,17 @@ async function renderTermosAvulsos(q=''){
 }
 
 async function openNewTermoAvulso(){
-  if(!_colab_cache.length){ try{ _colab_cache=await api('/colaboradores'); }catch(e){} }
+  const [colabs,cfg]=await Promise.all([
+    _colab_cache.length?Promise.resolve(_colab_cache):api('/colaboradores').catch(()=>[]),
+    api('/settings').catch(()=>({})),
+  ]);
+  _colab_cache=colabs;
+  const modelTypes=Object.keys(cfg.termos_avulsos_modelos||{});
+  _termoAvulsoTipos=Array.from(new Set([...(cfg.termos_avulsos_tipos||[]),...modelTypes])).filter(Boolean).sort((a,b)=>a.localeCompare(b));
+  if(!_termoAvulsoTipos.length){ toast('Cadastre um modelo em Configurações > Termos.','warn'); return; }
   const colabOpts = _colab_cache.filter(c=>c.status==='Ativo'||c.status==='Férias');
-  const tipoOpts = _termoAvulsoTipos.map(t=>`<option value="${escAttr(t)}">${esc(t)}</option>`).join('');
+  _newTermRowSeq=0;
   openModal('Novo Termo', `
-  <div class="form-grid-2">
-    <div class="form-group"><label>Tipo de Termo</label>
-      <div style="display:flex;gap:8px">
-      <select id="tav-tipo">${tipoOpts}
-      </select>
-        <button class="btn btn-default btn-sm" type="button" onclick="addTipoTermoAvulso()">+ Tipo</button>
-      </div>
-    </div>
-    <div class="form-group"><label>Validade (opcional)</label>
-      <input id="tav-validade" type="date">
-    </div>
-  </div>
   <div class="form-group"><label>Colaborador</label>
     <select id="tav-colab-sel" onchange="preencheColabAvulso(this.value)">
       <option value="">Selecione o colaborador...</option>
@@ -270,10 +274,18 @@ async function openNewTermoAvulso(){
     <div class="form-group"><label>Unidade</label><input id="tav-uni"></div>
     <div class="form-group"><label>E-mail</label><input id="tav-email" type="email"></div>
   </div>
+  <div style="border-top:1px solid var(--border);padding-top:14px">
+    <div class="flex-between" style="margin-bottom:10px">
+      <div><div style="font-size:13px;font-weight:800">Termos do pacote</div><div style="font-size:11px;color:var(--text3)">Modelos cadastrados em Configurações > Termos</div></div>
+      <button class="btn btn-default btn-sm" type="button" onclick="addOutroTermoAvulso()">${inlineIcon('plus')} Adicionar outro termo</button>
+    </div>
+    <div id="tav-terms-list" style="display:grid;gap:8px"></div>
+  </div>
   <div class="modal-footer">
     <button class="btn btn-default" onclick="closeModal()">Cancelar</button>
-    <button class="btn btn-primary" onclick="saveNewTermoAvulso()">Criar Termo</button>
-  </div>`);
+    <button class="btn btn-primary" onclick="saveNewTermoAvulso()">Criar e enviar</button>
+  </div>`,true);
+  addOutroTermoAvulso();
 }
 
 function preencheColabAvulso(id){
@@ -286,37 +298,69 @@ function preencheColabAvulso(id){
   $('tav-email').value = opt.dataset.email||'';
 }
 
-function addTipoTermoAvulso(){
-  const nome = prompt('Nome do novo tipo de termo:');
-  const tipo = (nome||'').trim();
-  if(!tipo) return;
-  if(tipo.length > 40){ toast('Use no máximo 40 caracteres','error'); return; }
-  const exists = _termoAvulsoTipos.some(t=>t.toLowerCase()===tipo.toLowerCase());
-  if(!exists) _termoAvulsoTipos.push(tipo);
-  _termoAvulsoTipos.sort((a,b)=>a.localeCompare(b));
-  const sel = $('tav-tipo');
-  if(sel){
-    sel.innerHTML = _termoAvulsoTipos.map(t=>`<option value="${escAttr(t)}">${esc(t)}</option>`).join('');
-    sel.value = _termoAvulsoTipos.find(t=>t.toLowerCase()===tipo.toLowerCase()) || tipo;
-  }
+function addOutroTermoAvulso(){
+  const list=$('tav-terms-list');
+  if(!list) return;
+  if(list.querySelectorAll('[data-term-row]').length>=_termoAvulsoTipos.length){ toast('Todos os modelos disponíveis já foram adicionados.','warn'); return; }
+  const id=++_newTermRowSeq;
+  const row=document.createElement('div');
+  row.dataset.termRow=String(id);
+  row.className='new-term-package-row';
+  row.innerHTML=`
+    <div class="form-group"><label>Modelo do termo</label><select data-term-type>${_termoAvulsoTipos.map(t=>`<option value="${escAttr(t)}">${esc(t)}</option>`).join('')}</select></div>
+    <div class="form-group"><label>Validade</label><input data-term-validade type="date"></div>
+    <button class="btn btn-danger btn-sm btn-icon" type="button" onclick="removeOutroTermoAvulso(this)" title="Remover termo" aria-label="Remover termo">${inlineIcon('trash')}</button>`;
+  list.appendChild(row);
+  const selects=[...list.querySelectorAll('[data-term-type]')];
+  const used=new Set(selects.slice(0,-1).map(el=>el.value));
+  selects.at(-1).value=_termoAvulsoTipos.find(t=>!used.has(t))||_termoAvulsoTipos[0];
+}
+
+function removeOutroTermoAvulso(button){
+  const list=$('tav-terms-list');
+  if(!list) return;
+  if(list.querySelectorAll('[data-term-row]').length<=1){ toast('Mantenha ao menos um termo no pacote.','warn'); return; }
+  button.closest('[data-term-row]')?.remove();
 }
 
 async function saveNewTermoAvulso(){
   const colab = $('tav-colab')?.value?.trim();
   if(!colab){ toast('Informe o colaborador','error'); return; }
+  const termos=[...document.querySelectorAll('#tav-terms-list [data-term-row]')].map(row=>({
+    tipo:row.querySelector('[data-term-type]')?.value||'',
+    validade:row.querySelector('[data-term-validade]')?.value||null,
+  }));
+  if(new Set(termos.map(t=>t.tipo)).size!==termos.length){ toast('Não repita o mesmo termo no pacote.','error'); return; }
   try {
-    await api('/termos','POST',{
-      tipo: $('tav-tipo').value,
+    const result=await api('/termos/pacotes','POST',{
+      termos,
       colaborador: colab,
       setor: $('tav-setor').value,
       unidade: $('tav-uni').value,
       email: $('tav-email').value,
-      validade: $('tav-validade').value || null,
     });
     closeModal();
-    toast('Termo criado');
+    showTermPackageLink(result,'Pacote criado');
+    toast(`${termos.length} termo(s) criado(s)`);
     renderTermosAvulsos();
   } catch(e){ toast(e.message,'error'); }
+}
+
+function showTermPackageLink(result,title='Link do pacote'){
+  openModal(title,`
+    <div style="display:grid;gap:14px;padding:4px 0">
+      <div class="info-box ${result.emailEnviado?'green':'blue'}" style="margin:0">${result.emailEnviado?'Um único e-mail foi enviado ao colaborador.':'O pacote foi criado. Compartilhe o link abaixo.'}</div>
+      <div class="form-group" style="margin:0"><label>Central de Assinaturas</label><div style="display:flex;gap:8px"><input id="tav-package-url" value="${escAttr(result.url||'')}" readonly class="mono"><button class="btn btn-primary btn-sm" onclick="navigator.clipboard.writeText($('tav-package-url').value).then(()=>toast('Link copiado'))">Copiar</button></div></div>
+      <div style="font-size:11px;color:var(--text3)">Expira em ${result.expiry?fmtDateTime(result.expiry):'7 dias'}.</div>
+    </div>
+    <div class="modal-footer"><button class="btn btn-primary" onclick="closeModal()">Concluir</button></div>`,true);
+}
+
+async function gerarLinkPacoteTermos(packageId){
+  try{
+    const result=await api(`/termos/pacotes/${encodeURIComponent(packageId)}/sign-link`,'POST',{});
+    showTermPackageLink(result);
+  }catch(e){ toast(e.message,'error'); }
 }
 
 async function deleteTermoAvulso(id, nome){

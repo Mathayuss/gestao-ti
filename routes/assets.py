@@ -212,6 +212,13 @@ def asset_labels_pdf():
             number = default
         return max(min_value, min(max_value, number))
 
+    def _clamped_number(value, default, min_value, max_value):
+        try:
+            number = float(str(value).replace(",", "."))
+        except (TypeError, ValueError):
+            number = default
+        return round(max(min_value, min(max_value, number)), 1)
+
     size_key = clean_text(cfg.get("size"), 20) or "media"
     base_sizes = {
         "pequena": {"w": 58, "h": 38, "qr": 18, "font": 8.5},
@@ -219,8 +226,8 @@ def asset_labels_pdf():
         "grande": {"w": 100, "h": 70, "qr": 30, "font": 11},
     }
     if size_key == "personalizada":
-        custom_w = _clamped_int(cfg.get("customW"), 88, 25, 150)
-        custom_h = _clamped_int(cfg.get("customH"), 38, 15, 100)
+        custom_w = _clamped_number(cfg.get("customW"), 88, 25, 150)
+        custom_h = _clamped_number(cfg.get("customH"), 38, 15, 100)
         base = min(custom_w, custom_h)
         max_qr = max(10, min(custom_w - 14, custom_h - 10))
         size_cfg = {
@@ -236,13 +243,42 @@ def asset_labels_pdf():
     label_w = size_cfg["w"] * mm
     label_h = size_cfg["h"] * mm
     qr_delta = 5 if cfg.get("qr") == "grande" else (-5 if cfg.get("qr") == "compacto" else 0)
-    qr_size = max(14, size_cfg["qr"] + qr_delta) * mm
+    layout_mode = clean_text(cfg.get("layout"), 20) or "auto"
+    def _label_render_plan():
+        width = size_cfg["w"]
+        height = size_cfg["h"]
+        tiny = width < 34 or height < 18
+        compact = not tiny and (width < 52 or height < 28)
+        pad_mm = 1 if tiny else (1.25 if compact else 2.3)
+        gap_mm = 1.4 if compact else 2
+        available_w = max(8, width - (pad_mm * 2))
+        available_h = max(8, height - (pad_mm * 2))
+        compact_qr_target = max(13, size_cfg["qr"] + qr_delta)
+        if layout_mode == "qr-only" or tiny:
+            qr_mm = max(10, min(available_w, available_h))
+            return {"mode": "qr-only", "qr": qr_mm, "pad": pad_mm, "gap": gap_mm, "max_lines": 0}
+        if layout_mode == "compact" or compact:
+            qr_mm = max(10, min(available_h, available_w * 0.48, compact_qr_target))
+            text_w = available_w - qr_mm - gap_mm
+            if text_w < 12:
+                qr_mm = max(10, min(available_w, available_h))
+                return {"mode": "qr-only", "qr": qr_mm, "pad": pad_mm, "gap": gap_mm, "max_lines": 0}
+            max_lines = max(2, min(4, int(available_h // 4.8)))
+            return {"mode": "compact", "qr": qr_mm, "pad": pad_mm, "gap": gap_mm, "text_w": text_w, "max_lines": max_lines}
+        qr_mm = max(12, min(height - 7, width * 0.36, size_cfg["qr"] + qr_delta))
+        text_w = max(20, width - (pad_mm * 2) - qr_mm - gap_mm)
+        return {"mode": "full", "qr": qr_mm, "pad": pad_mm, "gap": gap_mm, "text_w": text_w, "max_lines": 5}
+
+    render_plan = _label_render_plan()
+    qr_size = render_plan["qr"] * mm
     page_mode = "unitaria" if cfg.get("papel") == "unitaria" else "a4"
     page_size = (label_w, label_h) if page_mode == "unitaria" else A4
     margin = 0 if page_mode == "unitaria" else _clamped_int(cfg.get("margem"), 6, 0, 20) * mm
     gap = _clamped_int(cfg.get("gap"), 3, 0, 10) * mm
     copies = _clamped_int(cfg.get("copias"), 1, 1, 20)
-    campos = cfg.get("campos") if isinstance(cfg.get("campos"), dict) else {}
+    default_campos = {"hostname": True, "patrimonio": True, "serviceTag": True, "setor": True,
+                      "colaborador": False, "ip": False, "garantia": False}
+    campos = {**default_campos, **(cfg.get("campos") if isinstance(cfg.get("campos"), dict) else {})}
     empresa = clean_text(cfg.get("empresa"), 80)
     mostrar_sistema = cfg.get("mostrarSistema", True) is not False
     mostrar_logo = cfg.get("logoEmpresa") is True
@@ -286,6 +322,63 @@ def asset_labels_pdf():
         raw.seek(0)
         return ImageReader(raw)
 
+    def _draw_qr(cv, asset_id, qr_x, qr_y, size):
+        cv.drawImage(_qr_reader(asset_id), qr_x, qr_y, width=size, height=size, mask="auto")
+        if not (logo_no_qr and logo_reader):
+            return
+        overlay = max(3 * mm, size * 0.24)
+        overlay_x = qr_x + (size - overlay) / 2
+        overlay_y = qr_y + (size - overlay) / 2
+        cv.setFillColorRGB(1, 1, 1)
+        cv.roundRect(
+            overlay_x - 0.45 * mm,
+            overlay_y - 0.45 * mm,
+            overlay + 0.9 * mm,
+            overlay + 0.9 * mm,
+            0.7 * mm,
+            stroke=0,
+            fill=1,
+        )
+        cv.drawImage(
+            logo_reader,
+            overlay_x,
+            overlay_y,
+            width=overlay,
+            height=overlay,
+            preserveAspectRatio=True,
+            mask="auto",
+        )
+        cv.setFillColorRGB(0, 0, 0)
+
+    def _label_primary_code(asset):
+        if campos.get("patrimonio") and asset.patrimonio:
+            return asset.patrimonio
+        if campos.get("serviceTag") and asset.service_tag:
+            return asset.service_tag
+        return asset.id
+
+    def _compact_lines(asset):
+        primary = _label_primary_code(asset)
+        name = asset.hostname or asset.id
+        lines = [(primary, True)]
+        def add(text, bold=False):
+            clean = str(text or "").strip()
+            if clean and clean not in [line[0] for line in lines]:
+                lines.append((clean, bold))
+        if campos.get("hostname") and name != primary:
+            add(name)
+        if campos.get("serviceTag") and asset.service_tag:
+            add(f"ST {asset.service_tag}")
+        if campos.get("setor") and asset.setor:
+            add(f"Setor {asset.setor}")
+        if campos.get("colaborador") and asset.colaborador:
+            add(asset.colaborador)
+        if campos.get("ip") and asset.ip:
+            add(f"IP {asset.ip}")
+        if campos.get("garantia") and asset.garantia:
+            add(f"Gar {asset.garantia}")
+        return lines
+
     def _draw_line(cv, text, x, y, size=7, bold=False, max_chars=34):
         if not text:
             return y
@@ -294,29 +387,61 @@ def asset_labels_pdf():
         return y - (size + 2)
 
     def _draw_label(cv, asset, x, y):
-        pad = 2.4 * mm
+        pad = render_plan["pad"] * mm
+        gap_size = render_plan["gap"] * mm
         if border_color:
             cv.setStrokeColorRGB(*border_color)
-            cv.roundRect(x, y - label_h, label_w, label_h, 1.2 * mm, stroke=1, fill=0)
+            radius = (1.2 if render_plan["mode"] == "full" else 0.8) * mm
+            cv.roundRect(x, y - label_h, label_w, label_h, radius, stroke=1, fill=0)
 
         text_x = x + pad
         text_top = y - pad - 7
         qr_x = x + label_w - pad - qr_size
         qr_y = y - pad - qr_size
 
+        if render_plan["mode"] == "qr-only":
+            qr_x = x + (label_w - qr_size) / 2
+            qr_y = y - label_h + (label_h - qr_size) / 2
+            _draw_qr(cv, asset.id, qr_x, qr_y, qr_size)
+            return
+
+        if render_plan["mode"] == "compact":
+            qr_x = x + pad
+            qr_y = y - label_h + (label_h - qr_size) / 2
+            text_x = qr_x + qr_size + gap_size
+            text_w = max(8 * mm, label_w - (text_x - x) - pad)
+            _draw_qr(cv, asset.id, qr_x, qr_y, qr_size)
+            cv.setFillColorRGB(0, 0, 0)
+            lines = _compact_lines(asset)[:render_plan.get("max_lines", 2)]
+            specs = []
+            for text, bold in lines:
+                max_size = 6.8 if bold else 5.2
+                min_size = 4.1 if bold else 3.4
+                factor = 0.42 if bold else 0.5
+                size = max(min_size, min(max_size, (text_w / mm) / max(1, len(text) * factor)))
+                specs.append((text, bold, size))
+            total_h = sum(size + 1 for _, _, size in specs) - 1
+            baseline = y - (label_h / 2) + (total_h / 2) - (specs[0][2] if specs else 0)
+            for text, bold, size in specs:
+                _draw_line(cv, text, text_x, baseline, size, bold, max(10, int((text_w / mm) * 1.8)))
+                baseline -= size + 1
+            return
+
         if mostrar_logo and logo_reader:
-            logo_w = min(20 * mm, label_w - qr_size - 10 * mm)
+            logo_w = min(20 * mm, max(0, label_w - qr_size - 10 * mm))
             logo_h = 5 * mm
-            cv.drawImage(logo_reader, text_x, text_top - logo_h + 2, width=logo_w, height=logo_h,
-                         preserveAspectRatio=True, mask="auto")
-            text_top -= logo_h + 2
+            if logo_w > 4 * mm:
+                cv.drawImage(logo_reader, text_x, text_top - logo_h + 2, width=logo_w, height=logo_h,
+                             preserveAspectRatio=True, mask="auto")
+                text_top -= logo_h + 2
 
         if empresa:
             text_top = _draw_line(cv, empresa.upper(), text_x, text_top, 5.8, True, 36)
 
         if campos.get("hostname", True):
             name = asset.hostname or asset.id
-            font_size = max(6.5, min(size_cfg["font"], (label_w - qr_size - 8 * mm) / max(1, len(name)) * 1.7))
+            text_width = render_plan.get("text_w", 20) * mm
+            font_size = max(6.5, min(size_cfg["font"], text_width / max(1, len(name)) * 1.7))
             text_top = _draw_line(cv, name, text_x, text_top, font_size, True, 30)
 
         lines = []
@@ -332,20 +457,10 @@ def asset_labels_pdf():
             lines.append(f"IP: {asset.ip}")
         if campos.get("garantia") and asset.garantia:
             lines.append(f"Gar: {asset.garantia}")
-        for line in lines[:5]:
+        for line in lines[:render_plan["max_lines"]]:
             text_top = _draw_line(cv, line, text_x, text_top, 6.8, False, 30)
 
-        cv.drawImage(_qr_reader(asset.id), qr_x, qr_y, width=qr_size, height=qr_size, mask="auto")
-        if logo_no_qr and logo_reader:
-            overlay = qr_size * 0.26
-            overlay_x = qr_x + (qr_size - overlay) / 2
-            overlay_y = qr_y + (qr_size - overlay) / 2
-            cv.setFillColorRGB(1, 1, 1)
-            cv.roundRect(overlay_x - 0.5 * mm, overlay_y - 0.5 * mm,
-                         overlay + 1 * mm, overlay + 1 * mm, 0.8 * mm, stroke=0, fill=1)
-            cv.drawImage(logo_reader, overlay_x, overlay_y, width=overlay, height=overlay,
-                         preserveAspectRatio=True, mask="auto")
-            cv.setFillColorRGB(0, 0, 0)
+        _draw_qr(cv, asset.id, qr_x, qr_y, qr_size)
 
         if mostrar_sistema:
             cv.setFillColorRGB(0, 0, 0)

@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Central de Assinaturas - TI Control</title>
+  <style>
+    :root{color-scheme:light;--primary:#2563eb;--success:#15803d;--danger:#b91c1c;--bg:#f4f6f8;--card:#fff;--soft:#f8fafc;--border:#dbe2ea;--text:#111827;--text2:#475569;--text3:#64748b;--shadow:0 8px 28px rgba(15,23,42,.08)}
+    html[data-theme="dark"]{color-scheme:dark;--primary:#60a5fa;--success:#4ade80;--danger:#f87171;--bg:#0f141d;--card:#171d27;--soft:#202733;--border:#334155;--text:#f8fafc;--text2:#cbd5e1;--text3:#94a3b8;--shadow:0 8px 28px rgba(0,0,0,.28)}
+    *{box-sizing:border-box}body{margin:0;min-height:100vh;background:var(--bg);color:var(--text);font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif;font-size:14px;line-height:1.5;padding:20px}
+    .shell{width:min(760px,100%);margin:0 auto}.topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:18px}.brand{display:flex;align-items:center;gap:10px}.brand-mark{width:38px;height:38px;border-radius:8px;background:var(--primary);color:#fff;display:grid;place-items:center;font-weight:850}.brand strong{display:block}.brand span{font-size:11px;color:var(--text3)}
+    button{font:inherit}.theme-btn,.btn{min-height:38px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text);padding:8px 13px;font-weight:700;cursor:pointer}.theme-btn{width:40px;padding:0;display:grid;place-items:center}.theme-btn svg{width:18px;height:18px}.btn-primary{background:var(--primary);border-color:var(--primary);color:#fff}.btn-danger{color:var(--danger)}
+    .summary,.sign-card,.success-card{background:var(--card);border:1px solid var(--border);border-radius:10px;box-shadow:var(--shadow);padding:20px;margin-bottom:14px}.summary-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}.summary h1{font-size:20px;line-height:1.25;margin:0 0 5px}.summary p{margin:0;color:var(--text3);font-size:12px}.count{white-space:nowrap;background:var(--soft);border:1px solid var(--border);border-radius:999px;padding:5px 10px;font-size:11px;font-weight:800;color:var(--text2)}.identity{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:16px}.identity div{background:var(--soft);border:1px solid var(--border);border-radius:8px;padding:10px}.identity span{display:block;color:var(--text3);font-size:10px;font-weight:800;text-transform:uppercase}.identity strong{font-size:13px}
+    .alert{border-radius:8px;padding:12px 14px;margin-bottom:14px;font-weight:650}.alert-error{background:#fef2f2;border:1px solid #fca5a5;color:#991b1b}.alert-success{background:#f0fdf4;border:1px solid #86efac;color:#166534}
+    .documents{display:grid;gap:10px;margin-bottom:14px}.document{background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden;box-shadow:var(--shadow)}.document summary{list-style:none;cursor:pointer;padding:14px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px}.document summary::-webkit-details-marker{display:none}.doc-title{font-weight:800}.doc-meta{font-size:11px;color:var(--text3);margin-top:2px}.status{font-size:11px;font-weight:800;border-radius:999px;padding:4px 8px;background:var(--soft);color:var(--text2);border:1px solid var(--border)}.status.signed{color:var(--success)}.document-body{border-top:1px solid var(--border);padding:18px 20px;background:var(--soft)}.term-paper{background:#fff;color:#111827;border:1px solid #e5e7eb;border-radius:6px;padding:20px;font-size:12px;line-height:1.65}.term-paper h2{text-align:center;font-size:15px;margin:0 0 14px}.term-paper p{white-space:pre-line;margin:0 0 10px}.accept{display:flex;align-items:flex-start;gap:9px;margin-top:12px;padding:10px;border-radius:7px;background:var(--card);border:1px solid var(--border);font-size:12px;font-weight:700;cursor:pointer}.accept input{margin-top:2px;width:16px;height:16px;flex:0 0 auto}
+    .sign-card h2{font-size:16px;margin:0 0 14px}.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.form-group{margin-bottom:14px}.form-group label{display:block;font-size:12px;font-weight:750;color:var(--text2);margin-bottom:5px}.form-group input{width:100%;min-height:40px;border:1px solid var(--border);border-radius:8px;background:var(--soft);color:var(--text);padding:9px 11px;font:inherit}.hint{font-size:11px;color:var(--text3);margin-top:5px}#sig-canvas{display:block;width:100%;height:170px;background:#fff;border:2px dashed #cbd5e1;border-radius:8px;touch-action:none;cursor:crosshair}#sig-canvas.has-sig{border-style:solid;border-color:var(--primary)}.sign-actions{display:flex;gap:8px;margin-top:9px}.sign-actions .btn-primary{flex:1}.legal{font-size:11px;color:var(--text3);text-align:center;margin-top:12px}.success-card{text-align:center;padding:36px 22px}.success-icon{width:48px;height:48px;border-radius:50%;background:#dcfce7;color:#15803d;display:grid;place-items:center;margin:0 auto 12px}.success-icon svg{width:24px;height:24px}.success-card h1{font-size:20px;margin:0 0 7px}.success-card p{color:var(--text2);margin:0}footer{text-align:center;font-size:11px;color:var(--text3);padding:12px}
+    @media(max-width:600px){body{padding:12px}.summary,.sign-card{padding:16px}.summary-head{display:block}.count{display:inline-block;margin-top:10px}.identity,.form-grid{grid-template-columns:1fr}.document-body{padding:12px}.term-paper{padding:14px}.sign-actions{flex-wrap:wrap}.sign-actions .btn{width:100%}}
+  </style>
+</head>
+<body>
+<main class="shell">
+  <header class="topbar">
+    <div class="brand"><div class="brand-mark">TI</div><div><strong>TI Control</strong><span>Central de Assinaturas</span></div></div>
+    <button class="theme-btn" type="button" onclick="toggleTheme()" title="Alternar tema" aria-label="Alternar tema"><svg id="theme-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"></svg></button>
+  </header>
+
+  {% if erro %}<div class="alert alert-error">{{ erro }}</div>{% endif %}
+
+  {% if sucesso %}
+    <section class="success-card">
+      <div class="success-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M20 6 9 17l-5-5"/></svg></div>
+      <h1>Termos assinados com sucesso</h1>
+      <p>{% if termos %}{{ termos|length }} documento(s) de <strong>{{ termos[0].colaborador }}</strong> foram registrados.{% endif %}</p>
+    </section>
+  {% elif termos and not erro %}
+    <section class="summary">
+      <div class="summary-head"><div><h1>Documentos para assinatura</h1><p>Revise cada documento antes de confirmar.</p></div><span class="count">{{ termos|length }} termo(s)</span></div>
+      <div class="identity"><div><span>Colaborador</span><strong>{{ termos[0].colaborador }}</strong></div><div><span>Setor / Unidade</span><strong>{{ termos[0].setor or '-' }} / {{ termos[0].unidade or '-' }}</strong></div></div>
+    </section>
+
+    <form method="POST" action="/assinar-termos/{{ token }}" id="form-assinar">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="assinatura" id="sig-data">
+      <section class="documents">
+        {% for doc in documentos %}
+        <details class="document" {% if loop.first %}open{% endif %}>
+          <summary><div><div class="doc-title">{{ doc.modelo.titulo or doc.termo.tipo }}</div><div class="doc-meta">{{ doc.termo.tipo }}{% if doc.termo.validade %} · validade {{ doc.termo.validade }}{% endif %}</div></div><span class="status {% if doc.termo.status == 'Assinado' %}signed{% endif %}">{{ doc.termo.status }}</span></summary>
+          <div class="document-body">
+            <article class="term-paper"><h2>{{ doc.modelo.titulo or doc.termo.tipo }}</h2>{% if doc.modelo.preambulo %}<p>{{ doc.modelo.preambulo }}</p>{% endif %}{% for clausula in doc.modelo.clausulas %}<p>{{ clausula }}</p>{% endfor %}{% if doc.modelo.rodape %}<p style="color:#64748b;font-size:11px;margin-top:16px">{{ doc.modelo.rodape }}</p>{% endif %}</article>
+            {% if doc.termo.status != 'Assinado' %}<label class="accept"><input type="checkbox" name="aceitos" value="{{ doc.termo.id }}" required><span>Li e aceito integralmente este documento.</span></label>{% endif %}
+          </div>
+        </details>
+        {% endfor %}
+      </section>
+
+      <section class="sign-card">
+        <h2>Assinatura do pacote</h2>
+        {% if cpf_required %}<div class="form-group"><label>Confirme seu CPF</label><input name="cpf_confirm" inputmode="numeric" autocomplete="off" required placeholder="000.000.000-00"></div>{% else %}<div class="form-group"><label>Confirme seu nome</label><input name="nome_confirm" autocomplete="name" required placeholder="Primeiro nome ou nome completo"></div>{% endif %}
+        <div class="form-group"><label>Assinatura</label><canvas id="sig-canvas"></canvas><div class="hint">Desenhe no campo acima.</div></div>
+        <div class="sign-actions"><button class="btn btn-danger" type="button" onclick="clearSig()">Limpar</button><button class="btn btn-primary" type="submit">Assinar todos os termos</button></div>
+        <div class="legal">A confirmação registra data, horário e endereço IP em cada documento.</div>
+      </section>
+    </form>
+  {% endif %}
+  <footer>TI Control - Gestão de Ativos de TI</footer>
+</main>
+<script>
+const icons={sun:'<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>',moon:'<path d="M12 3a6 6 0 0 0 9 7.5A9 9 0 1 1 12 3Z"/>'};
+function applyTheme(theme){document.documentElement.dataset.theme=theme;localStorage.setItem('ticontrol-theme',theme);const icon=document.getElementById('theme-icon');if(icon)icon.innerHTML=theme==='dark'?icons.sun:icons.moon}
+function toggleTheme(){applyTheme(document.documentElement.dataset.theme==='dark'?'light':'dark')}
+applyTheme(localStorage.getItem('ticontrol-theme')||(matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light'));
+const canvas=document.getElementById('sig-canvas');
+if(canvas){const ctx=canvas.getContext('2d');let drawing=false,hasSig=false;
+  function resize(){const rect=canvas.getBoundingClientRect();canvas.width=rect.width*devicePixelRatio;canvas.height=rect.height*devicePixelRatio;ctx.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0);ctx.lineWidth=2.5;ctx.lineCap='round';ctx.strokeStyle='#111827'}
+  function pos(e){const rect=canvas.getBoundingClientRect(),src=e.touches?e.touches[0]:e;return{x:src.clientX-rect.left,y:src.clientY-rect.top}}
+  function start(e){e.preventDefault();drawing=true;const p=pos(e);ctx.beginPath();ctx.moveTo(p.x,p.y)}function draw(e){if(!drawing)return;e.preventDefault();const p=pos(e);ctx.lineTo(p.x,p.y);ctx.stroke();hasSig=true;canvas.classList.add('has-sig')}function end(){drawing=false}
+  resize();addEventListener('resize',resize);canvas.addEventListener('mousedown',start);canvas.addEventListener('mousemove',draw);canvas.addEventListener('mouseup',end);canvas.addEventListener('mouseleave',end);canvas.addEventListener('touchstart',start,{passive:false});canvas.addEventListener('touchmove',draw,{passive:false});canvas.addEventListener('touchend',end);
+  window.clearSig=()=>{ctx.clearRect(0,0,canvas.width,canvas.height);hasSig=false;canvas.classList.remove('has-sig')};
+  document.getElementById('form-assinar').addEventListener('submit',e=>{if(!hasSig){e.preventDefault();alert('Desenhe sua assinatura antes de confirmar.');return}const out=document.createElement('canvas');out.width=canvas.width;out.height=canvas.height;const outCtx=out.getContext('2d');outCtx.fillStyle='#fff';outCtx.fillRect(0,0,out.width,out.height);outCtx.drawImage(canvas,0,0);document.getElementById('sig-data').value=out.toDataURL('image/png')});
+}
+</script>
+</body>
+</html>

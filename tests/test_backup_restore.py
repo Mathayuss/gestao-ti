@@ -20,6 +20,7 @@ class BackupRestoreTest(unittest.TestCase):
             tic.db.session.remove()
             tic.db.drop_all()
             tic.db.create_all()
+            tic.db.session.execute(tic.text("PRAGMA foreign_keys=ON"))
 
     def tearDown(self):
         with tic.app.app_context():
@@ -66,6 +67,7 @@ class BackupRestoreTest(unittest.TestCase):
                 custo=10,
                 tipo="Assinatura mensal",
             ))
+            tic.db.session.flush()
             tic.db.session.add(tic.Allocation(
                 id="AL_TEST",
                 ativo_id="A_TEST",
@@ -107,6 +109,7 @@ class BackupRestoreTest(unittest.TestCase):
                 rh_email="rh@example.com",
                 rh_ciencia_ip="127.0.0.3",
             ))
+            tic.db.session.flush()
             tic.db.session.add(tic.LaudoTecnico(
                 id="LT_TEST",
                 devolucao_id="D_TEST",
@@ -124,6 +127,7 @@ class BackupRestoreTest(unittest.TestCase):
                 status="Aberta",
                 criado_por="unittest",
             ))
+            tic.db.session.flush()
             tic.db.session.add(tic.AuditCampaignItem(
                 id="ACI_TEST",
                 campaign_id="AC_TEST",

@@ -64,6 +64,12 @@ def _setup_form_values():
         "smtp_from_email": request.form.get("smtp_from_email", ""),
         "smtp_enabled": request.form.get("smtp_enabled", ""),
         "smtp_tls": request.form.get("smtp_tls", "on"),
+        "print_agent_enabled": request.form.get("print_agent_enabled", ""),
+        "print_agent_id": request.form.get("print_agent_id", "ETIQUETAS-01"),
+        "print_agent_name": request.form.get("print_agent_name", "Impressora de Etiquetas"),
+        "print_agent_windows_name": request.form.get("print_agent_windows_name", "ELGIN L42Pro"),
+        "print_agent_location": request.form.get("print_agent_location", ""),
+        "print_agent_dpi": request.form.get("print_agent_dpi", "203"),
         "backup_enabled": request.form.get("backup_enabled", ""),
         "backup_frequency": request.form.get("backup_frequency", "daily"),
         "backup_retention": request.form.get("backup_retention", "7"),
@@ -150,6 +156,20 @@ def setup_wizard():
         if smtp_port > 65535:
             errors.append("Porta SMTP inválida.")
 
+    print_agent_enabled = request.form.get("print_agent_enabled") == "on"
+    print_agent_id_raw = clean_text(values["print_agent_id"], 60)
+    print_agent_id = safe_filename(print_agent_id_raw).upper() if print_agent_id_raw else ""
+    if print_agent_enabled:
+        if not print_agent_id:
+            errors.append("Informe o ID do agente de impressão.")
+        elif db.session.get(PrintPrinter, print_agent_id):
+            errors.append("Já existe um agente de impressão com este ID.")
+        if not clean_text(values["print_agent_windows_name"], 120):
+            errors.append("Informe o nome da impressora no Windows.")
+        print_agent_dpi = parse_int(values["print_agent_dpi"], default=203, minimum=150)
+        if print_agent_dpi not in (203, 300, 600):
+            errors.append("Selecione uma resolução válida para a impressora.")
+
     if errors:
         return _render_setup(token=token, errors=errors, values=values), 400
 
@@ -165,6 +185,22 @@ def setup_wizard():
     )
     admin.set_senha(admin_password)
     db.session.add(admin)
+
+    print_agent = None
+    print_agent_token = ""
+    if print_agent_enabled:
+        print_agent_token = secrets.token_urlsafe(32)
+        print_agent = PrintPrinter(
+            id=print_agent_id,
+            name=clean_text(values["print_agent_name"], 120) or print_agent_id,
+            location=clean_text(values["print_agent_location"], 120),
+            printer_type="USB/ZPL",
+            windows_name=clean_text(values["print_agent_windows_name"], 120),
+            dpi=parse_int(values["print_agent_dpi"], default=203, minimum=150),
+            token_hash=hashlib.sha256(print_agent_token.encode("utf-8")).hexdigest(),
+            status="Offline",
+        )
+        db.session.add(print_agent)
 
     backup_cfg = _get_backup_config()
     backup_cfg.update({
@@ -199,4 +235,11 @@ def setup_wizard():
     audit("SETUP", "sistema", "", "Assistente inicial concluído")
     db.session.commit()
     login_user(admin, remember=False)
+    if print_agent:
+        return render_template(
+            "setup_complete.html",
+            build_version=app.config.get("BUILD_VERSION", "0.1.2-BETA"),
+            printer=print_agent.to_dict(),
+            printer_token=print_agent_token,
+        )
     return redirect(url_for("index"))

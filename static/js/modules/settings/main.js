@@ -3,7 +3,12 @@
 // ══════════════════════════════════════════════════════════════════════════
 
 async function renderConfiguracoes(){
-  const [cfg, perfis, sysUsers] = await Promise.all([api('/settings'), api('/system-users/perfis'), api('/system-users')]);
+  const [cfg, perfis, sysUsers, printPrinters] = await Promise.all([
+    api('/settings'),
+    api('/system-users/perfis'),
+    api('/system-users'),
+    api('/print-printers').catch(()=>[]),
+  ]);
   let backupState = {config: cfg.backup || {}, files: []};
   let updateState = null;
   try{
@@ -57,6 +62,7 @@ async function renderConfiguracoes(){
     ? `${esc(updateState.branch||'branch')} · ${esc(updateState.currentCommit||updateState.currentVersion||'?')} · atrás ${updateState.behind||0} · à frente ${updateState.ahead||0}`
     : `Execute no servidor: <span class="mono">${esc(updateState.manualCommand || './scripts/update-linux.sh')}</span>`;
   const tplAss = cfg_tpl.assinatura || {};
+  const tplPacoteTermos = cfg_tpl.pacote_termos || {};
   const tplDev = cfg_tpl.devolucao || {};
   const tplLaudoRh = cfg_tpl.laudo_rh || {};
   const tplLaudoEditRh = cfg_tpl.laudo_editado_rh || {};
@@ -133,6 +139,7 @@ async function renderConfiguracoes(){
     ['perfis',    'Perfis'],
     ['email',     'E-mail'],
     ['termos',    'Termos'],
+    ['agentes',   'Agentes'],
     ['backup',    'Backup'],
     ['updates',   'Atualizações'],
   ];
@@ -502,6 +509,7 @@ async function renderConfiguracoes(){
           <button class="btn btn-primary btn-sm" onclick="saveEmailTemplates()" type="button">Salvar Templates</button>
         </div>
         ${emailTemplateCard('assinatura','Termo de Responsabilidade','Usado ao enviar link de assinatura para alocação de ativo.',['empresa','colaborador','ativo','link'],tplAss)}
+        ${emailTemplateCard('pacote_termos','Pacote de Termos','Usado ao enviar a Central de Assinaturas com um ou mais termos.',['empresa','colaborador','quantidade','termos','link'],tplPacoteTermos)}
         ${emailTemplateCard('devolucao','Termo de Devolução','Usado ao enviar link de assinatura para devolução de equipamentos.',['empresa','colaborador','link'],tplDev)}
         ${emailTemplateCard('laudo_rh','Laudo Técnico para RH','Usado quando o técnico envia o laudo para ciência do RH.',['empresa','colaborador','tecnico','link'],tplLaudoRh)}
         ${emailTemplateCard('laudo_editado_rh','Laudo Corrigido para RH','Usado quando um administrador corrige um laudo já enviado.',['empresa','colaborador','editor','motivo','link'],tplLaudoEditRh)}
@@ -824,14 +832,15 @@ async function renderConfiguracoes(){
     </div>
   </div>`;
 
-  $('content').innerHTML = tabBar + panelGeral + panelOperacao + panelAparencia + panelPerfis + panelEmail + panelTermos + panelBackup + panelUpdates;
+  const panelAgentes = renderPrintAgentsPanel(printPrinters);
+  $('content').innerHTML = tabBar + panelGeral + panelOperacao + panelAparencia + panelPerfis + panelEmail + panelTermos + panelAgentes + panelBackup + panelUpdates;
   cfgTab(_cfgTab);
 }
 
 function cfgTab(tab){
   _cfgTab = tab;
   const panels = {
-    geral: 'grid', operacao: 'grid', aparencia: 'block', perfis: 'block', email: 'block', termos: 'flex', backup: 'block', updates: 'block'
+    geral: 'grid', operacao: 'grid', aparencia: 'block', perfis: 'block', email: 'block', termos: 'flex', agentes: 'block', backup: 'block', updates: 'block'
   };
   Object.keys(panels).forEach(t=>{
     const panel = document.getElementById('cfg-panel-'+t);

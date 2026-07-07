@@ -8,6 +8,21 @@ globals().update(_export_route_globals())
 TIPOS_TERMO_AVULSO = ["VPN", "BYOD", "Confidencialidade", "Outro"]
 
 
+def _termo_detalhes_raw(termo):
+    try:
+        value = json.loads(termo.detalhes or "{}") if termo and termo.detalhes else {}
+        return value if isinstance(value, dict) else {}
+    except (TypeError, ValueError):
+        return {}
+
+
+def _termo_modelo_registrado(termo):
+    snapshot = _termo_detalhes_raw(termo).get("_modelo")
+    if isinstance(snapshot, dict):
+        return snapshot
+    return _get_termo_avulso_modelo(termo.tipo)
+
+
 def _send_termo_avulso_pdf(t, empresa, logo_b64, titulo, preambulo, clausulas, rodape_txt, ctx, detalhes_dict):
     from xml.sax.saxutils import escape
     from reportlab.lib import colors
@@ -132,6 +147,7 @@ def create_termo_avulso():
     detalhes = d.get("detalhes") or {}
     if not isinstance(detalhes, dict):
         detalhes = {}
+    detalhes = {**detalhes, "_modelo": _get_termo_avulso_modelo(tipo)} if tipo else detalhes
 
     if erros:
         return jsonify({"error": "\n".join(erros)}), 400
@@ -158,6 +174,132 @@ def create_termo_avulso():
     except Exception:
         db.session.rollback()
         raise
+
+
+def _termos_do_pacote(package_id):
+    return db.session.execute(
+        db.select(TermoAvulso)
+        .where(TermoAvulso.package_id == clean_text(package_id, 16))
+        .order_by(TermoAvulso.created_at.asc(), TermoAvulso.id.asc())
+    ).scalars().all()
+
+
+def _enviar_email_pacote(termos, url):
+    if not termos or not termos[0].email:
+        return False
+    empresa = _get_setting("empresa", {}) or {}
+    nome_empresa = empresa.get("nome", "TI Control") if isinstance(empresa, dict) else "TI Control"
+    tipos = ", ".join(t.tipo for t in termos)
+    subject, html, text = _render_email_template("pacote_termos", {
+        "empresa": nome_empresa,
+        "colaborador": termos[0].colaborador,
+        "quantidade": len(termos),
+        "termos": tipos,
+        "link": url,
+    })
+    return bool(send_email(termos[0].email, subject, html, text).get("ok"))
+
+
+def _gerar_link_pacote(termos):
+    token = uuid.uuid4().hex + uuid.uuid4().hex
+    expiry = datetime.now() + timedelta(days=7)
+    for termo in termos:
+        termo.package_token = token
+        termo.package_token_expiry = expiry
+    url = f"{get_app_base_url()}/assinar-termos/{token}"
+    return token, expiry, url
+
+
+@app.route("/api/termos/pacotes", methods=["POST"])
+@app.route("/api/termos-avulsos/pacotes", methods=["POST"])
+@requires("Administrador", "Técnico TI")
+def create_pacote_termos():
+    data = request.get_json(silent=True) or {}
+    items = data.get("termos")
+    if not isinstance(items, list) or not items:
+        return jsonify({"error": "Adicione ao menos um termo ao pacote."}), 400
+    if len(items) > 20:
+        return jsonify({"error": "Cada pacote pode conter no máximo 20 termos."}), 400
+
+    colaborador = clean_text(data.get("colaborador"), 120)
+    setor = clean_text(data.get("setor"), 80)
+    unidade = clean_text(data.get("unidade"), 80)
+    email = clean_text(data.get("email"), 120)
+    if not colaborador:
+        return jsonify({"error": "Colaborador é obrigatório."}), 400
+    email_error = validate_email(email)
+    if email_error:
+        return jsonify({"error": email_error}), 400
+
+    modelos = _get_termos_avulsos_modelos()
+    tipos_vistos = set()
+    normalized_items = []
+    for item in items:
+        if not isinstance(item, dict):
+            return jsonify({"error": "Termo inválido no pacote."}), 400
+        tipo = clean_text(item.get("tipo"), 40)
+        if not tipo or tipo not in modelos:
+            return jsonify({"error": f"O modelo '{tipo or 'sem nome'}' não está disponível em Configurações > Termos."}), 400
+        if tipo.casefold() in tipos_vistos:
+            return jsonify({"error": f"O termo '{tipo}' foi adicionado mais de uma vez."}), 400
+        tipos_vistos.add(tipo.casefold())
+        detalhes = item.get("detalhes") if isinstance(item.get("detalhes"), dict) else {}
+        detalhes = {**detalhes, "_modelo": modelos[tipo]}
+        normalized_items.append({
+            "tipo": tipo,
+            "validade": clean_text(item.get("validade"), 10) or None,
+            "detalhes": detalhes,
+        })
+
+    package_id = new_id("TP")
+    termos = []
+    for item in normalized_items:
+        termo = TermoAvulso(
+            id=new_id("TA"),
+            package_id=package_id,
+            tipo=item["tipo"],
+            colaborador=colaborador,
+            setor=setor,
+            unidade=unidade,
+            email=email,
+            validade=item["validade"],
+            detalhes=json.dumps(item["detalhes"], ensure_ascii=False),
+            status="Pendente",
+            created_by=current_user.username,
+        )
+        db.session.add(termo)
+        termos.append(termo)
+
+    _, expiry, url = _gerar_link_pacote(termos)
+    audit("CRIAR_PACOTE_TERMOS", "alocacoes", package_id,
+          f"Pacote com {len(termos)} termo(s) criado para {colaborador}")
+    db.session.commit()
+    email_enviado = _enviar_email_pacote(termos, url)
+    return jsonify({
+        "packageId": package_id,
+        "terms": [t.to_dict() for t in termos],
+        "url": url,
+        "expiry": expiry.isoformat(),
+        "emailEnviado": email_enviado,
+    }), 201
+
+
+@app.route("/api/termos/pacotes/<package_id>/sign-link", methods=["POST"])
+@app.route("/api/termos-avulsos/pacotes/<package_id>/sign-link", methods=["POST"])
+@requires("Administrador", "Técnico TI")
+def gerar_link_pacote_termos(package_id):
+    termos = _termos_do_pacote(package_id)
+    if not termos:
+        return jsonify({"error": "Pacote de termos não encontrado."}), 404
+    pendentes = [t for t in termos if t.status != "Assinado"]
+    if not pendentes:
+        return jsonify({"error": "Todos os termos deste pacote já foram assinados."}), 400
+    _, expiry, url = _gerar_link_pacote(termos)
+    audit("GERAR_LINK_PACOTE_TERMOS", "alocacoes", package_id,
+          f"Link do pacote gerado para {termos[0].colaborador}")
+    db.session.commit()
+    email_enviado = _enviar_email_pacote(termos, url)
+    return jsonify({"url": url, "expiry": expiry.isoformat(), "emailEnviado": email_enviado})
 
 
 @app.route("/api/termos/<tid>", methods=["GET"])
@@ -189,7 +331,12 @@ def update_termo_avulso(tid):
         t.validade = clean_text(d["validade"], 10) or None
     if "detalhes" in d:
         det = d["detalhes"]
-        t.detalhes = json.dumps(det if isinstance(det, dict) else {}, ensure_ascii=False)
+        current_details = _termo_detalhes_raw(t)
+        snapshot = current_details.get("_modelo")
+        normalized = det if isinstance(det, dict) else {}
+        if snapshot:
+            normalized = {**normalized, "_modelo": snapshot}
+        t.detalhes = json.dumps(normalized, ensure_ascii=False)
 
     audit("EDITAR_TERMO_AVULSO", "alocacoes", tid, f"Termo {t.tipo} de {t.colaborador} editado")
     db.session.commit()
@@ -249,7 +396,7 @@ def gerar_termo_avulso_pdf(tid):
     empresa  = _get_setting("empresa", {}) or {}
     logo_b64 = empresa.get("logo_base64", "") if isinstance(empresa, dict) else ""
 
-    tr_cfg = _get_termo_avulso_modelo(t.tipo)
+    tr_cfg = _termo_modelo_registrado(t)
 
     ctx = {
         "colaborador": t.colaborador, "setor": t.setor, "unidade": t.unidade,
@@ -265,7 +412,8 @@ def gerar_termo_avulso_pdf(tid):
     rodape_txt = _render_termo_text(tr_cfg.get("rodape", ""), ctx)
 
     # Campos extras do detalhes
-    detalhes_dict = json.loads(t.detalhes or "{}") if t.detalhes else {}
+    detalhes_dict = _termo_detalhes_raw(t)
+    detalhes_dict.pop("_modelo", None)
 
     try:
         return _send_termo_avulso_pdf(t, empresa, logo_b64, titulo, preambulo, clausulas, rodape_txt, ctx, detalhes_dict)
@@ -366,7 +514,7 @@ def _termo_avulso_assinatura_modelo(t):
     if not t:
         return {}
     empresa = _get_setting("empresa", {}) or {}
-    cfg = _get_termo_avulso_modelo(t.tipo)
+    cfg = _termo_modelo_registrado(t)
     ctx = {
         "colaborador": t.colaborador,
         "setor": t.setor,
@@ -457,3 +605,105 @@ def submeter_assinatura_avulso(token):
     t.sign_token_expiry = None
     db.session.commit()
     return render_template("assinar_avulso.html", termo=t, token=token, termo_modelo=_termo_avulso_assinatura_modelo(t), sucesso=True, cpf_required=cpf_required)
+
+
+def _termos_por_package_token(token):
+    return db.session.execute(
+        db.select(TermoAvulso)
+        .where(TermoAvulso.package_token == clean_text(token, 64))
+        .order_by(TermoAvulso.created_at.asc(), TermoAvulso.id.asc())
+    ).scalars().all()
+
+
+def _colaborador_do_pacote(termos):
+    if not termos:
+        return None
+    first = termos[0]
+    colaborador = None
+    if first.email:
+        colaborador = db.session.execute(
+            db.select(Colaborador).where(Colaborador.email == first.email)
+        ).scalar_one_or_none()
+    if not colaborador:
+        colaborador = db.session.execute(
+            db.select(Colaborador).where(Colaborador.nome == first.colaborador)
+        ).scalar_one_or_none()
+    return colaborador
+
+
+def _render_assinatura_pacote(token, termos, erro=None, sucesso=False, status=200):
+    colaborador = _colaborador_do_pacote(termos)
+    documentos = [{"termo": termo, "modelo": _termo_avulso_assinatura_modelo(termo)} for termo in termos]
+    return render_template(
+        "assinar_pacote.html",
+        token=token,
+        termos=termos,
+        documentos=documentos,
+        erro=erro,
+        sucesso=sucesso,
+        cpf_required=bool(colaborador and colaborador.cpf),
+    ), status
+
+
+@app.route("/assinar-termos/<token>", methods=["GET"])
+def pagina_assinatura_pacote(token):
+    termos = _termos_por_package_token(token)
+    if not termos:
+        return _render_assinatura_pacote(token, [], erro="Link inválido ou não encontrado.", status=404)
+    expiry = min((t.package_token_expiry for t in termos if t.package_token_expiry), default=None)
+    if expiry and datetime.now() > expiry:
+        return _render_assinatura_pacote(token, termos, erro="Este link de assinatura expirou.", status=410)
+    return _render_assinatura_pacote(
+        token,
+        termos,
+        sucesso=all(t.status == "Assinado" for t in termos),
+    )
+
+
+@app.route("/assinar-termos/<token>", methods=["POST"])
+def submeter_assinatura_pacote(token):
+    termos = _termos_por_package_token(token)
+    if not termos:
+        return _render_assinatura_pacote(token, [], erro="Link inválido ou não encontrado.", status=404)
+    expiry = min((t.package_token_expiry for t in termos if t.package_token_expiry), default=None)
+    if expiry and datetime.now() > expiry:
+        return _render_assinatura_pacote(token, termos, erro="Este link de assinatura expirou.", status=410)
+
+    pendentes = [t for t in termos if t.status != "Assinado"]
+    if not pendentes:
+        return _render_assinatura_pacote(token, termos, sucesso=True)
+
+    accepted_ids = set(request.form.getlist("aceitos"))
+    pending_ids = {t.id for t in pendentes}
+    if not pending_ids.issubset(accepted_ids):
+        return _render_assinatura_pacote(
+            token,
+            termos,
+            erro="Leia e aceite todos os termos pendentes antes de assinar.",
+            status=400,
+        )
+
+    signature = request.form.get("assinatura", "").strip()
+    nome = request.form.get("nome_confirm", "").strip()
+    cpf = request.form.get("cpf_confirm", "").strip()
+    colaborador = _colaborador_do_pacote(termos)
+    cpf_required = bool(colaborador and colaborador.cpf)
+    if not signature.startswith("data:image/png;base64,"):
+        return _render_assinatura_pacote(token, termos, erro="Desenhe sua assinatura antes de confirmar.", status=400)
+    if cpf_required and not cpf_matches(cpf, colaborador.cpf):
+        return _render_assinatura_pacote(token, termos, erro="CPF digitado não confere com o cadastro.", status=400)
+    expected_name = termos[0].colaborador or ""
+    first_name = expected_name.split()[0].casefold() if expected_name.split() else ""
+    if not cpf_required and nome.casefold() not in {first_name, expected_name.casefold()}:
+        return _render_assinatura_pacote(token, termos, erro="Nome digitado não confere com o cadastro.", status=400)
+
+    signed_at = datetime.now()
+    for termo in pendentes:
+        termo.assinatura_img = signature
+        termo.status = "Assinado"
+        termo.data_assinatura = signed_at
+        termo.assinatura_ip = request.remote_addr
+    audit("ASSINAR_PACOTE_TERMOS", "alocacoes", termos[0].package_id or "",
+          f"{len(pendentes)} termo(s) assinados por {expected_name}")
+    db.session.commit()
+    return _render_assinatura_pacote(token, termos, sucesso=True)
