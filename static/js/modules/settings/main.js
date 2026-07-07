@@ -67,33 +67,59 @@ async function renderConfiguracoes(){
   const tplLaudoRh = cfg_tpl.laudo_rh || {};
   const tplLaudoEditRh = cfg_tpl.laudo_editado_rh || {};
   const tplLaudoEditColab = cfg_tpl.laudo_editado_colab || {};
-  const emailTemplateCard = (kind,title,subtitle,variables,tpl) => `
-    <div class="card" style="margin-top:16px">
-      <div class="flex-between" style="margin-bottom:12px;gap:12px;align-items:flex-start;flex-wrap:wrap">
-        <div>
-          <div class="section-title" style="margin-bottom:4px">${title}</div>
-          <div style="font-size:12px;color:var(--text3)">${subtitle}</div>
-        </div>
-        <button class="btn btn-default btn-sm" onclick="carregarTemplateEmailPadrao('${kind}')" type="button">Carregar padrão</button>
-      </div>
-      <div class="info-box blue" style="margin-bottom:14px;font-size:12px">
-        Variáveis: ${variables.map(v=>`<code>{${v}}</code>`).join(' ')}
-      </div>
-      <div class="form-grid-2">
-        <div class="form-group" style="grid-column:span 2"><label>Assunto</label>
-          <input id="email-tpl-${kind}-subject" value="${escAttr(tpl.subject||'')}">
-        </div>
-        <div class="form-group" style="grid-column:span 2"><label>Mensagem</label>
-          <textarea id="email-tpl-${kind}-body" style="min-height:150px;resize:vertical">${esc(tpl.body||'')}</textarea>
-        </div>
-        <div class="form-group"><label>Texto do botão</label>
-          <input id="email-tpl-${kind}-button" value="${escAttr(tpl.button_label||'')}">
-        </div>
-        <div class="form-group"><label>Rodapé</label>
-          <input id="email-tpl-${kind}-footer" value="${escAttr(tpl.footer||'')}">
-        </div>
-      </div>
+  const emailTplDefaults = (typeof EMAIL_TEMPLATE_DEFAULTS !== 'undefined') ? EMAIL_TEMPLATE_DEFAULTS : {};
+  const emailTemplateDefs = [
+    {kind:'assinatura', title:'Termo de Responsabilidade', subtitle:'Link de assinatura para alocação de ativo', variables:['empresa','colaborador','ativo','link'], tpl:tplAss, color:'blue'},
+    {kind:'pacote_termos', title:'Pacote de Termos', subtitle:'Central de Assinaturas com um ou mais termos', variables:['empresa','colaborador','quantidade','termos','link'], tpl:tplPacoteTermos, color:'purple'},
+    {kind:'devolucao', title:'Termo de Devolução', subtitle:'Assinatura para devolução de equipamentos', variables:['empresa','colaborador','link'], tpl:tplDev, color:'green'},
+    {kind:'laudo_rh', title:'Laudo Técnico para RH', subtitle:'Ciência do RH após avaliação técnica', variables:['empresa','colaborador','tecnico','link'], tpl:tplLaudoRh, color:'amber'},
+    {kind:'laudo_editado_rh', title:'Laudo Corrigido para RH', subtitle:'Aviso ao RH quando um laudo é corrigido', variables:['empresa','colaborador','editor','motivo','link'], tpl:tplLaudoEditRh, color:'gray'},
+    {kind:'laudo_editado_colab', title:'Laudo Corrigido para Colaborador', subtitle:'Aviso ao colaborador sobre correções no laudo', variables:['empresa','colaborador','motivo','link'], tpl:tplLaudoEditColab, color:'gray'},
+  ];
+  const emailTemplateValue = (def, key) => {
+    const tpl = def.tpl || {};
+    const fallback = emailTplDefaults[def.kind] || {};
+    return tpl[key] || fallback[key] || '';
+  };
+  const emailTemplateExcerpt = text => {
+    const value = String(text || '').replace(/\s+/g,' ').trim();
+    return value ? (value.length > 132 ? value.slice(0,132) + '...' : value) : 'Sem mensagem configurada.';
+  };
+  const emailTemplateStore = def => `
+    <div class="email-template-store-item" data-template-kind="${escAttr(def.kind)}">
+      <input id="email-tpl-${def.kind}-subject" value="${escAttr(emailTemplateValue(def,'subject'))}">
+      <textarea id="email-tpl-${def.kind}-body">${esc(emailTemplateValue(def,'body'))}</textarea>
+      <input id="email-tpl-${def.kind}-button" value="${escAttr(emailTemplateValue(def,'button_label'))}">
+      <input id="email-tpl-${def.kind}-footer" value="${escAttr(emailTemplateValue(def,'footer'))}">
     </div>`;
+  const emailTemplateCard = def => {
+    const subject = emailTemplateValue(def,'subject');
+    const body = emailTemplateValue(def,'body');
+    const button = emailTemplateValue(def,'button_label');
+    return `<article class="email-template-card" id="email-template-card-${def.kind}"
+        data-template-kind="${escAttr(def.kind)}"
+        data-template-title="${escAttr(def.title)}"
+        data-template-subtitle="${escAttr(def.subtitle)}"
+        data-template-variables="${escAttr(JSON.stringify(def.variables))}">
+      <div class="email-template-top">
+        <div class="email-template-icon">${svgIcon('mail')}</div>
+        <div style="min-width:0">
+          <div class="email-template-title">${esc(def.title)}</div>
+          <div class="email-template-sub">${esc(def.subtitle)}</div>
+        </div>
+      </div>
+      <div class="email-template-subject" id="email-template-card-${def.kind}-subject" title="${escAttr(subject)}">${esc(subject || 'Sem assunto configurado')}</div>
+      <div class="email-template-preview" id="email-template-card-${def.kind}-preview">${esc(emailTemplateExcerpt(body))}</div>
+      <div class="email-template-meta">
+        ${badge(`${def.variables.length} variáveis`, def.color)}
+        <span class="badge badge-gray" id="email-template-card-${def.kind}-button">${esc(button || 'Sem botão')}</span>
+      </div>
+      <div class="email-template-actions">
+        <button class="btn btn-primary btn-sm" type="button" onclick="openEmailTemplateEditor('${def.kind}')">${inlineIcon('edit')} Editar</button>
+        <button class="btn btn-default btn-sm" type="button" onclick="carregarTemplateEmailPadrao('${def.kind}')">${inlineIcon('clipboard')} Padrão</button>
+      </div>
+    </article>`;
+  };
   const backupStatusBadge = cfg_backup.last_error ? badge('Erro','red') : (cfg_backup.last_run ? badge('OK','green') : badge('Pendente','gray'));
   const backupFilesHtml = backupFiles.length ? backupFiles.map(f=>`
     <div class="alert-row" style="padding:10px 0;gap:10px;align-items:flex-start">
@@ -504,16 +530,16 @@ async function renderConfiguracoes(){
         <div class="flex-between" style="gap:12px;align-items:flex-end;flex-wrap:wrap;margin-bottom:2px">
           <div>
             <div class="section-title" style="margin-bottom:4px">Templates de E-mail</div>
-            <div style="font-size:12px;color:var(--text3)">Personalize os textos enviados nos links de assinatura sem alterar código.</div>
+            <div style="font-size:12px;color:var(--text3)">Personalize os textos enviados nos fluxos do sistema sem alterar código.</div>
           </div>
-          <button class="btn btn-primary btn-sm" onclick="saveEmailTemplates()" type="button">Salvar Templates</button>
+          <button class="btn btn-primary btn-sm" onclick="saveEmailTemplates()" type="button">${inlineIcon('save')} Salvar Templates</button>
         </div>
-        ${emailTemplateCard('assinatura','Termo de Responsabilidade','Usado ao enviar link de assinatura para alocação de ativo.',['empresa','colaborador','ativo','link'],tplAss)}
-        ${emailTemplateCard('pacote_termos','Pacote de Termos','Usado ao enviar a Central de Assinaturas com um ou mais termos.',['empresa','colaborador','quantidade','termos','link'],tplPacoteTermos)}
-        ${emailTemplateCard('devolucao','Termo de Devolução','Usado ao enviar link de assinatura para devolução de equipamentos.',['empresa','colaborador','link'],tplDev)}
-        ${emailTemplateCard('laudo_rh','Laudo Técnico para RH','Usado quando o técnico envia o laudo para ciência do RH.',['empresa','colaborador','tecnico','link'],tplLaudoRh)}
-        ${emailTemplateCard('laudo_editado_rh','Laudo Corrigido para RH','Usado quando um administrador corrige um laudo já enviado.',['empresa','colaborador','editor','motivo','link'],tplLaudoEditRh)}
-        ${emailTemplateCard('laudo_editado_colab','Laudo Corrigido para Colaborador','Usado para avisar o colaborador sobre correções no laudo.',['empresa','colaborador','motivo','link'],tplLaudoEditColab)}
+        <div class="email-template-grid">
+          ${emailTemplateDefs.map(emailTemplateCard).join('')}
+        </div>
+        <div class="email-template-store" aria-hidden="true">
+          ${emailTemplateDefs.map(emailTemplateStore).join('')}
+        </div>
       </div>
     </div>
   </div>`;

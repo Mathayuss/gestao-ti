@@ -260,6 +260,25 @@ html[data-theme="dark"] .btn-danger:hover{background:rgba(248,113,113,.20);borde
 .term-preview-fields{font-size:12px;color:var(--text2);line-height:1.5;max-height:62vh;overflow:auto}
 .new-term-package-row{display:grid;grid-template-columns:minmax(0,1fr) 150px 36px;gap:8px;align-items:end;padding:10px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r)}
 .new-term-package-row .form-group{margin:0}
+.email-template-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(255px,1fr));gap:12px;margin-top:14px}
+.email-template-store{display:none}
+.email-template-card{display:flex;flex-direction:column;gap:11px;min-height:218px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:14px;box-shadow:var(--shadow-sm);transition:border-color .15s,box-shadow .15s,transform .15s}
+.email-template-card:hover{border-color:var(--blue-border);box-shadow:var(--shadow);transform:translateY(-1px)}
+.email-template-top{display:flex;align-items:flex-start;gap:10px;min-width:0}
+.email-template-icon{width:38px;height:38px;border-radius:var(--r);display:flex;align-items:center;justify-content:center;background:var(--blue-bg);color:var(--blue);border:1px solid var(--blue-border);flex-shrink:0}
+.email-template-icon svg{width:19px;height:19px;stroke-width:2.2}
+.email-template-title{font-size:14px;font-weight:850;color:var(--text);line-height:1.25}
+.email-template-sub{font-size:12px;color:var(--text2);line-height:1.45;margin-top:3px}
+.email-template-subject{font-size:13px;font-weight:800;color:var(--text);line-height:1.35;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.email-template-preview{font-size:12px;color:var(--text2);line-height:1.45;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical}
+.email-template-meta{display:flex;gap:6px;flex-wrap:wrap;margin-top:auto}
+.email-template-actions{display:flex;gap:6px;flex-wrap:wrap;border-top:1px solid var(--border);padding-top:10px}
+.email-template-actions .btn svg{width:14px;height:14px;stroke-width:2.2}
+.email-template-editor{display:flex;flex-direction:column;gap:2px}
+.email-template-editor-head{display:flex;align-items:flex-start;gap:10px;padding:12px;border:1px solid var(--border);border-radius:var(--r);background:var(--bg3)}
+.email-template-modal-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.email-template-modal-grid .span-2{grid-column:span 2}
+.email-template-body-field{min-height:230px;resize:vertical}
 
 /* ── Table ── */
 .table-wrap{overflow-x:auto;border-radius:var(--rl);border:1px solid var(--border);box-shadow:var(--shadow-sm);background:var(--bg2)}
@@ -426,6 +445,8 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
   .compat-item{grid-template-columns:1fr;gap:8px}
   .compat-list-wrap{max-height:520px}
   .term-preview-modal{grid-template-columns:1fr}
+  .email-template-modal-grid{grid-template-columns:1fr}
+  .email-template-modal-grid .span-2{grid-column:span 1}
   .new-term-package-row{grid-template-columns:1fr 120px 36px}
   .modal-overlay{align-items:flex-end}
   .modal-box{border-radius:16px 16px 0 0;max-height:88vh}
