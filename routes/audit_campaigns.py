@@ -1,7 +1,12 @@
 """Rotas de campanhas de auditoria fisica de ativos."""
-from app import _export_route_globals
+from datetime import date, datetime
 
-globals().update(_export_route_globals())
+from flask import jsonify, request
+from flask_login import current_user
+
+from app import api_auth, audit, clean_text, json_payload, new_id, requires
+from extensions import db
+from models import Asset, AuditCampaign, AuditCampaignItem
 from routes.blueprint import bp
 
 

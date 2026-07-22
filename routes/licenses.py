@@ -1,7 +1,11 @@
 """Rotas de licencas de software."""
-from app import _export_route_globals
+from datetime import datetime
 
-globals().update(_export_route_globals())
+from flask import jsonify, request
+
+from app import _create_attachment_record, api_auth, audit, clean_text, new_id, requires
+from extensions import db
+from models import License
 from routes.blueprint import bp
 
 

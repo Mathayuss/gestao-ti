@@ -1,12 +1,47 @@
-"""Rotas Flask extraidas do app.py.
+"""Rotas de dashboard, relatorios, auditoria e backup."""
+import hashlib
+import io
+import json
+import os
+from datetime import date
 
-Este modulo usa uma ponte temporaria para acessar modelos, helpers e extensoes
-definidos em app.py. Em uma proxima etapa, esses itens podem migrar para
-pacotes dedicados como models, services e extensions.
-"""
-from app import _export_route_globals
+from flask import jsonify, request, send_file
+from flask_login import current_user
+from sqlalchemy import func
 
-globals().update(_export_route_globals())
+from app import (
+    BACKUP_UPLOAD_MAX_BYTES,
+    METRICS_OK,
+    _backup_bytes,
+    _backup_file_path,
+    _database_health,
+    _get_backup_config,
+    _list_backup_files,
+    _restore_from_payload,
+    _service_metadata,
+    _validate_backup_payload,
+    _write_backup_file,
+    api_auth,
+    audit,
+    clean_text,
+    compute_alerts,
+    csv_response,
+    json_payload,
+    logger,
+    requires,
+)
+from extensions import db
+from models import (
+    Allocation,
+    Asset,
+    AuditLog,
+    Colaborador,
+    Devolucao,
+    Incident,
+    License,
+    Supply,
+    SupplyMovement,
+)
 from routes.blueprint import bp
 
 @bp.route("/api/audit-log")
@@ -81,6 +116,7 @@ def operational_status():
     total_requests = None
     if METRICS_OK:
         try:
+            from app import HTTP_REQUESTS_TOTAL
             total_requests = sum(sample.value for sample in HTTP_REQUESTS_TOTAL.collect()[0].samples if sample.name.endswith("_total"))
         except Exception:
             total_requests = None

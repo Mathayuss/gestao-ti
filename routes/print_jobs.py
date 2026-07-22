@@ -1,13 +1,31 @@
 """Fila de impressão RAW/ZPL para agentes locais de impressoras USB."""
+import base64
+import hashlib
 import io
 import logging
+import os
 import secrets
 import zipfile
 from datetime import datetime
 
-from app import _export_route_globals
+import qrcode
+from flask import jsonify, request, send_file
+from flask_login import current_user
+from sqlalchemy import func
 
-globals().update(_export_route_globals())
+from app import (
+    _get_setting,
+    api_auth,
+    audit,
+    clean_text,
+    get_app_base_url,
+    json_payload,
+    parse_int,
+    requires,
+    safe_filename,
+)
+from extensions import db
+from models import Asset, PrintJob, PrintPrinter
 from routes.blueprint import bp
 
 logger = logging.getLogger(__name__)

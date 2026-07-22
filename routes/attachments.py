@@ -1,7 +1,22 @@
 """Rotas para anexos de ativos, manutenções e licenças."""
-from app import _export_route_globals
+import os
 
-globals().update(_export_route_globals())
+from flask import jsonify, request, send_file
+from flask_login import current_user
+
+from app import (
+    ATTACHMENT_MODULE_BY_ENTITY,
+    _attachment_entity_exists,
+    _attachment_path,
+    _create_attachment_record,
+    _profile_allows,
+    api_auth,
+    audit,
+    clean_text,
+    requires,
+)
+from extensions import db
+from models import Attachment
 from routes.blueprint import bp
 
 

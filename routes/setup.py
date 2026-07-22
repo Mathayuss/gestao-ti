@@ -1,10 +1,29 @@
 """Assistente inicial de instalação."""
+import hashlib
+import os
+import re
 import secrets
+from datetime import date, datetime
 from urllib.parse import urlsplit
 
-from app import _export_route_globals
+from flask import redirect, render_template, request, url_for
+from flask_login import login_user
 
-globals().update(_export_route_globals())
+from app import (
+    _ensure_initial_settings,
+    _get_backup_config,
+    _get_setting,
+    _set_setting,
+    app,
+    audit,
+    clean_text,
+    new_id,
+    parse_int,
+    safe_filename,
+    validate_email,
+)
+from extensions import db
+from models import PrintPrinter, SystemUser
 from routes.blueprint import bp
 
 

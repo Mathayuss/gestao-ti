@@ -1,12 +1,18 @@
-"""Rotas Flask extraidas do app.py.
+"""Rotas de usuarios do sistema e perfis."""
+from flask import jsonify, request
+from flask_login import current_user
 
-Este modulo usa uma ponte temporaria para acessar modelos, helpers e extensoes
-definidos em app.py. Em uma proxima etapa, esses itens podem migrar para
-pacotes dedicados como models, services e extensions.
-"""
-from app import _export_route_globals
-
-globals().update(_export_route_globals())
+from app import (
+    _get_setting,
+    _set_setting,
+    audit,
+    clean_text,
+    new_id,
+    requires,
+    validate_email,
+)
+from extensions import db
+from models import PERFIL_PERMISSOES, SystemUser
 from routes.blueprint import bp
 
 @bp.route("/api/system-users", methods=["GET"])
@@ -96,4 +102,3 @@ def update_perfil_perms(perfil):
     audit("EDITAR_PERMISSOES","system_users",perfil,f"Permissões do perfil '{perfil}' atualizadas")
     db.session.commit()
     return jsonify(current[perfil])
-

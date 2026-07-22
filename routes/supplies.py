@@ -1,12 +1,18 @@
-"""Rotas Flask extraidas do app.py.
+"""Rotas de insumos, estoque e movimentacoes."""
+from flask import jsonify, request
 
-Este modulo usa uma ponte temporaria para acessar modelos, helpers e extensoes
-definidos em app.py. Em uma proxima etapa, esses itens podem migrar para
-pacotes dedicados como models, services e extensions.
-"""
-from app import _export_route_globals
-
-globals().update(_export_route_globals())
+from app import (
+    api_auth,
+    audit,
+    clean_text,
+    get_supply_for_update,
+    new_id,
+    parse_float,
+    parse_int,
+    requires,
+)
+from extensions import db
+from models import Asset, Colaborador, Supply, SupplyMovement
 from routes.blueprint import bp
 
 @bp.route("/api/supplies", methods=["GET"])

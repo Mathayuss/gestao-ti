@@ -1,20 +1,50 @@
-"""Rotas Flask extraidas do app.py.
-
-Este modulo usa uma ponte temporaria para acessar modelos, helpers e extensoes
-definidos em app.py. Em uma proxima etapa, esses itens podem migrar para
-pacotes dedicados como models, services e extensions.
-"""
-from app import _export_route_globals
-
-globals().update(_export_route_globals())
-from routes.blueprint import bp
-
+"""Rotas de configuracao, e-mail, backup, termos e atualizacao."""
+import json
+import os
+import re
 import shutil
 import subprocess
 import threading
-import re
 import urllib.error
 import urllib.request
+from datetime import datetime
+
+from flask import jsonify, request
+from flask_login import current_user, login_required
+
+from app import (
+    CATEGORIAS_DEFAULT,
+    CATEGORIAS_INSUMOS_DEFAULT,
+    SETTING_NORMALIZERS,
+    _clean_list_setting,
+    _get_backup_config,
+    _get_email_config,
+    _get_email_templates,
+    _get_setting,
+    _get_termos_avulsos_modelos,
+    _normalize_backup_config,
+    _normalize_email_templates,
+    _normalize_termo_setting,
+    _normalize_termos_avulsos_modelos,
+    _normalize_unidade_payload,
+    _set_setting,
+    _smtp_env_password,
+    _write_backup_file,
+    app,
+    audit,
+    clean_text,
+    get_app_base_url,
+    json_payload,
+    logger,
+    new_id,
+    parse_bool,
+    parse_int,
+    requires,
+    send_email,
+    validate_email,
+)
+from extensions import db
+from routes.blueprint import bp
 
 
 APP_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))

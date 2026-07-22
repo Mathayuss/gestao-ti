@@ -1,13 +1,37 @@
-"""Rotas Flask extraidas do app.py.
+"""Rotas de colaboradores, offboarding e termos de devolucao."""
+import base64
+import io
+import json
+from datetime import date, datetime
 
-Este modulo usa uma ponte temporaria para acessar modelos, helpers e extensoes
-definidos em app.py. Em uma proxima etapa, esses itens podem migrar para
-pacotes dedicados como models, services e extensions.
-"""
-from app import _export_route_globals
+from flask import jsonify, redirect, request, send_file, url_for
+from sqlalchemy import func
 
-globals().update(_export_route_globals())
+from app import (
+    PDF_OK,
+    _get_setting,
+    _pdf_draw_logo,
+    _render_termo_text,
+    api_auth,
+    audit,
+    clean_text,
+    get_supply_for_update,
+    new_id,
+    perifericos_do_colaborador,
+    requires,
+    safe_filename,
+    validate_cpf,
+    validate_email,
+    validate_phone,
+)
+from extensions import db
+from models import Allocation, Asset, Colaborador, Devolucao, SupplyMovement, TermoAvulso
 from routes.blueprint import bp
+
+if PDF_OK:
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.units import cm
+    from reportlab.pdfgen import canvas as rl_canvas
 
 @bp.route("/api/colaboradores", methods=["GET"])
 @api_auth

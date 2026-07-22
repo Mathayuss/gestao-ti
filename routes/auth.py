@@ -1,12 +1,23 @@
-"""Rotas Flask extraidas do app.py.
+"""Rotas de autenticacao, sessao e endpoints operacionais."""
+import os
+from datetime import datetime
 
-Este modulo usa uma ponte temporaria para acessar modelos, helpers e extensoes
-definidos em app.py. Em uma proxima etapa, esses itens podem migrar para
-pacotes dedicados como models, services e extensions.
-"""
-from app import _export_route_globals
+from flask import Response, jsonify, redirect, render_template, request, url_for
+from flask_login import current_user, login_required, login_user, logout_user
 
-globals().update(_export_route_globals())
+from app import (
+    METRICS_OK,
+    _check_login_rate_limit,
+    _database_health,
+    _get_setting,
+    _profile_permissions,
+    _record_login_success,
+    app,
+    audit,
+    is_safe_redirect_url,
+)
+from extensions import db
+from models import SystemUser
 from routes.blueprint import bp
 
 @bp.route("/login", methods=["GET"])
@@ -124,4 +135,5 @@ def metrics():
                         headers={"WWW-Authenticate": "Bearer"})
     if not METRICS_OK:
         return jsonify({"error": "prometheus_client não instalado"}), 503
+    from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
     return Response(generate_latest(), mimetype=CONTENT_TYPE_LATEST)

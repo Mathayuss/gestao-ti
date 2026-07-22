@@ -16,9 +16,10 @@ e facilitar a leitura do codigo.
 
 Os modulos usam o Blueprint compartilhado `routes.blueprint.bp`, registrado sem
 prefixo de endpoint para preservar compatibilidade com `url_for`, templates e
-links publicos existentes. Por enquanto os modulos ainda usam
-`_export_route_globals()` como ponte temporaria para reaproveitar modelos,
-helpers e extensoes definidos em `app.py`.
+links publicos existentes. A maior parte das rotas ja possui imports explicitos
+de modelos, extensoes e helpers. A ponte temporaria `_export_route_globals()`
+permanece apenas nos modulos mais densos (`assets.py`, `allocations.py`,
+`devolucoes.py` e `termos_avulsos.py`) ate a proxima rodada de refatoracao.
 
 O proximo passo natural e mover esses itens para pacotes dedicados, por exemplo:
 

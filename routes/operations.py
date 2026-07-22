@@ -1,12 +1,32 @@
-"""Rotas Flask extraidas do app.py.
+"""Rotas de incidentes e manutencoes."""
+from datetime import date
 
-Este modulo usa uma ponte temporaria para acessar modelos, helpers e extensoes
-definidos em app.py. Em uma proxima etapa, esses itens podem migrar para
-pacotes dedicados como models, services e extensions.
-"""
-from app import _export_route_globals
+from flask import jsonify, request
 
-globals().update(_export_route_globals())
+from app import (
+    MANUT_ENCERRA,
+    MANUT_STATUS,
+    MANUT_TIPO,
+    _create_attachment_record,
+    api_auth,
+    audit,
+    clean_text,
+    get_supply_for_update,
+    new_id,
+    parse_float,
+    parse_int,
+    requires,
+)
+from extensions import db
+from models import (
+    ASSET_STATUS_VALID,
+    Asset,
+    Incident,
+    MaintenanceOrder,
+    MaintenancePart,
+    Supply,
+    SupplyMovement,
+)
 from routes.blueprint import bp
 
 @bp.route("/api/incidents", methods=["GET"])
