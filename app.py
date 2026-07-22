@@ -309,6 +309,7 @@ from services.backup_service import (
 from services import attachment_service
 from services import email_service
 from services import settings_service
+from services import validation_service
 from services.template_renderer import render_text_template as service_render_text_template
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -331,77 +332,31 @@ def audit(acao, modulo, ref_id="", detalhe=""):
     db.session.add(log)
 
 def clean_text(value, max_len=None):
-    """Normaliza texto vindo de formulários/API."""
-    value = "" if value is None else str(value).strip()
-    if max_len and len(value) > max_len:
-        value = value[:max_len]
-    return value
+    return validation_service.clean_text(value, max_len)
 
 
 def only_digits(value):
-    return re.sub(r"\D+", "", "" if value is None else str(value))
+    return validation_service.only_digits(value)
 
 
 def validate_cpf(value):
-    cpf = only_digits(value)
-    if not cpf:
-        return None
-    if len(cpf) != 11 or cpf == cpf[0] * 11:
-        return "CPF inválido."
-    total = sum(int(cpf[i]) * (10 - i) for i in range(9))
-    digit = (total * 10) % 11
-    if digit == 10:
-        digit = 0
-    if digit != int(cpf[9]):
-        return "CPF inválido."
-    total = sum(int(cpf[i]) * (11 - i) for i in range(10))
-    digit = (total * 10) % 11
-    if digit == 10:
-        digit = 0
-    if digit != int(cpf[10]):
-        return "CPF inválido."
-    return None
+    return validation_service.validate_cpf(value)
 
 
 def cpf_matches(typed, expected):
-    expected_digits = only_digits(expected)
-    return bool(expected_digits) and only_digits(typed) == expected_digits
+    return validation_service.cpf_matches(typed, expected)
 
 
 def parse_int(value, default=0, minimum=None):
-    try:
-        number = int(value)
-    except (TypeError, ValueError):
-        number = default
-    if minimum is not None and number < minimum:
-        number = minimum
-    return number
+    return validation_service.parse_int(value, default, minimum)
 
 
 def parse_float(value, default=0.0, minimum=None):
-    try:
-        number = float(str(value).replace(",", "."))
-    except (TypeError, ValueError):
-        number = default
-    if minimum is not None and number < minimum:
-        number = minimum
-    return number
+    return validation_service.parse_float(value, default, minimum)
 
 
 def parse_bool(value, default=False):
-    """Converte valores comuns de formulários/API para booleano."""
-    if isinstance(value, bool):
-        return value
-    if value is None:
-        return default
-    if isinstance(value, (int, float)):
-        return value != 0
-    normalized = str(value).strip().lower()
-    if normalized in {"1", "true", "t", "yes", "y", "sim", "s", "on"}:
-        return True
-    if normalized in {"0", "false", "f", "no", "n", "nao", "não", "off"}:
-        return False
-    return default
+    return validation_service.parse_bool(value, default)
 
 
 def json_payload():
@@ -461,29 +416,15 @@ def csv_response(filename, rows, headers):
 
 
 def safe_filename(value):
-    value = re.sub(r"[^A-Za-z0-9_.-]+", "_", clean_text(value))
-    return value.strip("_") or "arquivo"
-
-
-# ── Validadores de formato ────────────────────────────────────────────────────
-_EMAIL_RE = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]{2,}$")
-_PHONE_RE = re.compile(r"^[\d\s().+\-]{7,20}$")
+    return validation_service.safe_filename(value)
 
 
 def validate_email(value):
-    """Retorna mensagem de erro ou None se o e-mail for válido (ou vazio)."""
-    v = clean_text(value)
-    if v and not _EMAIL_RE.match(v):
-        return "E-mail inválido."
-    return None
+    return validation_service.validate_email(value)
 
 
 def validate_phone(value):
-    """Retorna mensagem de erro ou None se o telefone for válido (ou vazio)."""
-    v = clean_text(value)
-    if v and not _PHONE_RE.match(v):
-        return "Telefone inválido (aceito: dígitos, espaços e ( ) - +, 7-20 chars)."
-    return None
+    return validation_service.validate_phone(value)
 
 
 # ── Rate limiting ─────────────────────────────────────────────────────────────

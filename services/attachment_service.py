@@ -8,6 +8,7 @@ from werkzeug.utils import secure_filename
 
 from extensions import db
 from models import Asset, Attachment, License, MaintenanceOrder
+from services.validation_service import clean_text
 
 
 ATTACHMENT_MAX_BYTES = 8 * 1024 * 1024
@@ -27,13 +28,6 @@ ATTACHMENT_MIME_BY_EXT = {
     "xls": {"application/vnd.ms-excel", "application/octet-stream"},
     "xlsx": {"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "application/zip", "application/octet-stream"},
 }
-
-
-def clean_text(value, max_len=None):
-    value = "" if value is None else str(value).strip()
-    if max_len and len(value) > max_len:
-        value = value[:max_len]
-    return value
 
 
 def new_id(prefix):

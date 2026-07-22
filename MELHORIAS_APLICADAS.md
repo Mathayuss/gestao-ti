@@ -9,10 +9,12 @@
 - Criado `services/settings_service.py` para centralizar leitura e gravação das configurações persistidas.
 - Criado `services/template_renderer.py` para unificar a renderização de variáveis em termos, PDFs e e-mails.
 - Criado `services/attachment_service.py` para centralizar validação segura, gravação e consulta de anexos.
+- Criado `services/validation_service.py` para concentrar normalização de texto, números, booleanos, CPF, e-mail, telefone e nomes seguros de arquivo.
 - Removida a ponte `_export_route_globals()` de todos os módulos de rota, substituindo dependências implícitas por imports explícitos.
 - Removido o helper temporário `_export_route_globals()` do `app.py`.
 - Adicionado teste para impedir regressão no uso da ponte global em `routes/`.
 - Adicionados testes unitários para validar caminho seguro, magic bytes e persistência de anexos.
+- Adicionados testes unitários para os helpers puros de validação e normalização.
 - Mantidos wrappers de compatibilidade no `app.py`, reduzindo risco para as rotas atuais durante a migração gradual para camada de serviços.
 - Adicionado teste para garantir que o Blueprint compartilhado mantém os nomes legados de endpoints.
 - Validado `py_compile`, `unittest discover -s tests`, smoke de renderização de templates e `git diff --check`.
