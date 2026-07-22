@@ -2,6 +2,7 @@
 from app import _export_route_globals
 
 globals().update(_export_route_globals())
+from routes.blueprint import bp
 
 
 ATTACHMENT_ENTITY_LABEL = {
@@ -18,7 +19,7 @@ def _attachment_query(entity_type, entity_id):
     ).order_by(Attachment.uploaded_at.desc())
 
 
-@app.route("/api/attachments/<entity_type>/<entity_id>", methods=["GET"])
+@bp.route("/api/attachments/<entity_type>/<entity_id>", methods=["GET"])
 @api_auth
 def list_attachments(entity_type, entity_id):
     entity_type = clean_text(entity_type, 30)
@@ -31,7 +32,7 @@ def list_attachments(entity_type, entity_id):
     return jsonify([a.to_dict() for a in items])
 
 
-@app.route("/api/attachments/<entity_type>/<entity_id>", methods=["POST"])
+@bp.route("/api/attachments/<entity_type>/<entity_id>", methods=["POST"])
 @requires("Administrador", "Técnico TI")
 def upload_attachment(entity_type, entity_id):
     entity_type = clean_text(entity_type, 30)
@@ -56,7 +57,7 @@ def upload_attachment(entity_type, entity_id):
     return jsonify(att.to_dict()), 201
 
 
-@app.route("/api/attachments/files/<attachment_id>", methods=["GET"])
+@bp.route("/api/attachments/files/<attachment_id>", methods=["GET"])
 @api_auth
 def download_attachment(attachment_id):
     att = db.get_or_404(Attachment, attachment_id)
@@ -69,7 +70,7 @@ def download_attachment(attachment_id):
     return send_file(path, mimetype=att.content_type, as_attachment=True, download_name=att.original_name)
 
 
-@app.route("/api/attachments/files/<attachment_id>", methods=["DELETE"])
+@bp.route("/api/attachments/files/<attachment_id>", methods=["DELETE"])
 @api_auth
 def delete_attachment(attachment_id):
     att = db.get_or_404(Attachment, attachment_id)

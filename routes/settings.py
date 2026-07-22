@@ -7,6 +7,7 @@ pacotes dedicados como models, services e extensions.
 from app import _export_route_globals
 
 globals().update(_export_route_globals())
+from routes.blueprint import bp
 
 import shutil
 import subprocess
@@ -82,11 +83,11 @@ def _app_version_from_git_ref(ref, default=""):
 
 
 def _self_update_enabled():
-    return os.environ.get("SELF_UPDATE_ENABLED", "1") == "1"
+    return os.environ.get("SELF_UPDATE_ENABLED", "0") == "1"
 
 
 def _schedule_self_restart():
-    if os.environ.get("SELF_UPDATE_AUTO_RESTART", "1") != "1":
+    if os.environ.get("SELF_UPDATE_AUTO_RESTART", "0") != "1":
         return False
 
     def _restart():
@@ -102,7 +103,7 @@ def _system_update_status(fetch=False):
     has_repo = os.path.isdir(os.path.join(APP_ROOT, ".git"))
     enabled = _self_update_enabled()
     supported = bool(enabled and git_path and has_repo)
-    current = app.config.get("BUILD_VERSION", "0.1.2-BETA")
+    current = app.config.get("BUILD_VERSION", "1.3.5")
     status = {
         "supported": supported,
         "enabled": enabled,
@@ -160,14 +161,14 @@ def _system_update_status(fetch=False):
         status["message"] = "Branch atual não possui upstream configurado."
     return status
 
-@app.route("/api/settings", methods=["GET"])
+@bp.route("/api/settings", methods=["GET"])
 @login_required
 def get_settings():
     cfg_email = _get_email_config()
     # Nunca retorna a senha ao frontend
     cfg_email_safe = {k: v for k, v in cfg_email.items() if k != "password"}
     cfg_email_safe["password_configurado"] = bool(cfg_email.get("password"))
-    cfg_email_safe["via_env"] = cfg_email.get("source") == "env" and bool(os.environ.get("SMTP_PASSWORD"))
+    cfg_email_safe["via_env"] = cfg_email.get("source") == "env" and bool(_smtp_env_password())
     cfg_email_safe["env_disponivel"] = bool(cfg_email.get("env_available"))
     return jsonify({
         "empresa":      _get_setting("empresa", {}),
@@ -196,7 +197,7 @@ def get_settings():
     })
 
 
-@app.route("/api/settings", methods=["PUT"])
+@bp.route("/api/settings", methods=["PUT"])
 @requires("Administrador")
 def update_settings():
     d = json_payload()
@@ -215,7 +216,7 @@ def update_settings():
     return get_settings()
 
 
-@app.route("/api/settings/setores", methods=["POST"])
+@bp.route("/api/settings/setores", methods=["POST"])
 @requires("Administrador")
 def add_setor():
     nome = clean_text(json_payload().get("nome"), 80)
@@ -227,7 +228,7 @@ def add_setor():
     return jsonify(setores)
 
 
-@app.route("/api/settings/setores/<nome>", methods=["DELETE"])
+@bp.route("/api/settings/setores/<nome>", methods=["DELETE"])
 @requires("Administrador")
 def del_setor(nome):
     nome = clean_text(nome, 80)
@@ -236,7 +237,7 @@ def del_setor(nome):
     return jsonify(setores)
 
 
-@app.route("/api/settings/cep/<cep>", methods=["GET"])
+@bp.route("/api/settings/cep/<cep>", methods=["GET"])
 @requires("Administrador")
 def lookup_cep(cep):
     digits = re.sub(r"\D", "", cep or "")[:8]
@@ -260,7 +261,7 @@ def lookup_cep(cep):
     })
 
 
-@app.route("/api/settings/unidades", methods=["POST"])
+@bp.route("/api/settings/unidades", methods=["POST"])
 @requires("Administrador")
 def add_unidade():
     uns = _get_setting("unidades", [])
@@ -275,7 +276,7 @@ def add_unidade():
     return jsonify(unidade),201
 
 
-@app.route("/api/settings/unidades/<uid>", methods=["PUT"])
+@bp.route("/api/settings/unidades/<uid>", methods=["PUT"])
 @requires("Administrador")
 def update_unidade(uid):
     d=json_payload(); uns=_get_setting("unidades",[])
@@ -289,7 +290,7 @@ def update_unidade(uid):
     return jsonify({"error":"Não encontrado"}),404
 
 
-@app.route("/api/settings/unidades/<uid>", methods=["DELETE"])
+@bp.route("/api/settings/unidades/<uid>", methods=["DELETE"])
 @requires("Administrador")
 def del_unidade(uid):
     unidades = _get_setting("unidades", [])
@@ -298,7 +299,7 @@ def del_unidade(uid):
     _set_setting("unidades",uns); db.session.commit(); return jsonify({"ok":True})
 
 
-@app.route("/api/settings/email", methods=["PUT"])
+@bp.route("/api/settings/email", methods=["PUT"])
 @requires("Administrador")
 def update_email_settings():
     d = json_payload()
@@ -345,7 +346,7 @@ def update_email_settings():
     return jsonify({"ok": True})
 
 
-@app.route("/api/settings/email/test", methods=["POST"])
+@bp.route("/api/settings/email/test", methods=["POST"])
 @requires("Administrador")
 def test_email_settings():
     dest = clean_text(json_payload().get("email"), 120) or current_user.email
@@ -366,7 +367,7 @@ def test_email_settings():
     return jsonify(result), 200 if result["ok"] else 502
 
 
-@app.route("/api/settings/email/templates", methods=["PUT"])
+@bp.route("/api/settings/email/templates", methods=["PUT"])
 @requires("Administrador")
 def update_email_templates():
     templates, error = _normalize_email_templates(json_payload())
@@ -378,7 +379,7 @@ def update_email_templates():
     return jsonify(templates)
 
 
-@app.route("/api/settings/backup", methods=["PUT"])
+@bp.route("/api/settings/backup", methods=["PUT"])
 @requires("Administrador")
 def update_backup_settings():
     cfg, error = _normalize_backup_config(json_payload())
@@ -390,14 +391,14 @@ def update_backup_settings():
     return jsonify(cfg)
 
 
-@app.route("/api/system/update/status")
+@bp.route("/api/system/update/status")
 @requires("Administrador")
 def system_update_status():
     fetch = request.args.get("fetch") == "1"
     return jsonify(_system_update_status(fetch=fetch))
 
 
-@app.route("/api/system/update/apply", methods=["POST"])
+@bp.route("/api/system/update/apply", methods=["POST"])
 @requires("Administrador")
 def system_update_apply():
     status = _system_update_status(fetch=True)
@@ -431,7 +432,7 @@ def system_update_apply():
         }), 500
 
     new_commit = _git_value("rev-parse", "--short", "HEAD")
-    new_version = _app_version_from_file(new_commit or "0.1.2-BETA")
+    new_version = _app_version_from_file(new_commit or "1.3.5")
     env_updated = _set_env_file_value("BUILD_VERSION", new_version) if new_version else False
     audit("ATUALIZAR_SISTEMA", "configuracoes", "", f"Atualização aplicada para {new_version or new_commit or 'versão desconhecida'}")
     db.session.commit()
@@ -450,7 +451,7 @@ def system_update_apply():
     })
 
 
-@app.route("/api/settings/termos", methods=["PUT"])
+@bp.route("/api/settings/termos", methods=["PUT"])
 @requires("Administrador")
 def update_termos_settings():
     d = json_payload()
@@ -472,7 +473,7 @@ def update_termos_settings():
     return jsonify({"ok": True})
 
 
-@app.route("/api/settings/public-url", methods=["PUT"])
+@bp.route("/api/settings/public-url", methods=["PUT"])
 @requires("Administrador")
 def update_public_url():
     """Salva a URL pública da aplicação usada em e-mails e contextos sem request."""
@@ -492,7 +493,7 @@ def update_public_url():
     return jsonify({"ok": True, "url": raw_url})
 
 
-@app.route("/api/settings/categorias", methods=["POST"])
+@bp.route("/api/settings/categorias", methods=["POST"])
 @requires("Administrador")
 def add_categoria():
     nome = clean_text((json_payload() or {}).get("nome"), 60)
@@ -510,7 +511,7 @@ def add_categoria():
     return jsonify(cats), 201
 
 
-@app.route("/api/settings/categorias/<nome>", methods=["DELETE"])
+@bp.route("/api/settings/categorias/<nome>", methods=["DELETE"])
 @requires("Administrador")
 def del_categoria(nome):
     nome = clean_text(nome, 60)
@@ -526,7 +527,7 @@ def del_categoria(nome):
     return jsonify(cats)
 
 
-@app.route("/api/settings/categorias/<nome>", methods=["PUT"])
+@bp.route("/api/settings/categorias/<nome>", methods=["PUT"])
 @requires("Administrador")
 def rename_categoria(nome):
     nome = clean_text(nome, 60)
@@ -549,7 +550,7 @@ def rename_categoria(nome):
 
 # ── Categorias de Insumos/Periféricos ────────────────────────────────────────
 
-@app.route("/api/settings/categorias-insumos", methods=["POST"])
+@bp.route("/api/settings/categorias-insumos", methods=["POST"])
 @requires("Administrador")
 def add_categoria_insumo():
     nome = clean_text((json_payload() or {}).get("nome"), 60)
@@ -567,7 +568,7 @@ def add_categoria_insumo():
     return jsonify(cats), 201
 
 
-@app.route("/api/settings/categorias-insumos/<nome>", methods=["DELETE"])
+@bp.route("/api/settings/categorias-insumos/<nome>", methods=["DELETE"])
 @requires("Administrador")
 def del_categoria_insumo(nome):
     nome = clean_text(nome, 60)
@@ -583,7 +584,7 @@ def del_categoria_insumo(nome):
     return jsonify(cats)
 
 
-@app.route("/api/settings/categorias-insumos/<nome>", methods=["PUT"])
+@bp.route("/api/settings/categorias-insumos/<nome>", methods=["PUT"])
 @requires("Administrador")
 def rename_categoria_insumo(nome):
     nome = clean_text(nome, 60)

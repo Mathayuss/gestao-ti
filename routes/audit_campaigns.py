@@ -2,6 +2,7 @@
 from app import _export_route_globals
 
 globals().update(_export_route_globals())
+from routes.blueprint import bp
 
 
 AUDIT_CAMPAIGN_STATUS = {"Aberta", "Encerrada"}
@@ -120,7 +121,7 @@ def _check_campaign_item_v2(item, payload, user_label):
     return item, None
 
 
-@app.route("/api/audit-campaigns", methods=["GET"])
+@bp.route("/api/audit-campaigns", methods=["GET"])
 @api_auth
 def list_audit_campaigns():
     status = clean_text(request.args.get("status", ""), 20)
@@ -130,7 +131,7 @@ def list_audit_campaigns():
     return jsonify([c.to_dict() for c in db.session.execute(stmt).scalars().all()])
 
 
-@app.route("/api/audit-campaigns", methods=["POST"])
+@bp.route("/api/audit-campaigns", methods=["POST"])
 @requires("Administrador", "Técnico TI")
 def create_audit_campaign():
     d = json_payload()
@@ -168,14 +169,14 @@ def create_audit_campaign():
     return jsonify(c.to_dict(include_items=True)), 201
 
 
-@app.route("/api/audit-campaigns/<cid>", methods=["GET"])
+@bp.route("/api/audit-campaigns/<cid>", methods=["GET"])
 @api_auth
 def get_audit_campaign(cid):
     c = db.get_or_404(AuditCampaign, cid)
     return jsonify(c.to_dict(include_items=True))
 
 
-@app.route("/api/audit-campaigns/<cid>", methods=["PUT"])
+@bp.route("/api/audit-campaigns/<cid>", methods=["PUT"])
 @requires("Administrador", "Técnico TI")
 def update_audit_campaign(cid):
     c = db.get_or_404(AuditCampaign, cid)
@@ -197,7 +198,7 @@ def update_audit_campaign(cid):
     return jsonify(c.to_dict(include_items=True))
 
 
-@app.route("/api/audit-campaigns/<cid>/items/<item_id>/check", methods=["POST"])
+@bp.route("/api/audit-campaigns/<cid>/items/<item_id>/check", methods=["POST"])
 @requires("Administrador", "Técnico TI")
 def check_audit_campaign_item(cid, item_id):
     c = db.get_or_404(AuditCampaign, cid)
@@ -215,7 +216,7 @@ def check_audit_campaign_item(cid, item_id):
     return jsonify(c.to_dict(include_items=True))
 
 
-@app.route("/api/audit-campaigns/<cid>/assets/<aid>/check", methods=["POST"])
+@bp.route("/api/audit-campaigns/<cid>/assets/<aid>/check", methods=["POST"])
 @requires("Administrador", "Técnico TI")
 def check_audit_campaign_asset(cid, aid):
     c = db.get_or_404(AuditCampaign, cid)

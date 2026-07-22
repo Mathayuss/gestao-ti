@@ -251,7 +251,7 @@ class PrintJobsTest(unittest.TestCase):
         self.assertEqual(next_resp.status_code, 200, next_resp.get_data(as_text=True))
         zpl = next_resp.get_json()["zpl"]
         self.assertIn("^BQN", zpl)
-        self.assertIn("/asset/A_PRINT", zpl)
+        self.assertIn("/public/asset/", zpl)
         self.assertNotIn("NOTE-PRINT", zpl)
         self.assertNotIn("TI-000123", zpl)
         self.assertNotIn("ABC123456", zpl)

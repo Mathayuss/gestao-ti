@@ -118,7 +118,7 @@ class TermPackageTest(unittest.TestCase):
             backup = tic._build_backup_payload(generated_by="unittest")
             backed_up = [term for term in backup["termosAvulsos"] if term["packageId"] == result["packageId"]]
             self.assertEqual(len(backed_up), 2)
-            self.assertTrue(all(term["packageToken"] for term in backed_up))
+            self.assertTrue(all("packageToken" not in term for term in backed_up))
 
     def test_package_rejects_type_without_configured_model(self):
         response = self.client.post("/api/termos/pacotes", json={

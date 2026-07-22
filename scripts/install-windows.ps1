@@ -214,13 +214,11 @@ Write-Host "TI Control - instalacao com PostgreSQL"
 Write-Host ""
 
 $AppPort = Read-Default "Porta web da aplicacao" "5000"
-$PostgresPort = Read-Default "Porta local do PostgreSQL" "5432"
 $PostgresDb = Read-Default "Nome do banco" "ticontrol_db"
 $PostgresUser = Read-Default "Usuario do banco" "ticontrol"
 $AppBaseUrl = Read-Default "URL publica" "http://localhost:$AppPort"
 
 Assert-Port $AppPort "Porta web"
-Assert-Port $PostgresPort "Porta PostgreSQL"
 Assert-PostgresIdentifier $PostgresDb "Nome do banco"
 Assert-PostgresIdentifier $PostgresUser "Usuario do banco"
 Assert-Url $AppBaseUrl
@@ -228,11 +226,9 @@ Assert-Url $AppBaseUrl
 if (Test-PortInUse ([int]$AppPort)) {
   Fail "A porta web $AppPort ja esta em uso."
 }
-if (Test-PortInUse ([int]$PostgresPort)) {
-  Fail "A porta PostgreSQL $PostgresPort ja esta em uso."
-}
 
 $PostgresPassword = New-RandomHex 24
+$GrafanaAdminPassword = New-RandomHex 18
 $SecretKey = New-RandomHex 32
 $SetupToken = New-RandomHex 18
 $SessionSecure = if ($AppBaseUrl -match "^https://") { "1" } else { "0" }
@@ -246,20 +242,21 @@ SESSION_SECURE=$SessionSecure
 SHOW_DEMO_CREDENTIALS=0
 AUTO_SEED_DEMO=0
 SERVICE_NAME=ti-control
-BUILD_VERSION=0.1.2-BETA
+BUILD_VERSION=1.3.5
 ENVIRONMENT=local
 SETUP_TOKEN=$SetupToken
 WEB_CONCURRENCY=2
 WEB_THREADS=4
 GUNICORN_TIMEOUT=60
-SELF_UPDATE_ENABLED=1
-SELF_UPDATE_AUTO_RESTART=1
+SELF_UPDATE_ENABLED=0
+SELF_UPDATE_AUTO_RESTART=0
 METRICS_TOKEN=
 SMTP_ENABLED=0
 POSTGRES_DB=$PostgresDb
 POSTGRES_USER=$PostgresUser
 POSTGRES_PASSWORD=$PostgresPassword
-POSTGRES_PORT=$PostgresPort
+GRAFANA_ADMIN_USER=admin
+GRAFANA_ADMIN_PASSWORD=$GrafanaAdminPassword
 "@
 
 $Utf8NoBom = New-Object System.Text.UTF8Encoding $false

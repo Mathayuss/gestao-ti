@@ -7,8 +7,9 @@ pacotes dedicados como models, services e extensions.
 from app import _export_route_globals
 
 globals().update(_export_route_globals())
+from routes.blueprint import bp
 
-@app.route("/api/colaboradores", methods=["GET"])
+@bp.route("/api/colaboradores", methods=["GET"])
 @api_auth
 def get_colaboradores():
     q=request.args.get("q","").lower(); setor=request.args.get("setor",""); status=request.args.get("status","")
@@ -21,7 +22,7 @@ def get_colaboradores():
     return jsonify([c.to_dict() for c in db.session.execute(stmt).scalars().all()])
 
 
-@app.route("/api/colaboradores", methods=["POST"])
+@bp.route("/api/colaboradores", methods=["POST"])
 @requires("Administrador","Técnico TI")
 def create_colaborador():
     d = request.get_json() or {}
@@ -57,7 +58,7 @@ def create_colaborador():
     return jsonify(c.to_dict()), 201
 
 
-@app.route("/api/colaboradores/<cid>", methods=["GET"])
+@bp.route("/api/colaboradores/<cid>", methods=["GET"])
 @api_auth
 def get_colaborador(cid):
     c = db.get_or_404(Colaborador, cid)
@@ -96,7 +97,7 @@ def get_colaborador(cid):
     return jsonify(d)
 
 
-@app.route("/api/colaboradores/<cid>", methods=["PUT"])
+@bp.route("/api/colaboradores/<cid>", methods=["PUT"])
 @requires("Administrador","Técnico TI")
 def update_colaborador(cid):
     c = db.get_or_404(Colaborador, cid)
@@ -134,7 +135,7 @@ def update_colaborador(cid):
     return jsonify(c.to_dict())
 
 
-@app.route("/api/colaboradores/<cid>", methods=["DELETE"])
+@bp.route("/api/colaboradores/<cid>", methods=["DELETE"])
 @requires("Administrador")
 def delete_colaborador(cid):
     c = db.get_or_404(Colaborador, cid)
@@ -144,27 +145,32 @@ def delete_colaborador(cid):
     return jsonify({"ok":True})
 
 
-@app.route("/api/colaboradores/<cid>/perifericos")
+@bp.route("/api/colaboradores/<cid>/perifericos")
 @api_auth
 def get_perifericos_colaborador(cid):
     c = db.get_or_404(Colaborador, cid)
     return jsonify(perifericos_do_colaborador(c.nome))
 
 
-@app.route("/api/colaboradores/<cid>/offboarding", methods=["POST"])
+@bp.route("/api/colaboradores/<cid>/offboarding", methods=["POST"])
 @requires("Administrador","Técnico TI")
 def colaborador_offboarding(cid):
     c = db.get_or_404(Colaborador, cid)
     ativos_dev, perifs_dev = [], []
 
-    for a in db.session.execute(db.select(Asset).filter_by(colaborador=c.nome)).scalars().all():
+    for a in db.session.execute(
+        db.select(Asset)
+        .where(Asset.colaborador == c.nome)
+        .order_by(Asset.id)
+        .with_for_update()
+    ).scalars().all():
         a.status="Disponível"; a.colaborador=""; a.setor=""; ativos_dev.append(a.hostname)
 
     for al in db.session.execute(db.select(Allocation).filter_by(colaborador=c.nome, status="Ativo")).scalars().all():
         al.status="Encerrado"; al.data_encerramento=str(date.today())
 
     for p in perifericos_do_colaborador(c.nome):
-        s = db.session.get(Supply, p["supplyId"])
+        s = get_supply_for_update(p["supplyId"])
         if s:
             s.estoque += p["quantidade"]
             m = SupplyMovement(id=new_id("MOV"), tipo="DEVOLUCAO", ref_id=s.id, supply_nome=s.nome,
@@ -203,7 +209,7 @@ def colaborador_offboarding(cid):
                     "proximoPasso": "Registre o laudo técnico em POST /api/devolucoes/{}/laudo".format(dev_id)})
 
 
-@app.route("/api/colaboradores/<cid>/termo-devolucao.pdf")
+@bp.route("/api/colaboradores/<cid>/termo-devolucao.pdf")
 @api_auth
 def termo_devolucao_pdf(cid):
     if not PDF_OK:
@@ -344,7 +350,7 @@ def termo_devolucao_pdf(cid):
         return jsonify({"error": f"Erro ao gerar PDF: {exc.__class__.__name__} — {exc}"}), 500
 
 
-@app.route("/api/colaboradores/stats")
+@bp.route("/api/colaboradores/stats")
 @api_auth
 def colaboradores_stats():
     cols = db.session.execute(db.select(Colaborador)).scalars().all()

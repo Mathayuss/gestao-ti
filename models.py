@@ -3,6 +3,7 @@ import json
 from datetime import date, datetime
 
 from flask_login import UserMixin
+from sqlalchemy import text
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from extensions import db
@@ -61,6 +62,29 @@ ASSET_STATUS_VALID = ["Disponível","Alocado","Manutenção","Ativo",
 
 class Asset(db.Model):
     __tablename__ = "assets"
+    __table_args__ = (
+        db.Index(
+            "ix_assets_patrimonio_unique_nonempty",
+            "patrimonio",
+            unique=True,
+            sqlite_where=text("patrimonio IS NOT NULL AND patrimonio <> ''"),
+            postgresql_where=text("patrimonio IS NOT NULL AND patrimonio <> ''"),
+        ),
+        db.Index(
+            "ix_assets_service_tag_unique_nonempty",
+            "service_tag",
+            unique=True,
+            sqlite_where=text("service_tag IS NOT NULL AND service_tag <> ''"),
+            postgresql_where=text("service_tag IS NOT NULL AND service_tag <> ''"),
+        ),
+        db.Index(
+            "ix_assets_mac_unique_nonempty",
+            "mac",
+            unique=True,
+            sqlite_where=text("mac IS NOT NULL AND mac <> ''"),
+            postgresql_where=text("mac IS NOT NULL AND mac <> ''"),
+        ),
+    )
     id           = db.Column(db.String(16), primary_key=True)
     hostname     = db.Column(db.String(80))
     ip           = db.Column(db.String(40), default="DHCP")
@@ -78,17 +102,22 @@ class Asset(db.Model):
     unidade      = db.Column(db.String(80), default="")
     garantia     = db.Column(db.String(10))
     criado_em    = db.Column(db.Date, default=date.today)
+    public_token  = db.Column(db.String(80), unique=True, index=True)
 
     def to_dict(self):
         return {"id":self.id,"hostname":self.hostname,"ip":self.ip,"mac":self.mac,
                 "serviceTag":self.service_tag,"os":self.os,"fabricante":self.fabricante,
                 "modelo":self.modelo,"patrimonio":self.patrimonio,"nf":self.nf,
                 "categoria":self.categoria,"status":self.status,"colaborador":self.colaborador,
-                "setor":self.setor,"unidade":self.unidade,"garantia":self.garantia}
+                "setor":self.setor,"unidade":self.unidade,"garantia":self.garantia,
+                "publicToken": self.public_token}
 
 
 class Supply(db.Model):
     __tablename__ = "supplies"
+    __table_args__ = (
+        db.CheckConstraint("estoque >= 0", name="ck_supplies_estoque_nonnegative"),
+    )
     id       = db.Column(db.String(16), primary_key=True)
     nome     = db.Column(db.String(120), nullable=False)
     categoria= db.Column(db.String(40))

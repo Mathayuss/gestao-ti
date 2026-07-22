@@ -4,6 +4,7 @@ from datetime import timedelta
 from app import _export_route_globals
 
 globals().update(_export_route_globals())
+from routes.blueprint import bp
 
 TIPOS_TERMO_AVULSO = ["VPN", "BYOD", "Confidencialidade", "Outro"]
 
@@ -108,8 +109,8 @@ def _send_termo_avulso_pdf(t, empresa, logo_b64, titulo, preambulo, clausulas, r
     return send_file(buf, mimetype="application/pdf", as_attachment=True, download_name=nome_pdf)
 
 
-@app.route("/api/termos", methods=["GET"])
-@app.route("/api/termos-avulsos", methods=["GET"])
+@bp.route("/api/termos", methods=["GET"])
+@bp.route("/api/termos-avulsos", methods=["GET"])
 @api_auth
 def list_termos_avulsos():
     q = request.args.get("q", "").lower()
@@ -125,8 +126,8 @@ def list_termos_avulsos():
     return jsonify([t.to_dict() for t in db.session.execute(stmt).scalars().all()])
 
 
-@app.route("/api/termos", methods=["POST"])
-@app.route("/api/termos-avulsos", methods=["POST"])
+@bp.route("/api/termos", methods=["POST"])
+@bp.route("/api/termos-avulsos", methods=["POST"])
 @requires("Administrador", "Técnico TI")
 def create_termo_avulso():
     d = request.get_json() or {}
@@ -210,8 +211,8 @@ def _gerar_link_pacote(termos):
     return token, expiry, url
 
 
-@app.route("/api/termos/pacotes", methods=["POST"])
-@app.route("/api/termos-avulsos/pacotes", methods=["POST"])
+@bp.route("/api/termos/pacotes", methods=["POST"])
+@bp.route("/api/termos-avulsos/pacotes", methods=["POST"])
 @requires("Administrador", "Técnico TI")
 def create_pacote_termos():
     data = request.get_json(silent=True) or {}
@@ -284,8 +285,8 @@ def create_pacote_termos():
     }), 201
 
 
-@app.route("/api/termos/pacotes/<package_id>/sign-link", methods=["POST"])
-@app.route("/api/termos-avulsos/pacotes/<package_id>/sign-link", methods=["POST"])
+@bp.route("/api/termos/pacotes/<package_id>/sign-link", methods=["POST"])
+@bp.route("/api/termos-avulsos/pacotes/<package_id>/sign-link", methods=["POST"])
 @requires("Administrador", "Técnico TI")
 def gerar_link_pacote_termos(package_id):
     termos = _termos_do_pacote(package_id)
@@ -302,16 +303,16 @@ def gerar_link_pacote_termos(package_id):
     return jsonify({"url": url, "expiry": expiry.isoformat(), "emailEnviado": email_enviado})
 
 
-@app.route("/api/termos/<tid>", methods=["GET"])
-@app.route("/api/termos-avulsos/<tid>", methods=["GET"])
+@bp.route("/api/termos/<tid>", methods=["GET"])
+@bp.route("/api/termos-avulsos/<tid>", methods=["GET"])
 @api_auth
 def get_termo_avulso(tid):
     t = db.get_or_404(TermoAvulso, tid)
     return jsonify(t.to_dict())
 
 
-@app.route("/api/termos/<tid>", methods=["PUT"])
-@app.route("/api/termos-avulsos/<tid>", methods=["PUT"])
+@bp.route("/api/termos/<tid>", methods=["PUT"])
+@bp.route("/api/termos-avulsos/<tid>", methods=["PUT"])
 @requires("Administrador", "Técnico TI")
 def update_termo_avulso(tid):
     t = db.get_or_404(TermoAvulso, tid)
@@ -343,8 +344,8 @@ def update_termo_avulso(tid):
     return jsonify(t.to_dict())
 
 
-@app.route("/api/termos/<tid>", methods=["DELETE"])
-@app.route("/api/termos-avulsos/<tid>", methods=["DELETE"])
+@bp.route("/api/termos/<tid>", methods=["DELETE"])
+@bp.route("/api/termos-avulsos/<tid>", methods=["DELETE"])
 @requires("Administrador")
 def delete_termo_avulso(tid):
     t = db.get_or_404(TermoAvulso, tid)
@@ -355,8 +356,8 @@ def delete_termo_avulso(tid):
     return jsonify({"ok": True})
 
 
-@app.route("/api/termos/<tid>/sign-link", methods=["POST"])
-@app.route("/api/termos-avulsos/<tid>/sign-link", methods=["POST"])
+@bp.route("/api/termos/<tid>/sign-link", methods=["POST"])
+@bp.route("/api/termos-avulsos/<tid>/sign-link", methods=["POST"])
 @requires("Administrador", "Técnico TI")
 def gerar_link_termo_avulso(tid):
     t = db.get_or_404(TermoAvulso, tid)
@@ -385,8 +386,8 @@ def gerar_link_termo_avulso(tid):
                     "emailEnviado": email_enviado})
 
 
-@app.route("/api/termos/<tid>/termo.pdf")
-@app.route("/api/termos-avulsos/<tid>/termo.pdf")
+@bp.route("/api/termos/<tid>/termo.pdf")
+@bp.route("/api/termos-avulsos/<tid>/termo.pdf")
 @api_auth
 def gerar_termo_avulso_pdf(tid):
     t = db.get_or_404(TermoAvulso, tid)
@@ -532,9 +533,12 @@ def _termo_avulso_assinatura_modelo(t):
     }
 
 
-@app.route("/assinar-termo/<token>", methods=["GET"])
-@app.route("/assinar-avulso/<token>", methods=["GET"])
+@bp.route("/assinar-termo/<token>", methods=["GET"])
+@bp.route("/assinar-avulso/<token>", methods=["GET"])
 def pagina_assinatura_avulso(token):
+    if not check_public_token_rate_limit("sign_termo_avulso", token):
+        return render_template("assinar_avulso.html", termo=None, termo_modelo={}, token=token,
+                               erro="Muitas tentativas. Aguarde um momento.", sucesso=False), 429
     t = db.session.execute(
         db.select(TermoAvulso).filter_by(sign_token=token)
     ).scalar_one_or_none()
@@ -555,9 +559,12 @@ def pagina_assinatura_avulso(token):
                            cpf_required=bool(colab and colab.cpf))
 
 
-@app.route("/assinar-termo/<token>", methods=["POST"])
-@app.route("/assinar-avulso/<token>", methods=["POST"])
+@bp.route("/assinar-termo/<token>", methods=["POST"])
+@bp.route("/assinar-avulso/<token>", methods=["POST"])
 def submeter_assinatura_avulso(token):
+    if not check_public_token_rate_limit("sign_termo_avulso", token):
+        return render_template("assinar_avulso.html", termo=None, termo_modelo={}, token=token,
+                               erro="Muitas tentativas. Aguarde um momento.", sucesso=False), 429
     t = db.session.execute(
         db.select(TermoAvulso).filter_by(sign_token=token)
     ).scalar_one_or_none()
@@ -645,8 +652,10 @@ def _render_assinatura_pacote(token, termos, erro=None, sucesso=False, status=20
     ), status
 
 
-@app.route("/assinar-termos/<token>", methods=["GET"])
+@bp.route("/assinar-termos/<token>", methods=["GET"])
 def pagina_assinatura_pacote(token):
+    if not check_public_token_rate_limit("sign_termo_pacote", token):
+        return _render_assinatura_pacote(token, [], erro="Muitas tentativas. Aguarde um momento.", status=429)
     termos = _termos_por_package_token(token)
     if not termos:
         return _render_assinatura_pacote(token, [], erro="Link inválido ou não encontrado.", status=404)
@@ -660,8 +669,10 @@ def pagina_assinatura_pacote(token):
     )
 
 
-@app.route("/assinar-termos/<token>", methods=["POST"])
+@bp.route("/assinar-termos/<token>", methods=["POST"])
 def submeter_assinatura_pacote(token):
+    if not check_public_token_rate_limit("sign_termo_pacote", token):
+        return _render_assinatura_pacote(token, [], erro="Muitas tentativas. Aguarde um momento.", status=429)
     termos = _termos_por_package_token(token)
     if not termos:
         return _render_assinatura_pacote(token, [], erro="Link inválido ou não encontrado.", status=404)

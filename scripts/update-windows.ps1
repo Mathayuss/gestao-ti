@@ -102,7 +102,7 @@ Write-Host ""
 Write-Host "TI Control - atualizacao"
 Write-Host ""
 
-$previousVersion = Get-EnvValue "BUILD_VERSION" "0.1.2-BETA"
+$previousVersion = Get-EnvValue "BUILD_VERSION" "1.3.5"
 Write-Host "Versao atual declarada: $previousVersion"
 
 Invoke-AppBackup
@@ -112,7 +112,7 @@ if (-not $NoPull) {
   git pull --ff-only
 }
 
-$newVersion = "0.1.2-BETA"
+$newVersion = "1.3.5"
 if (Test-Path "VERSION") {
   $newVersion = (Get-Content "VERSION" -Raw).Trim()
 } elseif (Test-Command "git") {

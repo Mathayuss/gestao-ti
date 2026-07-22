@@ -1,5 +1,17 @@
 # Melhorias aplicadas nesta versão
 
+## Refatoração arquitetural incremental — 2026-07-22
+
+- As rotas separadas passaram a usar o Blueprint compartilhado `routes.blueprint.bp`, preservando os nomes antigos de endpoint para manter compatibilidade com templates, `url_for` e links públicos existentes.
+- Criada migration Alembic `b7c4d2a93f10_schema_sync_print_terms.py` para sincronizar recursos recentes de agentes de impressão, pacotes de termos, alocações múltiplas e campos auxiliares.
+- O startup agora reconhece quando o banco já está no revision Alembic esperado e evita executar a migração legada manual desnecessariamente.
+- Criado `services/email_service.py` para concentrar configuração SMTP, leitura de secret file, templates e envio de e-mails.
+- Criado `services/settings_service.py` para centralizar leitura e gravação das configurações persistidas.
+- Criado `services/template_renderer.py` para unificar a renderização de variáveis em termos, PDFs e e-mails.
+- Mantidos wrappers de compatibilidade no `app.py`, reduzindo risco para as rotas atuais durante a migração gradual para camada de serviços.
+- Adicionado teste para garantir que o Blueprint compartilhado mantém os nomes legados de endpoints.
+- Validado `py_compile`, `unittest discover -s tests`, smoke de renderização de templates e `git diff --check`.
+
 ## Desmembramento do dashboard principal — 2026-06-10
 
 - O antigo `templates/index.html` foi reduzido de mais de 6 mil linhas para um template mínimo de composição.

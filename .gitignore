@@ -1,4 +1,5 @@
 .env
+.vscode/
 .claude/
 .venv/
 __pycache__/
@@ -15,4 +16,5 @@ migration_backups/
 htmlcov/
 .DS_Store
 *.log
+*.bkp
 o/

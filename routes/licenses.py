@@ -2,6 +2,7 @@
 from app import _export_route_globals
 
 globals().update(_export_route_globals())
+from routes.blueprint import bp
 
 
 LICENSE_TYPES = ("Assinatura mensal", "Anual", "Perpétua", "Por uso")
@@ -72,14 +73,14 @@ def _normalize_license_payload(data, current=None):
     }, errors
 
 
-@app.route("/api/licenses", methods=["GET"])
+@bp.route("/api/licenses", methods=["GET"])
 @api_auth
 def get_licenses():
     licenses = db.session.execute(db.select(License).order_by(License.software.asc())).scalars().all()
     return jsonify([l.to_dict() for l in licenses])
 
 
-@app.route("/api/licenses", methods=["POST"])
+@bp.route("/api/licenses", methods=["POST"])
 @requires("Administrador", "Técnico TI")
 def create_license():
     payload, errors = _normalize_license_payload(request.get_json(silent=True) or {})
@@ -92,7 +93,7 @@ def create_license():
     return jsonify(license_obj.to_dict()), 201
 
 
-@app.route("/api/licenses/<lid>", methods=["PUT"])
+@bp.route("/api/licenses/<lid>", methods=["PUT"])
 @requires("Administrador", "Técnico TI")
 def update_license(lid):
     license_obj = db.get_or_404(License, lid)
@@ -106,7 +107,7 @@ def update_license(lid):
     return jsonify(license_obj.to_dict())
 
 
-@app.route("/api/licenses/<lid>/upload", methods=["POST"])
+@bp.route("/api/licenses/<lid>/upload", methods=["POST"])
 @requires("Administrador", "Técnico TI")
 def upload_license_attachment(lid):
     license_obj = db.get_or_404(License, lid)

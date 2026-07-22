@@ -23,6 +23,7 @@ class BackupRestoreTest(unittest.TestCase):
             tic.db.session.execute(tic.text("PRAGMA foreign_keys=ON"))
 
     def tearDown(self):
+        os.environ.pop("BACKUP_INCLUDE_SIGNATURE_IMAGES", None)
         with tic.app.app_context():
             tic.db.session.remove()
             tic.db.drop_all()
@@ -169,9 +170,40 @@ class BackupRestoreTest(unittest.TestCase):
             tic._set_setting("empresa", {"nome": "Empresa Teste"})
             tic.db.session.commit()
 
+            default_payload = tic._build_backup_payload(generated_by="unittest")
+            backed_allocation = default_payload["allocations"][0]
+            backed_devolucao = default_payload["devolucoes"][0]
+            backed_termo = default_payload["termosAvulsos"][0]
+            self.assertNotIn("signToken", backed_allocation)
+            self.assertNotIn("assinaturaImg", backed_allocation)
+            self.assertNotIn("signToken", backed_devolucao)
+            self.assertNotIn("rhToken", backed_devolucao)
+            self.assertNotIn("assinaturaImg", backed_devolucao)
+            self.assertNotIn("signToken", backed_termo)
+            self.assertNotIn("packageToken", backed_termo)
+            self.assertNotIn("packageTokenExpiry", backed_termo)
+            self.assertNotIn("assinaturaImg", backed_termo)
+
+            os.environ["BACKUP_INCLUDE_SIGNATURE_IMAGES"] = "1"
             payload = tic._build_backup_payload(generated_by="unittest")
+            backed_allocation = payload["allocations"][0]
+            backed_devolucao = payload["devolucoes"][0]
+            backed_termo = payload["termosAvulsos"][0]
+            self.assertNotIn("signToken", backed_allocation)
+            self.assertNotIn("signToken", backed_devolucao)
+            self.assertNotIn("rhToken", backed_devolucao)
+            self.assertNotIn("signToken", backed_termo)
+            self.assertNotIn("packageToken", backed_termo)
+            self.assertNotIn("packageTokenExpiry", backed_termo)
             validation = tic._validate_backup_payload(payload)
             self.assertTrue(validation["valid"], validation)
+
+            legacy_payload = dict(payload)
+            legacy_payload["allocations"] = [dict(payload["allocations"][0], signToken="legacy-aloc")]
+            legacy_payload["devolucoes"] = [dict(payload["devolucoes"][0], rhToken="legacy-rh")]
+            legacy_payload["termosAvulsos"] = [dict(payload["termosAvulsos"][0], packageToken="legacy-pkg")]
+            legacy_validation = tic._validate_backup_payload(legacy_payload)
+            self.assertTrue(any("tokens legados" in msg for msg in legacy_validation["warnings"]))
 
             tic.db.session.add(tic.Asset(id="A_EXTRA", hostname="EXTRA", categoria="Desktop"))
             tic._set_setting("empresa", {"nome": "Empresa Alterada"})
@@ -197,14 +229,20 @@ class BackupRestoreTest(unittest.TestCase):
             restored_allocation = tic.db.session.get(tic.Allocation, "AL_TEST")
             self.assertEqual(restored_allocation.tipo, "Empréstimo")
             self.assertEqual(restored_allocation.data_devolucao_prevista, "2026-06-01")
+            self.assertIsNone(restored_allocation.sign_token)
             self.assertEqual(restored_allocation.assinatura_img, "data:image/png;base64,ASSINATURA")
             self.assertEqual(restored_allocation.assinatura_ti_img, "data:image/png;base64,ASSINATURA_TI")
             restored_devolucao = tic.db.session.get(tic.Devolucao, "D_TEST")
+            self.assertIsNone(restored_devolucao.sign_token)
+            self.assertIsNone(restored_devolucao.rh_token)
             self.assertEqual(restored_devolucao.assinatura_img, "data:image/png;base64,DEVOLUCAO")
             self.assertEqual(restored_devolucao.rh_ciencia_ip, "127.0.0.3")
             self.assertEqual(tic.db.session.get(tic.LaudoTecnico, "LT_TEST").observacao_geral, "Laudo preservado")
             self.assertEqual(tic.db.session.get(tic.AuditCampaignItem, "ACI_TEST").status, "Conferido")
-            self.assertEqual(tic.db.session.get(tic.TermoAvulso, "TA_TEST").assinatura_img, "data:image/png;base64,TERMO")
+            restored_termo = tic.db.session.get(tic.TermoAvulso, "TA_TEST")
+            self.assertIsNone(restored_termo.sign_token)
+            self.assertIsNone(restored_termo.package_token)
+            self.assertEqual(restored_termo.assinatura_img, "data:image/png;base64,TERMO")
             self.assertEqual(tic.db.session.get(tic.Attachment, "ATT_TEST").stored_name, "stored/nota-fiscal.pdf")
             self.assertEqual(tic._get_setting("empresa", {}).get("nome"), "Empresa Teste")
 
@@ -221,6 +259,16 @@ class BackupRestoreTest(unittest.TestCase):
             ).scalar_one()
 
             self.assertTrue(attempt.success)
+
+    def test_stored_backup_uses_restricted_permissions(self):
+        if os.name == "nt":
+            self.skipTest("Permissões POSIX não se aplicam no Windows.")
+        with tic.app.app_context():
+            result = tic._write_backup_file("manual", generated_by="unittest")
+            path = tic._backup_file_path(result["filename"])
+
+            self.assertEqual(os.stat(tic.BACKUP_DIR).st_mode & 0o777, 0o700)
+            self.assertEqual(os.stat(path).st_mode & 0o777, 0o600)
 
 
 if __name__ == "__main__":

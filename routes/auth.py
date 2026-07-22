@@ -7,8 +7,9 @@ pacotes dedicados como models, services e extensions.
 from app import _export_route_globals
 
 globals().update(_export_route_globals())
+from routes.blueprint import bp
 
-@app.route("/login", methods=["GET"])
+@bp.route("/login", methods=["GET"])
 def login_page():
     if current_user.is_authenticated:
         return redirect(url_for("index"))
@@ -20,11 +21,11 @@ def login_page():
         show_demo=app.config["SHOW_DEMO_CREDENTIALS"],
         aparencia=aparencia,
         empresa=empresa,
-        build_version=app.config.get("BUILD_VERSION", "0.1.2-BETA"),
+        build_version=app.config.get("BUILD_VERSION", "1.3.5"),
     )
 
 
-@app.route("/login", methods=["POST"])
+@bp.route("/login", methods=["POST"])
 def do_login():
     ip = request.remote_addr or "unknown"
     if not _check_login_rate_limit(ip):
@@ -49,7 +50,7 @@ def do_login():
     return redirect(next_page)
 
 
-@app.route("/logout")
+@bp.route("/logout")
 @login_required
 def do_logout():
     audit("LOGOUT", "auth", current_user.username)
@@ -58,7 +59,7 @@ def do_logout():
     return redirect(url_for("login_page"))
 
 
-@app.route("/api/me")
+@bp.route("/api/me")
 @login_required
 def me():
     permissions = _profile_permissions(current_user.perfil)
@@ -80,26 +81,26 @@ def me():
                     "uiModules": ui_modules})
 
 
-@app.route("/ping")
+@bp.route("/ping")
 def ping():
     """Endpoint público para health-check — nunca retorna 401."""
     return jsonify({"ok": True, "authenticated": current_user.is_authenticated,
                     "user": current_user.username if current_user.is_authenticated else None})
 
 
-@app.route("/health/live")
+@bp.route("/health/live")
 def health_live():
     """Liveness: usado pelo orquestrador para saber se o processo está vivo."""
     return jsonify({"status": "ok"}), 200
 
 
-@app.route("/health/startup")
+@bp.route("/health/startup")
 def health_startup():
     """Startup: confirma que a aplicação Flask inicializou."""
     return jsonify({"status": "ok"}), 200
 
 
-@app.route("/health/ready")
+@bp.route("/health/ready")
 def health_ready():
     """Readiness: usado pelo proxy/orquestrador para liberar tráfego."""
     db_health = _database_health()
@@ -109,7 +110,7 @@ def health_ready():
     return jsonify(payload), status_code
 
 
-@app.route("/metrics")
+@bp.route("/metrics")
 def metrics():
     """Métricas Prometheus — requer token Bearer ou perfil Administrador."""
     metrics_token = os.environ.get("METRICS_TOKEN", "")
@@ -124,4 +125,3 @@ def metrics():
     if not METRICS_OK:
         return jsonify({"error": "prometheus_client não instalado"}), 503
     return Response(generate_latest(), mimetype=CONTENT_TYPE_LATEST)
-

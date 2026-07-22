@@ -5,25 +5,60 @@ definidos em app.py. Em uma proxima etapa, esses itens podem migrar para
 pacotes dedicados como models, services e extensions.
 """
 from app import _export_route_globals
+import secrets
 
 globals().update(_export_route_globals())
+from routes.blueprint import bp
 
-@app.route("/")
+@bp.route("/")
 @login_required
 def index():
     return render_template("index.html",
-        build_version=app.config.get("BUILD_VERSION", "0.1.2-BETA"),
+        build_version=app.config.get("BUILD_VERSION", "1.3.5"),
     )
 
 
-@app.route("/asset/<aid>")
+def _public_assets_enabled():
+    env = os.environ.get("PUBLIC_ASSETS_ENABLED")
+    if env is not None:
+        return parse_bool(env, default=False)
+    return parse_bool(_get_setting("public_assets_enabled", False), default=False)
+
+
+def _ensure_asset_public_token(asset):
+    if not asset.public_token:
+        asset.public_token = secrets.token_urlsafe(32)
+        db.session.add(asset)
+        db.session.commit()
+    return asset.public_token
+
+
+def _asset_public_url(asset):
+    token = _ensure_asset_public_token(asset)
+    return f"{get_app_base_url()}/public/asset/{token}"
+
+
+@bp.route("/asset/<aid>")
+@login_required
 def asset_public(aid):
     a = db.session.get(Asset, aid)
     if not a: return "Ativo não encontrado", 404
     return render_template("asset_public.html", asset=a, public_card=_asset_public_card(a))
 
 
-def _asset_public_card(asset):
+@bp.route("/public/asset/<token>")
+def asset_public_by_token(token):
+    if not check_public_token_rate_limit("asset_public", token):
+        return "Muitas requisições. Aguarde um momento.", 429
+    if not _public_assets_enabled():
+        return "Consulta pública de ativos desativada.", 404
+    a = db.session.execute(db.select(Asset).filter_by(public_token=clean_text(token, 100))).scalar_one_or_none()
+    if not a:
+        return "Ativo não encontrado", 404
+    return render_template("asset_public.html", asset=a, public_card=_asset_public_card(a, public=True))
+
+
+def _asset_public_card(asset, public=False):
     """Monta um resumo seguro e legível para consulta pública via QR Code."""
     def _join(parts, sep=" "):
         return sep.join(str(p).strip() for p in parts if str(p or "").strip())
@@ -64,56 +99,57 @@ def _asset_public_card(asset):
     status_label, status_class = status_map.get(status_raw, (status_raw, "gray"))
 
     events = []
-    for al in db.session.execute(
-        db.select(
-            Allocation.colaborador,
-            Allocation.setor,
-            Allocation.unidade,
-            Allocation.data_aloc,
-            Allocation.data_encerramento,
-        ).where(Allocation.ativo_id == asset.id)
-    ).all():
-        event_date = al.data_encerramento or al.data_aloc
-        event_label = "Devolução registrada" if al.data_encerramento else "Alocação registrada"
-        if event_date:
-            events.append({
-                "date": event_date,
-                "kind": event_label,
-                "detail": _join([al.colaborador, al.setor or al.unidade], " - ") or "Movimentação do ativo",
-                "sort": _date_key(event_date),
-            })
+    if not public:
+        for al in db.session.execute(
+            db.select(
+                Allocation.colaborador,
+                Allocation.setor,
+                Allocation.unidade,
+                Allocation.data_aloc,
+                Allocation.data_encerramento,
+            ).where(Allocation.ativo_id == asset.id)
+        ).all():
+            event_date = al.data_encerramento or al.data_aloc
+            event_label = "Devolução registrada" if al.data_encerramento else "Alocação registrada"
+            if event_date:
+                events.append({
+                    "date": event_date,
+                    "kind": event_label,
+                    "detail": _join([al.colaborador, al.setor or al.unidade], " - ") or "Movimentação do ativo",
+                    "sort": _date_key(event_date),
+                })
 
-    for m in db.session.execute(
-        db.select(
-            MaintenanceOrder.tipo,
-            MaintenanceOrder.status,
-            MaintenanceOrder.data_abertura,
-            MaintenanceOrder.data_conclusao,
-        ).where(MaintenanceOrder.asset_id == asset.id)
-    ).all():
-        event_date = m.data_conclusao or m.data_abertura
-        if event_date:
-            events.append({
-                "date": event_date,
-                "kind": "Manutenção",
-                "detail": _join([m.tipo, m.status], " - ") or "Ordem de serviço",
-                "sort": _date_key(event_date),
-            })
+        for m in db.session.execute(
+            db.select(
+                MaintenanceOrder.tipo,
+                MaintenanceOrder.status,
+                MaintenanceOrder.data_abertura,
+                MaintenanceOrder.data_conclusao,
+            ).where(MaintenanceOrder.asset_id == asset.id)
+        ).all():
+            event_date = m.data_conclusao or m.data_abertura
+            if event_date:
+                events.append({
+                    "date": event_date,
+                    "kind": "Manutenção",
+                    "detail": _join([m.tipo, m.status], " - ") or "Ordem de serviço",
+                    "sort": _date_key(event_date),
+                })
 
-    for mov in db.session.execute(
-        db.select(
-            SupplyMovement.data,
-            SupplyMovement.motivo,
-            SupplyMovement.tipo,
-        ).where(SupplyMovement.ativo_id == asset.id)
-    ).all():
-        if mov.data:
-            events.append({
-                "date": mov.data,
-                "kind": "Movimentação",
-                "detail": mov.motivo or mov.tipo or "Movimento de insumo",
-                "sort": _date_key(mov.data),
-            })
+        for mov in db.session.execute(
+            db.select(
+                SupplyMovement.data,
+                SupplyMovement.motivo,
+                SupplyMovement.tipo,
+            ).where(SupplyMovement.ativo_id == asset.id)
+        ).all():
+            if mov.data:
+                events.append({
+                    "date": mov.data,
+                    "kind": "Movimentação",
+                    "detail": mov.motivo or mov.tipo or "Movimento de insumo",
+                    "sort": _date_key(mov.data),
+                })
 
     events.sort(key=lambda item: item["sort"])
     last_event = events[-1] if events else {
@@ -137,20 +173,21 @@ def _asset_public_card(asset):
     else:
         icon = "desktop"
 
+    public_url = request.base_url if not public else _asset_public_url(asset)
     return {
         "title": title,
         "code": asset.patrimonio or asset.id,
         "type": asset.categoria or "Ativo de TI",
         "brand_model": brand_model,
-        "serial": asset.service_tag or "Não informado",
+        "serial": "Restrito" if public else (asset.service_tag or "Não informado"),
         "status_label": status_label,
         "status_class": status_class,
-        "location": location,
-        "owner": asset.colaborador or "Sem responsável vinculado",
-        "last_event": f"{last_event['kind']} - {_date_label(last_event['date'])}",
-        "last_event_detail": last_event["detail"],
+        "location": "Restrito" if public else location,
+        "owner": "Restrito" if public else (asset.colaborador or "Sem responsável vinculado"),
+        "last_event": "Consulta pública" if public else f"{last_event['kind']} - {_date_label(last_event['date'])}",
+        "last_event_detail": "Dados operacionais disponíveis apenas para usuários autenticados." if public else last_event["detail"],
         "icon": icon,
-        "public_url": request.base_url,
+        "public_url": public_url,
         "qr_data_uri": _asset_public_qr_data_uri(),
     }
 
@@ -168,7 +205,7 @@ def _asset_public_qr_data_uri():
         return ""
 
 
-@app.route("/api/assets", methods=["GET"])
+@bp.route("/api/assets", methods=["GET"])
 @api_auth
 def get_assets():
     q   = request.args.get("q","").lower()
@@ -184,7 +221,7 @@ def get_assets():
     return jsonify([a.to_dict() for a in db.session.execute(stmt).scalars().all()])
 
 
-@app.route("/api/assets/labels.pdf", methods=["POST"])
+@bp.route("/api/assets/labels.pdf", methods=["POST"])
 @api_auth
 def asset_labels_pdf():
     if not PDF_OK:
@@ -306,8 +343,8 @@ def asset_labels_pdf():
     if not ordered_assets:
         return jsonify({"error": "Nenhum ativo encontrado para gerar etiquetas."}), 404
 
-    def _qr_reader(asset_id):
-        url = f"{get_app_base_url()}/asset/{asset_id}"
+    def _qr_reader(asset):
+        url = _asset_public_url(asset)
         qr = qrcode.QRCode(
             version=None,
             error_correction=qrcode.constants.ERROR_CORRECT_H,
@@ -322,8 +359,8 @@ def asset_labels_pdf():
         raw.seek(0)
         return ImageReader(raw)
 
-    def _draw_qr(cv, asset_id, qr_x, qr_y, size):
-        cv.drawImage(_qr_reader(asset_id), qr_x, qr_y, width=size, height=size, mask="auto")
+    def _draw_qr(cv, asset, qr_x, qr_y, size):
+        cv.drawImage(_qr_reader(asset), qr_x, qr_y, width=size, height=size, mask="auto")
         if not (logo_no_qr and logo_reader):
             return
         overlay = max(3 * mm, size * 0.24)
@@ -402,7 +439,7 @@ def asset_labels_pdf():
         if render_plan["mode"] == "qr-only":
             qr_x = x + (label_w - qr_size) / 2
             qr_y = y - label_h + (label_h - qr_size) / 2
-            _draw_qr(cv, asset.id, qr_x, qr_y, qr_size)
+            _draw_qr(cv, asset, qr_x, qr_y, qr_size)
             return
 
         if render_plan["mode"] == "compact":
@@ -410,7 +447,7 @@ def asset_labels_pdf():
             qr_y = y - label_h + (label_h - qr_size) / 2
             text_x = qr_x + qr_size + gap_size
             text_w = max(8 * mm, label_w - (text_x - x) - pad)
-            _draw_qr(cv, asset.id, qr_x, qr_y, qr_size)
+            _draw_qr(cv, asset, qr_x, qr_y, qr_size)
             cv.setFillColorRGB(0, 0, 0)
             lines = _compact_lines(asset)[:render_plan.get("max_lines", 2)]
             specs = []
@@ -460,7 +497,7 @@ def asset_labels_pdf():
         for line in lines[:render_plan["max_lines"]]:
             text_top = _draw_line(cv, line, text_x, text_top, 6.8, False, 30)
 
-        _draw_qr(cv, asset.id, qr_x, qr_y, qr_size)
+        _draw_qr(cv, asset, qr_x, qr_y, qr_size)
 
         if mostrar_sistema:
             cv.setFillColorRGB(0, 0, 0)
@@ -500,13 +537,13 @@ def asset_labels_pdf():
     return send_file(buf, mimetype="application/pdf", as_attachment=True, download_name="etiquetas_ativos.pdf")
 
 
-@app.route("/api/assets/proximo-patrimonio", methods=["GET"])
+@bp.route("/api/assets/proximo-patrimonio", methods=["GET"])
 @api_auth
 def get_proximo_patrimonio():
     return jsonify({"patrimonio": proximo_patrimonio()})
 
 
-@app.route("/api/assets/lote", methods=["POST"])
+@bp.route("/api/assets/lote", methods=["POST"])
 @requires("Administrador","Técnico TI")
 def create_asset_lote():
     d = request.get_json() or {}
@@ -529,6 +566,7 @@ def create_asset_lote():
             return jsonify({"error": "Validação falhou", "details": errors}), 400
         a = Asset(
             id=new_id("A"),
+            public_token=secrets.token_urlsafe(32),
             hostname=clean_text(payload.get("hostname"), 80),
             ip=clean_text(d.get("ip", "DHCP"), 40) or "DHCP",
             mac=clean_text(d.get("mac"), 20),
@@ -545,11 +583,14 @@ def create_asset_lote():
         db.session.add(a)
         audit("CRIAR", "ativos", a.id, f"Ativo {a.fabricante} {a.modelo} cadastrado em lote — {pat}")
         criados.append(a)
-    db.session.commit()
+    try:
+        db.session.commit()
+    except IntegrityError as exc:
+        return asset_integrity_error_response(exc)
     return jsonify([a.to_dict() for a in criados]), 201
 
 
-@app.route("/api/assets", methods=["POST"])
+@bp.route("/api/assets", methods=["POST"])
 @requires("Administrador","Técnico TI")
 def create_asset():
     d = request.get_json() or {}
@@ -564,6 +605,7 @@ def create_asset():
     if errors:
         return jsonify({"error":"Validação do ativo falhou", "details": errors}), 400
     a = Asset(id=new_id("A"),
+              public_token=secrets.token_urlsafe(32),
               hostname=clean_text(d.get("hostname"), 80), ip=clean_text(d.get("ip","DHCP"), 40) or "DHCP",
               mac=clean_text(d.get("mac"), 20), service_tag=clean_text(d.get("serviceTag"), 40),
               os=clean_text(d.get("os"), 80), fabricante=clean_text(d.get("fabricante"), 60),
@@ -575,11 +617,14 @@ def create_asset():
               garantia=clean_text(d.get("garantia"), 10) or None)
     db.session.add(a)
     audit("CRIAR", "ativos", a.id, f"Ativo {a.hostname} cadastrado — patrimônio {a.patrimonio}")
-    db.session.commit()
+    try:
+        db.session.commit()
+    except IntegrityError as exc:
+        return asset_integrity_error_response(exc)
     return jsonify(a.to_dict()), 201
 
 
-@app.route("/api/assets/<aid>", methods=["GET"])
+@bp.route("/api/assets/<aid>", methods=["GET"])
 @api_auth
 def get_asset(aid):
     a = db.get_or_404(Asset, aid)
@@ -596,7 +641,7 @@ def get_asset(aid):
     return jsonify(d)
 
 
-@app.route("/api/assets/<aid>", methods=["PUT"])
+@bp.route("/api/assets/<aid>", methods=["PUT"])
 @requires("Administrador","Técnico TI")
 def update_asset(aid):
     a = db.get_or_404(Asset, aid)
@@ -611,11 +656,14 @@ def update_asset(aid):
                   ("setor","setor",80),("unidade","unidade",80),("garantia","garantia",10)]:
         if k in d: setattr(a, v, clean_text(d[k], max_len))
     audit("EDITAR", "ativos", aid, f"Ativo {a.hostname} editado")
-    db.session.commit()
+    try:
+        db.session.commit()
+    except IntegrityError as exc:
+        return asset_integrity_error_response(exc)
     return jsonify(a.to_dict())
 
 
-@app.route("/api/assets/<aid>/upload", methods=["POST"])
+@bp.route("/api/assets/<aid>/upload", methods=["POST"])
 @requires("Administrador","Técnico TI")
 def upload_asset_attachment(aid):
     a = db.get_or_404(Asset, aid)
@@ -634,7 +682,7 @@ def upload_asset_attachment(aid):
     return jsonify({"ok": True, "filename": att.original_name, "attachment": att.to_dict()}), 201
 
 
-@app.route("/api/assets/<aid>", methods=["DELETE"])
+@bp.route("/api/assets/<aid>", methods=["DELETE"])
 @requires("Administrador")
 def delete_asset(aid):
     """Baixa lógica — não remove fisicamente se houver histórico."""
@@ -656,7 +704,7 @@ def delete_asset(aid):
     return jsonify({"ok":True, "msg":"Ativo excluído."})
 
 
-@app.route("/api/assets/<aid>/history")
+@bp.route("/api/assets/<aid>/history")
 @api_auth
 def get_asset_history(aid):
     """Linha do tempo unificada do ativo: cadastro, edições, alocações,
@@ -768,11 +816,11 @@ def get_asset_history(aid):
     return jsonify({"asset": a.to_dict(), "totalEventos": len(events), "eventos": events})
 
 
-@app.route("/api/assets/<aid>/qrcode")
+@bp.route("/api/assets/<aid>/qrcode")
 @api_auth
 def asset_qrcode(aid):
-    base = get_app_base_url()
-    url  = f"{base}/asset/{aid}"
+    a = db.get_or_404(Asset, aid)
+    url = _asset_public_url(a)
     if QR_OK:
         qr = qrcode.QRCode(
             version=None,
@@ -789,24 +837,12 @@ def asset_qrcode(aid):
     return svg, 200, {"Content-Type":"image/svg+xml"}
 
 
-@app.route("/api/public/assets/<aid>/audit", methods=["POST"])
+@bp.route("/api/public/assets/<aid>/audit", methods=["POST"])
 def public_asset_audit(aid):
     return jsonify({"error": "Confirmacao publica removida. Use uma campanha autenticada de auditoria."}), 410
-    ip = request.remote_addr or "unknown"
-    if not _check_rate_limit(ip, bucket="qr_public_audit"):
-        return jsonify({"error": "Muitas requisições. Aguarde um momento."}), 429
-    a = db.session.get(Asset, aid)
-    if not a:
-        return jsonify({"error":"Ativo não encontrado"}), 404
-    d = request.get_json(silent=True) or {}
-    local = clean_text(d.get("local") or a.unidade or "Não informado", 120)
-    responsavel = clean_text(d.get("responsavel") or a.colaborador or "Não informado", 120)
-    public_audit("AUDITORIA_QR_PUBLICA", "ativos", a.id, f"Local confirmado: {local}; responsável informado: {responsavel}")
-    db.session.commit()
-    return jsonify({"ok": True, "assetId": a.id, "status": a.status, "local": local})
 
 
-@app.route("/api/audit-asset", methods=["POST"])
+@bp.route("/api/audit-asset", methods=["POST"])
 @requires("Administrador","Técnico TI")
 def audit_asset_route():
     d = request.get_json()

@@ -4,12 +4,11 @@ TI Control — Sistema de Gestão de Ativos de TI
 Inclui autenticação, persistência relacional, métricas Prometheus, health checks,
 request-id e endpoints operacionais para monitoramento do serviço.
 """
-import os, io, uuid, warnings, csv, json, re, time as _time, hashlib, smtplib, base64, logging, html as _html
+import os, io, uuid, warnings, csv, json, re, time as _time, hashlib, base64, logging
 import sys
 sys.modules.setdefault("app", sys.modules[__name__])
+import threading
 from collections import defaultdict
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
 from time import perf_counter
 from datetime import date, datetime, timedelta
 # Suppress Flask-Login's internal datetime.utcnow() deprecation (Python 3.12)
@@ -19,6 +18,7 @@ from flask import (Flask, jsonify, request, render_template, render_template_str
                    send_file, redirect, url_for, session, Response, g)
 from werkzeug.utils import secure_filename
 from sqlalchemy import func, text
+from sqlalchemy.exc import IntegrityError
 from urllib.parse import urlsplit
 from flask_login import login_user, logout_user, login_required, current_user
 from flask_wtf.csrf import CSRFError
@@ -74,8 +74,10 @@ app = Flask(__name__)
 from werkzeug.middleware.proxy_fix import ProxyFix
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
 
+ALEMBIC_SCHEMA_HEAD = "b7c4d2a93f10"
 
-def _version_from_file(default="1.3.0-beta"):
+
+def _version_from_file(default="1.3.5"):
     version_path = os.path.join(os.path.dirname(__file__), "VERSION")
     try:
         with open(version_path, "r", encoding="utf-8") as fh:
@@ -305,6 +307,9 @@ from services.backup_service import (
     parse_backup_schedule_time as service_parse_backup_schedule_time,
     update_backup_config as service_update_backup_config,
 )
+from services import email_service
+from services import settings_service
+from services.template_renderer import render_text_template as service_render_text_template
 
 # ═══════════════════════════════════════════════════════════════════════════
 # HELPERS & DECORATORS
@@ -502,6 +507,11 @@ def _check_rate_limit(ip: str, bucket: str = "default") -> bool:
     return True
 
 
+def check_public_token_rate_limit(bucket, token=""):
+    key = f"{request.remote_addr or 'unknown'}:{clean_text(token, 32)}"
+    return _check_rate_limit(key, bucket=bucket)
+
+
 def _check_login_rate_limit(ip: str) -> bool:
     """Rate limiter via DB — funciona com múltiplos workers. Retorna True se dentro do limite."""
     now = _time.time()
@@ -651,6 +661,37 @@ def requires(*perfis):
 
 api_auth = requires()  # exige apenas login, sem filtro de perfil
 
+
+def get_supply_for_update(supply_id):
+    return db.session.execute(
+        db.select(Supply).where(Supply.id == supply_id).with_for_update()
+    ).scalar_one_or_none()
+
+
+def get_assets_for_update(asset_ids):
+    ids = [asset_id for asset_id in (asset_ids or []) if asset_id]
+    if not ids:
+        return {}
+    rows = db.session.execute(
+        db.select(Asset)
+        .where(Asset.id.in_(ids))
+        .order_by(Asset.id)
+        .with_for_update()
+    ).scalars().all()
+    return {asset.id: asset for asset in rows}
+
+
+def asset_integrity_error_response(exc=None):
+    db.session.rollback()
+    return jsonify({
+        "error": "Identificador de ativo duplicado.",
+        "details": [
+            "Patrimônio, Service Tag e MAC devem ser únicos quando preenchidos.",
+            "Recarregue a tela e tente novamente com identificadores diferentes.",
+        ],
+    }), 409
+
+
 def perifericos_do_colaborador(nome_colaborador):
     """Saldo de periféricos (movimentos SAIDA - DEVOLUCAO) por colaborador."""
     movs = db.session.execute(db.select(SupplyMovement).filter_by(colaborador=nome_colaborador)).scalars().all()
@@ -767,22 +808,7 @@ def internal_error(err):
 
 def _render_termo_text(template_str: str, ctx: dict) -> str:
     """Renderiza texto com variáveis no formato {chave} e, se usado, {{ chave }}."""
-    text = str(template_str or "")
-    values = {k: ("" if v is None else v) for k, v in (ctx or {}).items()}
-
-    def replace_brace_var(match):
-        key = match.group(1)
-        return str(values.get(key, match.group(0)))
-
-    rendered = re.sub(r"(?<!\{)\{([A-Za-z_][A-Za-z0-9_]*)\}(?!\})", replace_brace_var, text)
-
-    if "{{" in rendered or "{%" in rendered:
-        try:
-            from jinja2 import Template
-            return Template(rendered).render(**values)
-        except Exception:
-            return rendered
-    return rendered
+    return service_render_text_template(template_str, ctx)
 
 
 def _pdf_draw_logo(cv, logo_b64: str, x, y, max_w=None, max_h=None):
@@ -813,335 +839,85 @@ MANUT_ENCERRA = ["Concluída","Sem reparo","Cancelada"]
 # E-MAIL
 # ═══════════════════════════════════════════════════════════════════════════
 
-SMTP_ENV_KEYS = (
-    "SMTP_HOST", "SMTP_PORT", "SMTP_TLS", "SMTP_USER", "SMTP_PASSWORD",
-    "SMTP_FROM_NAME", "SMTP_FROM_EMAIL", "SMTP_ENABLED",
-)
+DEFAULT_EMAIL_TEMPLATES = email_service.DEFAULT_EMAIL_TEMPLATES
 
 
 def _smtp_env_available() -> bool:
-    return any(os.environ.get(key) for key in SMTP_ENV_KEYS)
+    return email_service.smtp_env_available()
+
+
+def _read_secret_file(path, max_bytes=4096):
+    return email_service.read_secret_file(path, max_bytes)
+
+
+def _smtp_env_password():
+    return email_service.smtp_env_password()
 
 
 def _get_email_config() -> dict:
-    """Lê configuração de e-mail do banco em uma única query."""
-    email_keys = {"email.source", "email.host", "email.port", "email.tls",
-                  "email.user", "email.password", "email.from_name",
-                  "email.from_email", "email.enabled"}
-    rows = db.session.execute(
-        db.select(Setting).where(Setting.key.in_(email_keys))
-    ).scalars().all()
-
-    def _parse_setting_value(raw):
-        if raw is None:
-            return None
-        try:
-            return json.loads(raw)
-        except Exception:
-            return raw
-
-    db_vals = {r.key: _parse_setting_value(r.value) for r in rows}
-
-    def _s(k, default=""):
-        value = db_vals.get(k)
-        return default if value is None else value
-
-    source = clean_text(_s("email.source"), 20)
-    if source not in ("app", "env"):
-        source = "env" if _smtp_env_available() else "app"
-
-    app_cfg = {
-        "host":       _s("email.host"),
-        "port":       parse_int(_s("email.port", 587), default=587, minimum=1),
-        "tls":        parse_bool(_s("email.tls", True), default=True),
-        "user":       _s("email.user"),
-        "password":   _s("email.password"),
-        "from_name":  _s("email.from_name", "TI Control"),
-        "from_email": _s("email.from_email"),
-        "enabled":    parse_bool(_s("email.enabled", False), default=False),
-    }
-
-    if source == "app":
-        return {**app_cfg, "source": "app", "env_available": _smtp_env_available()}
-
-    return {
-        "host":         os.environ.get("SMTP_HOST") or app_cfg["host"],
-        "port":         parse_int(os.environ.get("SMTP_PORT") or app_cfg["port"], default=587, minimum=1),
-        "tls":          parse_bool(os.environ.get("SMTP_TLS"), default=app_cfg["tls"]),
-        "user":         os.environ.get("SMTP_USER") or app_cfg["user"],
-        "password":     os.environ.get("SMTP_PASSWORD") or app_cfg["password"],
-        "from_name":    os.environ.get("SMTP_FROM_NAME") or app_cfg["from_name"],
-        "from_email":   os.environ.get("SMTP_FROM_EMAIL") or app_cfg["from_email"],
-        "enabled":      parse_bool(os.environ.get("SMTP_ENABLED"), default=app_cfg["enabled"]),
-        "source":       "env",
-        "env_available": _smtp_env_available(),
-    }
+    return email_service.get_email_config()
 
 
 def send_email(to: str, subject: str, body_html: str, body_text: str = "") -> dict:
-    """Envia e-mail via SMTP. Retorna {'ok': bool, 'error': str|None}."""
-    cfg = _get_email_config()
-    if not cfg["enabled"]:
-        return {"ok": False, "error": "E-mail desabilitado nas configurações."}
-    if not cfg["host"] or not cfg["from_email"]:
-        return {"ok": False, "error": "Servidor SMTP não configurado."}
-    try:
-        msg = MIMEMultipart("alternative")
-        msg["Subject"] = subject
-        msg["From"]    = f"{cfg['from_name']} <{cfg['from_email']}>"
-        msg["To"]      = to
-        if body_text:
-            msg.attach(MIMEText(body_text, "plain", "utf-8"))
-        msg.attach(MIMEText(body_html, "html", "utf-8"))
-
-        with smtplib.SMTP(cfg["host"], cfg["port"], timeout=15) as srv:
-            srv.ehlo()
-            if cfg["tls"]:
-                srv.starttls()
-                srv.ehlo()
-            if cfg["user"] and cfg["password"]:
-                srv.login(cfg["user"], cfg["password"])
-            srv.sendmail(cfg["from_email"], [to], msg.as_string())
-        return {"ok": True, "error": None}
-    except smtplib.SMTPAuthenticationError:
-        return {"ok": False, "error": "Falha de autenticação SMTP. Verifique usuário e senha."}
-    except smtplib.SMTPConnectError:
-        return {"ok": False, "error": f"Não foi possível conectar ao servidor {cfg['host']}:{cfg['port']}."}
-    except Exception as exc:
-        return {"ok": False, "error": str(exc)}
-
-
-DEFAULT_EMAIL_TEMPLATES = {
-    "pacote_termos": {
-        "subject": "[{empresa}] Termos aguardando sua assinatura",
-        "body": (
-            "Olá, {colaborador}!\n\n"
-            "Você possui {quantidade} termo(s) para revisar e assinar: {termos}.\n\n"
-            "Acesse a Central de Assinaturas pelo botão abaixo para visualizar cada documento "
-            "e registrar sua assinatura.\n\n"
-            "Este link expira em 7 dias. Em caso de dúvidas, contate o setor de TI."
-        ),
-        "button_label": "Revisar e Assinar Termos",
-        "footer": "{empresa} - Sistema de Gestão de TI",
-    },
-    "assinatura": {
-        "subject": "[{empresa}] Termo de Responsabilidade - assinatura necessária",
-        "body": (
-            "Olá, {colaborador}!\n\n"
-            "Você recebeu o equipamento {ativo}.\n\n"
-            "Para confirmar o recebimento, clique no botão abaixo e assine digitalmente "
-            "o Termo de Responsabilidade.\n\n"
-            "Este link expira em 7 dias. Em caso de dúvidas, contate o setor de TI."
-        ),
-        "button_label": "Assinar Termo",
-        "footer": "{empresa} - Sistema de Gestão de TI",
-    },
-    "devolucao": {
-        "subject": "[{empresa}] Termo de Devolução - assinatura necessária",
-        "body": (
-            "Olá, {colaborador}!\n\n"
-            "Foi registrada a devolução dos equipamentos sob sua responsabilidade.\n\n"
-            "Por favor, acesse o link abaixo e assine o Termo de Devolução.\n\n"
-            "Este link expira em 7 dias."
-        ),
-        "button_label": "Assinar Devolução",
-        "footer": "{empresa} - Sistema de Gestão de TI",
-    },
-    "laudo_rh": {
-        "subject": "[{empresa}] Laudo técnico aguardando sua ciência — {colaborador}",
-        "body": (
-            "Olá!\n\n"
-            "O técnico {tecnico} concluiu a avaliação dos equipamentos de {colaborador} "
-            "no processo de desligamento.\n\n"
-            "Por favor, acesse o link abaixo para visualizar o laudo e dar ciência. "
-            "Não é necessário fazer login.\n\n"
-            "Este link expira em 7 dias."
-        ),
-        "button_label": "Ver Laudo e Dar Ciência",
-        "footer": "{empresa} - Sistema de Gestão de TI",
-    },
-    "laudo_editado_rh": {
-        "subject": "[{empresa}] Laudo técnico corrigido — {colaborador}",
-        "body": (
-            "Olá!\n\n"
-            "O laudo técnico referente à devolução de equipamentos de {colaborador} "
-            "foi corrigido pelo administrador {editor}.\n\n"
-            "Motivo da correção: {motivo}\n\n"
-            "Acesse o sistema para verificar as alterações."
-        ),
-        "button_label": "Acessar o Sistema",
-        "footer": "{empresa} - Sistema de Gestão de TI",
-    },
-    "laudo_editado_colab": {
-        "subject": "[{empresa}] Atualização no laudo técnico — devolução de equipamentos",
-        "body": (
-            "Olá, {colaborador}!\n\n"
-            "Informamos que o laudo técnico referente à devolução dos equipamentos "
-            "sob sua responsabilidade foi atualizado.\n\n"
-            "Motivo da correção: {motivo}\n\n"
-            "Em caso de dúvidas, entre em contato com o setor de TI."
-        ),
-        "button_label": "Acessar o Sistema",
-        "footer": "{empresa} - Sistema de Gestão de TI",
-    },
-}
+    return email_service.send_email(to, subject, body_html, body_text)
 
 
 def _get_email_templates():
-    saved = _get_setting("email_templates", {})
-    saved = saved if isinstance(saved, dict) else {}
-    merged = {}
-    for key, defaults in DEFAULT_EMAIL_TEMPLATES.items():
-        custom = saved.get(key, {})
-        custom = custom if isinstance(custom, dict) else {}
-        merged[key] = {**defaults, **{k: v for k, v in custom.items() if k in defaults}}
-    return merged
+    return email_service.get_email_templates()
 
 
 def _normalize_email_templates(value):
-    if not isinstance(value, dict):
-        return None, "Templates de e-mail precisam ser um objeto."
-    current = _get_email_templates()
-    limits = {"subject": 180, "body": 4000, "button_label": 80, "footer": 500}
-    for kind in DEFAULT_EMAIL_TEMPLATES:
-        if kind not in value:
-            continue
-        incoming = value.get(kind)
-        if not isinstance(incoming, dict):
-            return None, f"Template '{kind}' precisa ser um objeto."
-        for field, max_len in limits.items():
-            if field in incoming:
-                current[kind][field] = clean_text(incoming.get(field), max_len)
-        if not current[kind]["subject"]:
-            return None, f"Assunto do template '{kind}' é obrigatório."
-        if not current[kind]["body"]:
-            return None, f"Corpo do template '{kind}' é obrigatório."
-        if not current[kind]["button_label"]:
-            return None, f"Texto do botão do template '{kind}' é obrigatório."
-    return current, None
+    return email_service.normalize_email_templates(value)
 
 
 def _render_email_template(kind: str, ctx: dict):
-    templates = _get_email_templates()
-    tpl = templates.get(kind, DEFAULT_EMAIL_TEMPLATES[kind])
-    empresa = ctx.get("empresa") or "TI Control"
-    full_ctx = {**ctx, "empresa": empresa}
-    subject = clean_text(_render_termo_text(tpl["subject"], full_ctx), 180)
-    body_text = _render_termo_text(tpl["body"], full_ctx)
-    footer_text = _render_termo_text(tpl.get("footer", ""), full_ctx)
-    button_label = _render_termo_text(tpl.get("button_label", "Abrir"), full_ctx)
-    link = full_ctx.get("link", "")
-    accent = "#059669" if kind == "devolucao" else "#1e40af"
-
-    html_body = _html.escape(body_text).replace("\n", "<br>")
-    html_footer = _html.escape(footer_text).replace("\n", "<br>")
-    html_button = _html.escape(button_label)
-    html_link = _html.escape(link, quote=True)
-    html = f"""
-    <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;color:#111827">
-      <div style="line-height:1.6;font-size:14px">{html_body}</div>
-      <p style="text-align:center;margin:30px 0">
-        <a href="{html_link}" style="background:{accent};color:white;padding:12px 28px;border-radius:6px;
-           text-decoration:none;font-weight:bold;display:inline-block">{html_button}</a>
-      </p>
-      <p style="word-break:break-all;color:#6b7280;font-size:12px">{html_link}</p>
-      <hr style="border:none;border-top:1px solid #e5e7eb;margin-top:24px">
-      <p style="color:#9ca3af;font-size:11px">{html_footer}</p>
-    </div>"""
-    text = f"{body_text}\n\n{button_label}: {link}\n\n{footer_text}"
-    return subject, html, text
+    return email_service.render_email_template(kind, ctx)
 
 
 def send_email_link_assinatura(to: str, colaborador: str, ativo_nome: str, link: str) -> dict:
-    """Atalho: envia link de assinatura de termo."""
-    empresa = _get_setting("empresa", {})
-    nome_empresa = empresa.get("nome", "TI Control") if isinstance(empresa, dict) else "TI Control"
-    subject, html, text = _render_email_template("assinatura", {
-        "empresa": nome_empresa,
-        "colaborador": colaborador,
-        "ativo": ativo_nome,
-        "link": link,
-    })
-    return send_email(to, subject, html, text)
+    return email_service.send_email_link_assinatura(to, colaborador, ativo_nome, link)
 
 
 def send_email_link_devolucao(to: str, colaborador: str, link: str) -> dict:
-    """Atalho: envia link de assinatura do termo de devolução."""
-    empresa = _get_setting("empresa", {})
-    nome_empresa = empresa.get("nome", "TI Control") if isinstance(empresa, dict) else "TI Control"
-    subject, html, text = _render_email_template("devolucao", {
-        "empresa": nome_empresa,
-        "colaborador": colaborador,
-        "link": link,
-    })
-    return send_email(to, subject, html, text)
+    return email_service.send_email_link_devolucao(to, colaborador, link)
 
 
 def send_email_laudo_rh(to: str, colaborador: str, tecnico: str, link: str) -> dict:
-    """Envia link de ciência do laudo técnico para o RH."""
-    empresa = _get_setting("empresa", {})
-    nome_empresa = empresa.get("nome", "TI Control") if isinstance(empresa, dict) else "TI Control"
-    subject, html, text = _render_email_template("laudo_rh", {
-        "empresa": nome_empresa,
-        "colaborador": colaborador,
-        "tecnico": tecnico,
-        "link": link,
-    })
-    return send_email(to, subject, html, text)
+    return email_service.send_email_laudo_rh(to, colaborador, tecnico, link)
 
 
 def _send_email_async(fn, *args):
     """Dispara envio de e-mail em thread daemon para não bloquear o worker HTTP."""
-    import threading
     from flask import current_app
     _app = current_app._get_current_object()
+
     def _run():
         with _app.app_context():
             try:
                 fn(*args)
             except Exception:
                 pass
+
     threading.Thread(target=_run, daemon=True).start()
 
 
 def send_email_laudo_editado_rh(to: str, colaborador: str, editor: str, motivo: str) -> dict:
-    """Notifica o RH que o laudo técnico foi corrigido por um administrador."""
-    empresa = _get_setting("empresa", {})
-    nome_empresa = empresa.get("nome", "TI Control") if isinstance(empresa, dict) else "TI Control"
-    subject, html, text = _render_email_template("laudo_editado_rh", {
-        "empresa": nome_empresa,
-        "colaborador": colaborador,
-        "editor": editor,
-        "motivo": motivo,
-        "link": get_public_url_for_email(),
-    })
-    return send_email(to, subject, html, text)
+    return email_service.send_email_laudo_editado_rh(
+        to, colaborador, editor, motivo, get_public_url_for_email()
+    )
 
 
 def send_email_laudo_editado_colab(to: str, colaborador: str, motivo: str) -> dict:
-    """Notifica o colaborador que o laudo técnico dos seus equipamentos foi atualizado."""
-    empresa = _get_setting("empresa", {})
-    nome_empresa = empresa.get("nome", "TI Control") if isinstance(empresa, dict) else "TI Control"
-    subject, html, text = _render_email_template("laudo_editado_colab", {
-        "empresa": nome_empresa,
-        "colaborador": colaborador,
-        "motivo": motivo,
-        "link": get_public_url_for_email(),
-    })
-    return send_email(to, subject, html, text)
+    return email_service.send_email_laudo_editado_colab(
+        to, colaborador, motivo, get_public_url_for_email()
+    )
 
 
 def _get_setting(key, default=None):
-    s = db.session.get(Setting, key)
-    if s is None: return default
-    try: return json.loads(s.value)
-    except: return s.value
+    return settings_service.get_setting(key, default)
 
 def _set_setting(key, value):
-    s = db.session.get(Setting, key)
-    raw = json.dumps(value, ensure_ascii=False)
-    if s: s.value = raw
-    else: db.session.add(Setting(key=key, value=raw))
+    settings_service.set_setting(key, value)
 
 
 def get_app_base_url():
@@ -1569,6 +1345,7 @@ BACKUP_DIR = os.path.join(app.instance_path, "backups")
 BACKUP_FILE_RE = re.compile(r"^backup_ticontrol_\d{8}_\d{6}_(manual|auto|pre_restore)\.json$")
 BACKUP_UPLOAD_MAX_BYTES = 20 * 1024 * 1024
 _backup_last_check = 0
+_backup_lock = threading.Lock()
 ATTACHMENT_DIR = os.path.join(app.instance_path, "attachments")
 ATTACHMENT_MAX_BYTES = 8 * 1024 * 1024
 ATTACHMENT_ALLOWED_EXT = {
@@ -1791,24 +1568,27 @@ def _build_backup_payload(generated_by="sistema", include_audit=False):
 
 def _allocation_backup_dict(allocation):
     data = allocation.to_dict(include_items=True)
+    data.pop("signToken", None)
     data.update({
-        "assinaturaImg": allocation.assinatura_img,
-        "signToken": allocation.sign_token,
-        "assinaturaTiImg": allocation.assinatura_ti_img,
         "assinaturaTiNome": allocation.assinatura_ti_nome,
     })
+    if _backup_include_signature_images():
+        data.update({
+            "assinaturaImg": allocation.assinatura_img,
+            "assinaturaTiImg": allocation.assinatura_ti_img,
+        })
     return data
 
 
 def _devolucao_backup_dict(devolucao):
     data = devolucao.to_dict()
+    data.pop("signToken", None)
+    data.pop("rhToken", None)
     data.update({
-        "assinaturaImg": devolucao.assinatura_img,
-        "signToken": devolucao.sign_token,
-        "rhToken": devolucao.rh_token,
-        "rhTokenExpiry": devolucao.rh_token_expiry.isoformat() if devolucao.rh_token_expiry else None,
         "rhCienciaIp": devolucao.rh_ciencia_ip,
     })
+    if _backup_include_signature_images():
+        data["assinaturaImg"] = devolucao.assinatura_img
     return data
 
 
@@ -1820,13 +1600,19 @@ def _attachment_backup_dict(attachment):
 
 def _termo_avulso_backup_dict(termo):
     data = termo.to_dict()
+    data.pop("signToken", None)
+    data.pop("packageToken", None)
+    data.pop("packageTokenExpiry", None)
     data.update({
         "detalhesRaw": termo.detalhes,
-        "signToken": termo.sign_token,
-        "packageToken": termo.package_token,
-        "assinaturaImg": termo.assinatura_img,
     })
+    if _backup_include_signature_images():
+        data["assinaturaImg"] = termo.assinatura_img
     return data
+
+
+def _backup_include_signature_images():
+    return parse_bool(os.environ.get("BACKUP_INCLUDE_SIGNATURE_IMAGES"), default=False)
 
 
 def _backup_bytes(generated_by="sistema", include_audit=False):
@@ -1846,8 +1632,16 @@ def _backup_file_path(filename):
     return path
 
 
+def _ensure_backup_dir():
+    os.makedirs(BACKUP_DIR, mode=0o700, exist_ok=True)
+    try:
+        os.chmod(BACKUP_DIR, 0o700)
+    except OSError:
+        pass
+
+
 def _list_backup_files():
-    os.makedirs(BACKUP_DIR, exist_ok=True)
+    _ensure_backup_dir()
     files = []
     for filename in sorted(os.listdir(BACKUP_DIR), reverse=True):
         path = _backup_file_path(filename)
@@ -1875,7 +1669,7 @@ def _prune_backups(retention):
 
 def _write_backup_file(kind="manual", generated_by="sistema"):
     cfg = _get_backup_config()
-    os.makedirs(BACKUP_DIR, exist_ok=True)
+    _ensure_backup_dir()
     raw, checksum = _backup_bytes(generated_by=generated_by, include_audit=cfg["include_audit"])
     filename = f"backup_ticontrol_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{kind}.json"
     path = _backup_file_path(filename)
@@ -1883,6 +1677,10 @@ def _write_backup_file(kind="manual", generated_by="sistema"):
         raise RuntimeError("Nome de backup inválido.")
     with open(path, "wb") as fh:
         fh.write(raw)
+    try:
+        os.chmod(path, 0o600)
+    except OSError:
+        pass
     cfg.update({
         "last_run": datetime.now().isoformat(),
         "last_file": filename,
@@ -1898,12 +1696,7 @@ def _backup_is_due(cfg):
     return service_backup_is_due(cfg)
 
 
-def _maybe_run_scheduled_backup():
-    global _backup_last_check
-    now = _time.time()
-    if now - _backup_last_check < 300:
-        return
-    _backup_last_check = now
+def _run_scheduled_backup_once():
     try:
         cfg = _get_backup_config()
         if not _backup_is_due(cfg):
@@ -1918,6 +1711,26 @@ def _maybe_run_scheduled_backup():
         _set_setting("backup", cfg)
         db.session.commit()
         logger.exception("Falha na rotina automática de backup")
+
+
+def _scheduled_backup_worker():
+    with app.app_context():
+        try:
+            _run_scheduled_backup_once()
+        finally:
+            db.session.remove()
+            _backup_lock.release()
+
+
+def _maybe_run_scheduled_backup():
+    global _backup_last_check
+    now = _time.time()
+    if now - _backup_last_check < 300:
+        return
+    _backup_last_check = now
+    if not _backup_lock.acquire(blocking=False):
+        return
+    threading.Thread(target=_scheduled_backup_worker, name="ticontrol-backup", daemon=True).start()
 
 
 _BACKUP_REQUIRED_LISTS = (
@@ -1991,6 +1804,19 @@ def _validate_backup_payload(payload):
                        if isinstance(m, dict) and m.get("assetId") and m["assetId"] not in asset_ids)
     if orphan_maint:
         warnings.append(f"{orphan_maint} ordem(ns) de manutenção referencia(m) ativos não encontrados no backup.")
+    legacy_token_count = 0
+    for collection, keys in (
+        ("allocations", ("signToken",)),
+        ("devolucoes", ("signToken", "rhToken")),
+        ("termosAvulsos", ("signToken", "packageToken")),
+    ):
+        for item in payload.get(collection, []):
+            if isinstance(item, dict) and any(item.get(key) for key in keys):
+                legacy_token_count += 1
+    if legacy_token_count:
+        warnings.append(
+            f"{legacy_token_count} registro(s) contêm tokens legados; eles serão descartados na restauração."
+        )
     if payload.get("attachments"):
         warnings.append("Metadados de anexos serão restaurados, mas os arquivos físicos NÃO são restaurados via JSON (ficam em instance/attachments).")
     return {
@@ -2137,8 +1963,8 @@ def _restore_from_payload(payload, restored_by="sistema"):
             data_assinatura=_parse_backup_dt(al.get("dataAssinatura")),
             assinatura_ip=al.get("assinaturaIp"),
             assinatura_img=al.get("assinaturaImg"),
-            sign_token=al.get("signToken"),
-            sign_token_expiry=_parse_backup_dt(al.get("signTokenExpiry")),
+            sign_token=None,
+            sign_token_expiry=None,
             assinatura_ti_img=al.get("assinaturaTiImg"),
             assinatura_ti_nome=al.get("assinaturaTiNome"),
             data_assinatura_ti=_parse_backup_dt(al.get("dataAssinaturaTi")),
@@ -2183,14 +2009,14 @@ def _restore_from_payload(payload, restored_by="sistema"):
             data_assinatura=_parse_backup_dt(d.get("dataAssinatura")),
             assinatura_img=d.get("assinaturaImg"),
             assinatura_ip=d.get("assinaturaIp"),
-            sign_token=d.get("signToken"),
-            sign_token_expiry=_parse_backup_dt(d.get("signTokenExpiry")),
+            sign_token=None,
+            sign_token_expiry=None,
             status=d.get("status", "Pendente"),
             ativos_devolvidos=json.dumps(ativos if isinstance(ativos, list) else []),
             perifericos_devolvidos=json.dumps(peris if isinstance(peris, list) else []),
             laudo_status=d.get("laudoStatus", "Aguardando Laudo"),
-            rh_token=d.get("rhToken"),
-            rh_token_expiry=_parse_backup_dt(d.get("rhTokenExpiry")),
+            rh_token=None,
+            rh_token_expiry=None,
             rh_email=d.get("rhEmail"),
             rh_ciencia_ip=d.get("rhCienciaIp"),
             rh_data_ciencia=_parse_backup_dt(d.get("rhDataCiencia")),
@@ -2268,11 +2094,11 @@ def _restore_from_payload(payload, restored_by="sistema"):
             setor=t.get("setor"), unidade=t.get("unidade"), email=t.get("email"),
             detalhes=detalhes, validade=t.get("validade"),
             status=t.get("status", "Pendente"),
-            sign_token=t.get("signToken"),
-            sign_token_expiry=_parse_backup_dt(t.get("signTokenExpiry")),
+            sign_token=None,
+            sign_token_expiry=None,
             package_id=t.get("packageId"),
-            package_token=t.get("packageToken"),
-            package_token_expiry=_parse_backup_dt(t.get("packageTokenExpiry")),
+            package_token=None,
+            package_token_expiry=None,
             assinatura_img=t.get("assinaturaImg"),
             assinatura_ip=t.get("assinaturaIp"),
             data_assinatura=_parse_backup_dt(t.get("dataAssinatura")),
@@ -2598,6 +2424,9 @@ def _migrate_db():
         "licenses": [
             ("attachments", "JSON"),
         ],
+        "assets": [
+            ("public_token", "VARCHAR(80)"),
+        ],
         "devolucoes": [
             ("laudo_status",    "VARCHAR(30)"),
             ("rh_token",        "VARCHAR(64)"),
@@ -2763,6 +2592,30 @@ def _migrate_db():
                 """ % print_job_id_sql))
             except Exception:
                 pass
+        if "assets" in existing_tables and dialect_name in ("sqlite", "postgresql"):
+            for idx_name, col in [
+                ("ix_assets_public_token", "public_token"),
+                ("ix_assets_patrimonio_unique_nonempty", "patrimonio"),
+                ("ix_assets_service_tag_unique_nonempty", "service_tag"),
+                ("ix_assets_mac_unique_nonempty", "mac"),
+            ]:
+                if col not in {c["name"] for c in inspector.get_columns("assets")}:
+                    continue
+                where = "" if col == "public_token" else f" WHERE {col} IS NOT NULL AND {col} <> ''"
+                try:
+                    conn.execute(_text(
+                        f"CREATE UNIQUE INDEX IF NOT EXISTS {idx_name} ON assets ({col}){where}"
+                    ))
+                except Exception:
+                    logger.warning("Índice legado %s não criado; verifique duplicidades existentes.", idx_name)
+        if "supplies" in existing_tables and dialect_name == "postgresql":
+            try:
+                conn.execute(_text("""
+                    ALTER TABLE supplies
+                    ADD CONSTRAINT ck_supplies_estoque_nonnegative CHECK (estoque >= 0) NOT VALID
+                """))
+            except Exception:
+                pass
         conn.commit()
 
     # Inicializa settings de termos novos (para instalações existentes que nunca passaram pelo /setup)
@@ -2813,14 +2666,26 @@ def _export_route_globals():
 
 def register_route_modules():
     """Importa modulos de rotas para registrar os endpoints Flask."""
+    from routes.blueprint import bp as routes_bp
     from routes import (
         setup, auth, assets, supplies, colaboradores, allocations,
         licenses, operations, users, settings, devolucoes, reports, audit_campaigns, attachments,
         termos_avulsos, print_jobs,
     )
+    app.register_blueprint(routes_bp, name="")
     return (setup, auth, assets, supplies, colaboradores, allocations, licenses, operations, users, settings, devolucoes, reports, audit_campaigns, attachments, termos_avulsos, print_jobs)
 
 register_route_modules()
+
+
+def _alembic_schema_at_head():
+    """Retorna True quando o banco ja foi atualizado pelo Alembic ate o head atual."""
+    try:
+        with db.engine.connect() as conn:
+            version = conn.execute(text("SELECT version_num FROM alembic_version")).scalar()
+            return version == ALEMBIC_SCHEMA_HEAD
+    except Exception:
+        return False
 
 
 def _run_startup_db_tasks_once():
@@ -2832,7 +2697,7 @@ def _run_startup_db_tasks_once():
             lock_conn.execute(text("SELECT pg_advisory_lock(54720191)"))
         if app.config["AUTO_CREATE_DB"]:
             db.create_all()
-        if app.config["AUTO_LEGACY_MIGRATIONS"]:
+        if app.config["AUTO_LEGACY_MIGRATIONS"] and not _alembic_schema_at_head():
             _migrate_db()
         if _auto_seed_demo_enabled():
             seed()

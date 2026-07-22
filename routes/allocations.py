@@ -9,6 +9,7 @@ from datetime import timedelta
 from app import _export_route_globals
 
 globals().update(_export_route_globals())
+from routes.blueprint import bp
 
 
 def _send_allocation_term_pdf(al, aid, empresa, logo_b64, titulo, preambulo, clausulas, rodape_txt, ctx):
@@ -189,7 +190,7 @@ def _send_allocation_term_pdf(al, aid, empresa, logo_b64, titulo, preambulo, cla
     return send_file(buf, mimetype="application/pdf", as_attachment=True, download_name=nome_pdf)
 
 
-@app.route("/api/allocations", methods=["GET"])
+@bp.route("/api/allocations", methods=["GET"])
 @api_auth
 def get_allocations():
     q = request.args.get("q","").lower()
@@ -200,7 +201,7 @@ def get_allocations():
     return jsonify([a.to_dict(include_items=True) for a in db.session.execute(stmt).scalars().all()])
 
 
-@app.route("/api/allocations", methods=["POST"])
+@bp.route("/api/allocations", methods=["POST"])
 @requires("Administrador","Técnico TI")
 def create_allocation():
     d = request.get_json() or {}
@@ -219,9 +220,10 @@ def create_allocation():
     if not asset_ids:
         erros.append("Selecione ao menos um ativo para alocar.")
 
+    locked_assets = get_assets_for_update(asset_ids)
     assets = []
     for asset_id in asset_ids:
-        asset = db.session.get(Asset, asset_id)
+        asset = locked_assets.get(asset_id)
         if not asset:
             erros.append(f"Ativo '{asset_id}' não encontrado.")
             continue
@@ -264,12 +266,14 @@ def create_allocation():
         perifericos_map[supply_id] = perifericos_map.get(supply_id, 0) + qty
     perifericos_in = [{"supplyId": sid, "quantidade": qty} for sid, qty in perifericos_map.items()]
     total_perifericos = 0
+    locked_supplies = {}
     for p in perifericos_in:
-        s = db.session.get(Supply, p.get("supplyId",""))
+        s = get_supply_for_update(p.get("supplyId",""))
         qty = p["quantidade"]
         total_perifericos += qty
         if not s: erros.append(f"Periférico '{p.get('supplyId')}' não encontrado.")
         elif s.estoque < qty: erros.append(f"'{s.nome}': estoque insuficiente ({s.estoque} disponível, {qty} solicitado).")
+        else: locked_supplies[s.id] = s
     max_perifs = parse_int(regras.get("max_perifericos_por_colab", 0), default=0, minimum=0)
     if max_perifs and total_perifericos > max_perifs:
         erros.append(f"Quantidade de periféricos acima do limite configurado ({total_perifericos}/{max_perifs}).")
@@ -312,7 +316,7 @@ def create_allocation():
             ))
 
         for p in perifericos_in:
-            s = db.session.get(Supply, p["supplyId"]); qty = parse_int(p["quantidade"], default=1, minimum=1)
+            s = locked_supplies[p["supplyId"]]; qty = parse_int(p["quantidade"], default=1, minimum=1)
             s.estoque -= qty
             db.session.add(AllocationItem(
                 id=new_id("AI"), allocation_id=aid,
@@ -332,7 +336,7 @@ def create_allocation():
         raise
 
 
-@app.route("/api/allocations/<aid>/sign", methods=["POST"])
+@bp.route("/api/allocations/<aid>/sign", methods=["POST"])
 @requires("Administrador","Técnico TI")
 def sign_termo(aid):
     al = db.get_or_404(Allocation, aid)
@@ -345,41 +349,41 @@ def sign_termo(aid):
     return jsonify(al.to_dict())
 
 
-@app.route("/api/allocations/<aid>/perifericos")
+@bp.route("/api/allocations/<aid>/perifericos")
 @api_auth
 def alloc_perifericos(aid):
     al = db.get_or_404(Allocation, aid)
     return jsonify([i.to_dict() for i in al.items])
 
 
-@app.route("/api/allocations/<aid>/perifericos/<item_id>/troca", methods=["POST"])
-@requires("Administrador","TÃ©cnico TI")
+@bp.route("/api/allocations/<aid>/perifericos/<item_id>/troca", methods=["POST"])
+@requires("Administrador","Técnico TI")
 def trocar_periferico_defeituoso(aid, item_id):
     al = db.get_or_404(Allocation, aid)
     if al.status != "Ativo":
-        return jsonify({"error":"NÃ£o Ã© possÃ­vel trocar perifÃ©rico de alocaÃ§Ã£o encerrada."}), 400
+        return jsonify({"error":"Não é possível trocar periférico de alocação encerrada."}), 400
 
     item = db.session.execute(
         db.select(AllocationItem).filter_by(id=item_id, allocation_id=aid)
     ).scalar_one_or_none()
     if not item:
-        return jsonify({"error":"PerifÃ©rico vinculado Ã  alocaÃ§Ã£o nÃ£o encontrado."}), 404
+        return jsonify({"error":"Periférico vinculado à alocação não encontrado."}), 404
 
     d = request.get_json() or {}
     qty = parse_int(d.get("quantidade", 1), default=1, minimum=1)
     if qty > (item.quantidade or 0):
-        return jsonify({"error":f"Quantidade acima do vÃ­nculo atual ({item.quantidade} disponÃ­vel para troca)."}), 400
+        return jsonify({"error":f"Quantidade acima do vínculo atual ({item.quantidade} disponível para troca)."}), 400
 
     novo_supply_id = clean_text(d.get("novoSupplyId") or item.supply_id, 16)
-    novo_supply = db.session.get(Supply, novo_supply_id)
+    novo_supply = get_supply_for_update(novo_supply_id)
     if not novo_supply:
-        return jsonify({"error":"PerifÃ©rico substituto nÃ£o encontrado no estoque."}), 404
+        return jsonify({"error":"Periférico substituto não encontrado no estoque."}), 404
     if (novo_supply.estoque or 0) < qty:
-        return jsonify({"error":f"Estoque insuficiente para substituiÃ§Ã£o ({novo_supply.estoque} disponÃ­vel, {qty} solicitado)."}), 400
+        return jsonify({"error":f"Estoque insuficiente para substituição ({novo_supply.estoque} disponível, {qty} solicitado)."}), 400
 
     motivo = clean_text(d.get("motivo") or "Defeito", 80)
     observacao = clean_text(d.get("observacao") or "", 240)
-    detalhe_obs = f" â€” {observacao}" if observacao else ""
+    detalhe_obs = f" - {observacao}" if observacao else ""
     asset = db.session.get(Asset, al.ativo_id) if al.ativo_id else None
 
     try:
@@ -389,12 +393,12 @@ def trocar_periferico_defeituoso(aid, item_id):
 
         db.session.add(SupplyMovement(
             id=new_id("MOV"), tipo="DEFEITO", ref_id=antigo_supply_id, supply_nome=antigo_nome,
-            descricao=f"Troca por defeito na alocaÃ§Ã£o {aid}: {antigo_nome} x{qty} ({motivo}){detalhe_obs}",
+            descricao=f"Troca por defeito na alocação {aid}: {antigo_nome} x{qty} ({motivo}){detalhe_obs}",
             quantidade=qty, colaborador=al.colaborador, ativo_id=al.ativo_id, motivo=motivo,
         ))
         db.session.add(SupplyMovement(
             id=new_id("MOV"), tipo="SAIDA", ref_id=novo_supply.id, supply_nome=novo_supply.nome,
-            descricao=f"SubstituiÃ§Ã£o de perifÃ©rico na alocaÃ§Ã£o {aid}: {novo_supply.nome} x{qty}",
+            descricao=f"Substituição de periférico na alocação {aid}: {novo_supply.nome} x{qty}",
             quantidade=-qty, colaborador=al.colaborador, ativo_id=al.ativo_id, motivo="Troca por defeito",
         ))
 
@@ -418,7 +422,7 @@ def trocar_periferico_defeituoso(aid, item_id):
 
         ativo_ref = asset.hostname if asset else (al.ativo_nome or al.ativo_id)
         audit("TROCA_PERIFERICO","alocacoes",aid,
-              f"{ativo_ref}: {antigo_nome} x{qty} substituÃ­do por {novo_supply.nome} ({motivo})")
+              f"{ativo_ref}: {antigo_nome} x{qty} substituído por {novo_supply.nome} ({motivo})")
         db.session.commit()
         return jsonify(al.to_dict(include_items=True))
     except Exception:
@@ -426,7 +430,7 @@ def trocar_periferico_defeituoso(aid, item_id):
         raise
 
 
-@app.route("/api/allocations/<aid>/termo.pdf")
+@bp.route("/api/allocations/<aid>/termo.pdf")
 @api_auth
 def gerar_termo(aid):
     al = db.get_or_404(Allocation, aid)
@@ -554,7 +558,7 @@ def gerar_termo(aid):
         return jsonify({"error": f"Erro ao gerar PDF: {exc.__class__.__name__} — {exc}"}), 500
 
 
-@app.route("/api/allocations/<aid>/assinatura.png")
+@bp.route("/api/allocations/<aid>/assinatura.png")
 @api_auth
 def get_assinatura_img(aid):
     al = db.get_or_404(Allocation, aid)
@@ -565,7 +569,7 @@ def get_assinatura_img(aid):
                     headers={"Cache-Control":"private, max-age=3600"})
 
 
-@app.route("/api/allocations/<aid>/assinatura-ti.png")
+@bp.route("/api/allocations/<aid>/assinatura-ti.png")
 @api_auth
 def get_assinatura_ti_img(aid):
     al = db.get_or_404(Allocation, aid)
@@ -576,7 +580,7 @@ def get_assinatura_ti_img(aid):
                     headers={"Cache-Control":"private, max-age=3600"})
 
 
-@app.route("/api/allocations/<aid>/sign-ti", methods=["POST"])
+@bp.route("/api/allocations/<aid>/sign-ti", methods=["POST"])
 @requires("Administrador","Técnico TI")
 def sign_termo_ti(aid):
     al = db.get_or_404(Allocation, aid)
@@ -593,7 +597,7 @@ def sign_termo_ti(aid):
     return jsonify(al.to_dict())
 
 
-@app.route("/api/allocations/<aid>/sign-link", methods=["POST"])
+@bp.route("/api/allocations/<aid>/sign-link", methods=["POST"])
 @requires("Administrador","Técnico TI")
 def gerar_link_assinatura(aid):
     al = db.get_or_404(Allocation, aid)
@@ -615,7 +619,7 @@ def gerar_link_assinatura(aid):
                     "emailEnviado": email_enviado})
 
 
-@app.route("/api/allocations/<aid>/qrcode-termo")
+@bp.route("/api/allocations/<aid>/qrcode-termo")
 @api_auth
 def allocation_qrcode_termo(aid):
     """Gera QR Code PNG do link de assinatura. Cria token automaticamente se ausente/expirado."""
@@ -642,8 +646,11 @@ def allocation_qrcode_termo(aid):
     return svg, 200, {"Content-Type": "image/svg+xml"}
 
 
-@app.route("/assinar/<token>", methods=["GET"])
+@bp.route("/assinar/<token>", methods=["GET"])
 def pagina_assinatura(token):
+    if not check_public_token_rate_limit("sign_allocation", token):
+        return render_template("assinar.html", al=None, token=token,
+                               erro="Muitas tentativas. Aguarde um momento.", perifericos=[]), 429
     al = db.session.execute(
         db.select(Allocation).filter_by(sign_token=token)
     ).scalar_one_or_none()
@@ -669,8 +676,11 @@ def pagina_assinatura(token):
                            cpf_required=bool(colab and colab.cpf))
 
 
-@app.route("/assinar/<token>", methods=["POST"])
+@bp.route("/assinar/<token>", methods=["POST"])
 def submeter_assinatura(token):
+    if not check_public_token_rate_limit("sign_allocation", token):
+        return render_template("assinar.html", al=None, token=token,
+                               erro="Muitas tentativas. Aguarde um momento.", perifericos=[]), 429
     al = db.session.execute(
         db.select(Allocation).filter_by(sign_token=token)
     ).scalar_one_or_none()
@@ -718,7 +728,7 @@ def submeter_assinatura(token):
                            sucesso=True, perifericos=al.items, cpf_required=cpf_required)
 
 
-@app.route("/api/emprestimos/vencidos")
+@bp.route("/api/emprestimos/vencidos")
 @api_auth
 def emprestimos_vencidos():
     """Retorna alocações do tipo Empréstimo com data de devolução vencida."""

@@ -14,12 +14,14 @@ from models import Asset  # noqa: E402
 class AppSmokeTest(unittest.TestCase):
     def setUp(self):
         tic.app.config.update(TESTING=True)
+        tic._rate_buckets.clear()
         with tic.app.app_context():
             tic.db.session.remove()
             tic.db.drop_all()
             tic.db.create_all()
 
     def tearDown(self):
+        os.environ.pop("PUBLIC_ASSETS_ENABLED", None)
         with tic.app.app_context():
             tic.db.session.remove()
             tic.db.drop_all()
@@ -29,6 +31,21 @@ class AppSmokeTest(unittest.TestCase):
         self.assertIs(flask_app, tic.app)
         self.assertIs(tic.Asset, Asset)
         self.assertIn("assets", tic.db.metadata.tables)
+
+    def test_routes_blueprint_preserves_legacy_endpoint_names(self):
+        endpoints = set(tic.app.view_functions)
+
+        for endpoint in {
+            "index",
+            "login_page",
+            "do_login",
+            "do_logout",
+            "devolucao_pdf",
+            "pagina_assinatura_pacote",
+            "next_print_job",
+        }:
+            self.assertIn(endpoint, endpoints)
+        self.assertFalse(any(endpoint.startswith("auth.") for endpoint in endpoints))
 
     def test_health_endpoints_are_available(self):
         client = tic.app.test_client()
@@ -53,6 +70,57 @@ class AppSmokeTest(unittest.TestCase):
 
         self.assertEqual(response.status_code, 401)
         self.assertEqual(response.get_json()["error"], "Não autenticado")
+
+    def test_asset_qr_uses_disabled_by_default_tokenized_public_page(self):
+        client = tic.app.test_client()
+        with tic.app.app_context():
+            tic.db.session.add(tic.Asset(
+                id="A_PUBLIC",
+                public_token="public-token-test",
+                hostname="NOTE-PUBLIC",
+                fabricante="Dell",
+                modelo="Latitude",
+                categoria="Notebook",
+                patrimonio="TI-000777",
+                service_tag="SERIAL-SECRET",
+                colaborador="Ana Sigilosa",
+                setor="RH",
+                unidade="Sede",
+                status="Alocado",
+            ))
+            tic.db.session.commit()
+
+        self.assertEqual(client.get("/asset/A_PUBLIC").status_code, 302)
+        self.assertEqual(client.get("/public/asset/public-token-test").status_code, 404)
+
+        os.environ["PUBLIC_ASSETS_ENABLED"] = "1"
+        response = client.get("/public/asset/public-token-test")
+
+        self.assertEqual(response.status_code, 200)
+        html = response.get_data(as_text=True)
+        self.assertIn("NOTE-PUBLIC", html)
+        self.assertIn("Restrito", html)
+        self.assertNotIn("SERIAL-SECRET", html)
+        self.assertNotIn("Ana Sigilosa", html)
+
+    def test_public_asset_page_is_rate_limited(self):
+        os.environ["PUBLIC_ASSETS_ENABLED"] = "1"
+        client = tic.app.test_client()
+        with tic.app.app_context():
+            tic.db.session.add(tic.Asset(
+                id="A_RATE",
+                public_token="rate-token-test",
+                hostname="NOTE-RATE",
+                categoria="Notebook",
+                patrimonio="TI-000778",
+                status="Disponível",
+            ))
+            tic.db.session.commit()
+
+        statuses = [client.get("/public/asset/rate-token-test").status_code for _ in range(11)]
+
+        self.assertEqual(statuses[:10], [200] * 10)
+        self.assertEqual(statuses[10], 429)
 
     def test_dashboard_shell_references_versioned_static_assets(self):
         client = tic.app.test_client()

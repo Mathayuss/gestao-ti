@@ -7,13 +7,14 @@ pacotes dedicados como models, services e extensions.
 from app import _export_route_globals
 
 globals().update(_export_route_globals())
+from routes.blueprint import bp
 
-@app.route("/api/system-users", methods=["GET"])
+@bp.route("/api/system-users", methods=["GET"])
 @requires("Administrador")
 def get_system_users(): return jsonify([u.to_dict() for u in db.session.execute(db.select(SystemUser)).scalars().all()])
 
 
-@app.route("/api/system-users", methods=["POST"])
+@bp.route("/api/system-users", methods=["POST"])
 @requires("Administrador")
 def create_system_user():
     d = request.get_json() or {}
@@ -39,7 +40,7 @@ def create_system_user():
     db.session.commit(); return jsonify(u.to_dict()), 201
 
 
-@app.route("/api/system-users/<uid>", methods=["PUT"])
+@bp.route("/api/system-users/<uid>", methods=["PUT"])
 @requires("Administrador")
 def update_system_user(uid):
     u = db.get_or_404(SystemUser, uid); d = request.get_json() or {}
@@ -57,7 +58,7 @@ def update_system_user(uid):
     db.session.commit(); return jsonify(u.to_dict())
 
 
-@app.route("/api/system-users/<uid>/toggle", methods=["POST"])
+@bp.route("/api/system-users/<uid>/toggle", methods=["POST"])
 @requires("Administrador")
 def toggle_system_user(uid):
     u = db.get_or_404(SystemUser, uid)
@@ -66,7 +67,7 @@ def toggle_system_user(uid):
     db.session.commit(); return jsonify({"status":u.status})
 
 
-@app.route("/api/system-users/<uid>/reset-senha", methods=["POST"])
+@bp.route("/api/system-users/<uid>/reset-senha", methods=["POST"])
 @requires("Administrador")
 def reset_senha(uid):
     d = request.get_json() or {}; nova = d.get("senha","")
@@ -77,7 +78,7 @@ def reset_senha(uid):
     db.session.commit(); return jsonify({"ok":True})
 
 
-@app.route("/api/system-users/perfis")
+@bp.route("/api/system-users/perfis")
 @requires("Administrador")
 def get_perfis():
     """Retorna perfis — do DB settings se customizados, senão do padrão."""
@@ -85,7 +86,7 @@ def get_perfis():
     return jsonify(custom if custom else PERFIL_PERMISSOES)
 
 
-@app.route("/api/system-users/perfis/<perfil>", methods=["PUT"])
+@bp.route("/api/system-users/perfis/<perfil>", methods=["PUT"])
 @requires("Administrador")
 def update_perfil_perms(perfil):
     d = request.get_json()

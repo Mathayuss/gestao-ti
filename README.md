@@ -96,13 +96,13 @@ docker compose --profile observability up -d
 | Prometheus | `http://localhost:9090` |
 | Grafana | `http://localhost:3000` |
 
-Credencial padrão do Grafana local: `admin` / `admin`.
+O Grafana exige `GRAFANA_ADMIN_USER` e `GRAFANA_ADMIN_PASSWORD` no `.env`. Os instaladores geram uma senha aleatória para `GRAFANA_ADMIN_PASSWORD`.
 
 ## Atualizações
 
-Quando uma correção ou nova função for publicada no repositório público, instalações novas já ficam preparadas para atualização manual pela tela `Configurações > Atualizações`. O administrador clica em verificar/aplicar, o sistema gera backup lógico, executa `git pull --ff-only` e reinicia a aplicação automaticamente quando `SELF_UPDATE_AUTO_RESTART=1`.
+Quando uma correção ou nova função for publicada, use os scripts abaixo para atualizar pelo servidor. A imagem Docker padrão não instala Git e mantém `SELF_UPDATE_ENABLED=0`, portanto a tela `Configurações > Atualizações` funciona como painel de orientação/manual, não como mecanismo de alteração de código em produção.
 
-Para instalações antigas ou ambientes sem metadados Git dentro do container, use os scripts abaixo uma vez para reconstruir a aplicação com suporte ao atualizador interno.
+Se você optar conscientemente pelo atualizador interno em um ambiente controlado, instale Git na imagem/host, disponibilize metadados `.git` e habilite `SELF_UPDATE_ENABLED=1`.
 
 ### Windows
 
@@ -162,21 +162,28 @@ Usuários de demonstração só devem ser exibidos em ambiente local quando `SHO
 | `POSTGRES_DB` | Nome do banco usado pelo Docker Compose. |
 | `POSTGRES_USER` | Usuário PostgreSQL usado pelo Docker Compose. |
 | `POSTGRES_PASSWORD` | Senha PostgreSQL usada pelo Docker Compose. |
-| `POSTGRES_PORT` | Porta local exposta para o PostgreSQL. |
+| `GRAFANA_ADMIN_USER` | Usuário administrador do Grafana quando o profile `observability` estiver ativo. |
+| `GRAFANA_ADMIN_PASSWORD` | Senha administrador do Grafana quando o profile `observability` estiver ativo. |
 | `APP_BASE_URL` | URL pública usada em QR Codes e links externos. |
 | `APP_PORT` | Porta local da aplicação no Docker Compose. |
 | `SETUP_TOKEN` | Token temporário para liberar `/setup` na primeira instalação. |
 | `SESSION_SECURE` | Use `1` quando a aplicação estiver atrás de HTTPS. |
 | `METRICS_TOKEN` | Token Bearer opcional para proteger `/metrics`. |
+| `PUBLIC_ASSETS_ENABLED` | Habilita páginas públicas de QR Code quando `1`. Padrão: desativado. |
 | `SMTP_*` | Configuração SMTP opcional via ambiente. Também pode ser feita pela interface. |
+| `SMTP_PASSWORD_FILE` | Caminho de um arquivo/secret com a senha SMTP. Tem prioridade sobre senha salva no banco. |
 
 Nunca compartilhe ou versiona o arquivo `.env`.
 
-Ao executar com Docker Compose, a aplicação usa o hostname interno `postgres`. Use `127.0.0.1` apenas quando a aplicação estiver rodando fora do container e acessando o PostgreSQL pela porta publicada no host.
+Ao executar com Docker Compose, a aplicação usa o hostname interno `postgres`. O PostgreSQL fica interno ao Compose por padrão; publique a porta do banco apenas em cenários administrativos controlados.
+
+## Dependências
+
+O `requirements.txt` mantém os requisitos diretos com faixas mínimas. A imagem Docker usa `requirements.lock` como constraints para builds reproduzíveis. Ao atualizar dependências, regenere o lock em ambiente validado e rode a suíte de testes antes de publicar.
 
 ## Migrações de banco
 
-O projeto possui estrutura Alembic/Flask-Migrate em `migrations/` e uma migration baseline com o schema atual.
+O projeto possui estrutura Alembic/Flask-Migrate em `migrations/`, com uma migration baseline e migrations incrementais para recursos recentes. Quando o banco está marcado no Alembic como head atual, a aplicação pula o migrador legado do `app.py` durante o boot.
 
 Para banco novo, rode as migrações antes de iniciar a aplicação em modo Alembic puro:
 
@@ -199,7 +206,7 @@ Para banco existente que já foi criado pela aplicação antes do Alembic, não 
 docker compose exec -e AUTO_CREATE_DB=0 -e AUTO_LEGACY_MIGRATIONS=0 app flask db stamp head
 ```
 
-Depois disso, novas mudanças de schema devem ser feitas por migrations versionadas. Enquanto a transição estiver em andamento, os valores padrão `AUTO_CREATE_DB=1` e `AUTO_LEGACY_MIGRATIONS=1` mantêm compatibilidade com instalações antigas.
+Depois disso, novas mudanças de schema devem ser feitas por migrations versionadas. Enquanto a transição estiver em andamento, os valores padrão `AUTO_CREATE_DB=1` e `AUTO_LEGACY_MIGRATIONS=1` mantêm compatibilidade com instalações antigas que ainda não foram carimbadas pelo Alembic.
 
 ## Backup
 

@@ -8,6 +8,7 @@ from datetime import datetime
 from app import _export_route_globals
 
 globals().update(_export_route_globals())
+from routes.blueprint import bp
 
 logger = logging.getLogger(__name__)
 
@@ -62,6 +63,14 @@ def _agent_printer_from_request(printer_id):
 def _zpl_text(value, max_len=80):
     text = clean_text(value, max_len)
     return text.replace("^", " ").replace("~", " ")
+
+
+def _asset_public_url_for_print(asset):
+    if not asset.public_token:
+        asset.public_token = secrets.token_urlsafe(32)
+        db.session.add(asset)
+        db.session.flush()
+    return f"{get_app_base_url()}/public/asset/{asset.public_token}"
 
 
 def _label_size_from_cfg(cfg):
@@ -241,7 +250,7 @@ def _zpl_for_asset_label(asset, cfg=None, copies=1, dpi=203):
     text_width = max(_mm_to_dots(12 if plan["mode"] == "compact" else 22, dpi), qr_x - x - gap)
     footer_font = max(16, int(round(18 * dpi / 203)))
     footer_y = max(pad, height - _mm_to_dots(4.5, dpi))
-    qr_link = f"{get_app_base_url()}/asset/{asset.id}"
+    qr_link = _asset_public_url_for_print(asset)
 
     def label_primary_code():
         if campos.get("patrimonio") and asset.patrimonio:
@@ -365,7 +374,7 @@ def _zpl_for_asset_label(asset, cfg=None, copies=1, dpi=203):
     return "\n".join(zpl)
 
 
-@app.route("/api/print-printers", methods=["GET"])
+@bp.route("/api/print-printers", methods=["GET"])
 @api_auth
 def list_print_printers():
     printers = db.session.execute(db.select(PrintPrinter).order_by(PrintPrinter.id)).scalars().all()
@@ -390,7 +399,7 @@ def _apply_printer_fields(printer, data):
     printer.dpi = _printer_dpi(data.get("dpi") or printer.dpi or 203)
 
 
-@app.route("/api/print-printers", methods=["POST"])
+@bp.route("/api/print-printers", methods=["POST"])
 @requires("Administrador", "Técnico TI")
 def create_print_printer():
     d = json_payload()
@@ -412,7 +421,7 @@ def create_print_printer():
     return jsonify(data), 201
 
 
-@app.route("/api/print-printers/<printer_id>", methods=["PUT"])
+@bp.route("/api/print-printers/<printer_id>", methods=["PUT"])
 @requires("Administrador", "Técnico TI")
 def update_print_printer(printer_id):
     printer = db.session.get(PrintPrinter, clean_text(printer_id, 60))
@@ -424,7 +433,7 @@ def update_print_printer(printer_id):
     return jsonify(printer.to_dict())
 
 
-@app.route("/api/print-printers/<printer_id>/token", methods=["POST"])
+@bp.route("/api/print-printers/<printer_id>/token", methods=["POST"])
 @requires("Administrador", "Técnico TI")
 def renew_print_printer_token(printer_id):
     printer = db.session.get(PrintPrinter, clean_text(printer_id, 60))
@@ -440,7 +449,7 @@ def renew_print_printer_token(printer_id):
     return jsonify(data)
 
 
-@app.route("/api/print-printers/<printer_id>", methods=["DELETE"])
+@bp.route("/api/print-printers/<printer_id>", methods=["DELETE"])
 @requires("Administrador", "Técnico TI")
 def delete_print_printer(printer_id):
     printer = db.session.get(PrintPrinter, clean_text(printer_id, 60))
@@ -461,7 +470,7 @@ def delete_print_printer(printer_id):
     return jsonify({"ok": True})
 
 
-@app.route("/api/print-agent/download", methods=["GET"])
+@bp.route("/api/print-agent/download", methods=["GET"])
 @requires("Administrador", "Técnico TI")
 def download_print_agent():
     printer_id = clean_text(request.args.get("printer_id") or request.args.get("printerId") or "L42PRO-ALMOXARIFADO", 60)
@@ -551,7 +560,7 @@ O agente nunca recebe senha de usuário. Ele usa apenas o token do agente cadast
     return send_file(buf, mimetype="application/zip", as_attachment=True, download_name=f"ti-control-print-agent-{safe_filename(printer_id)}.zip")
 
 
-@app.route("/api/print-jobs", methods=["GET"])
+@bp.route("/api/print-jobs", methods=["GET"])
 @api_auth
 def list_print_jobs():
     printer_id = clean_text(request.args.get("printer_id") or request.args.get("printerId"), 60)
@@ -564,7 +573,7 @@ def list_print_jobs():
     return jsonify([j.to_dict() for j in db.session.execute(stmt).scalars().all()])
 
 
-@app.route("/api/print-jobs", methods=["POST"])
+@bp.route("/api/print-jobs", methods=["POST"])
 @requires("Administrador", "Técnico TI")
 def create_print_job():
     d = json_payload()
@@ -593,7 +602,7 @@ def create_print_job():
                 "descricao": " ".join([asset.hostname or "", asset.fabricante or "", asset.modelo or ""]).strip(),
                 "serial": asset.service_tag,
                 "setor": asset.setor,
-                "qrcode": f"{get_app_base_url()}/asset/{asset.id}",
+                "qrcode": _asset_public_url_for_print(asset),
             }
             jobs.append(PrintJob(
                 printer_id=printer_id,
@@ -640,7 +649,7 @@ def create_print_job():
     return jsonify({"ok": True, "jobs": [j.to_dict() for j in jobs]}), 201
 
 
-@app.route("/api/print-jobs/next", methods=["GET"])
+@bp.route("/api/print-jobs/next", methods=["GET"])
 def next_print_job():
     printer_id = clean_text(request.args.get("printer_id") or request.args.get("printerId"), 60)
     printer = _agent_printer_from_request(printer_id)
@@ -665,7 +674,7 @@ def next_print_job():
     return jsonify(job.to_dict(include_zpl=True))
 
 
-@app.route("/api/print-jobs/<int:job_id>/status", methods=["POST"])
+@bp.route("/api/print-jobs/<int:job_id>/status", methods=["POST"])
 def update_print_job_status(job_id):
     job = db.get_or_404(PrintJob, job_id)
     printer = _agent_printer_from_request(job.printer_id)
@@ -690,7 +699,7 @@ def update_print_job_status(job_id):
     return jsonify(job.to_dict())
 
 
-@app.route("/api/print-printers/<printer_id>/test", methods=["POST"])
+@bp.route("/api/print-printers/<printer_id>/test", methods=["POST"])
 @requires("Administrador", "Técnico TI")
 def test_printer_auth(printer_id):
     """

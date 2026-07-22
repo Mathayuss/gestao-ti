@@ -7,8 +7,9 @@ pacotes dedicados como models, services e extensions.
 from app import _export_route_globals
 
 globals().update(_export_route_globals())
+from routes.blueprint import bp
 
-@app.route("/api/supplies", methods=["GET"])
+@bp.route("/api/supplies", methods=["GET"])
 @api_auth
 def get_supplies():
     q = request.args.get("q","").lower()
@@ -17,7 +18,7 @@ def get_supplies():
     return jsonify([s.to_dict() for s in db.session.execute(stmt).scalars().all()])
 
 
-@app.route("/api/supplies", methods=["POST"])
+@bp.route("/api/supplies", methods=["POST"])
 @requires("Administrador","Técnico TI")
 def create_supply():
     d = request.get_json() or {}
@@ -35,7 +36,7 @@ def create_supply():
     return jsonify(s.to_dict()), 201
 
 
-@app.route("/api/supplies/<sid>", methods=["PUT"])
+@bp.route("/api/supplies/<sid>", methods=["PUT"])
 @requires("Administrador","Técnico TI")
 def update_supply(sid):
     s = db.get_or_404(Supply, sid)
@@ -50,12 +51,14 @@ def update_supply(sid):
     return jsonify(s.to_dict())
 
 
-@app.route("/api/supplies/<sid>/entrada", methods=["POST"])
+@bp.route("/api/supplies/<sid>/entrada", methods=["POST"])
 @requires("Administrador","Técnico TI")
 def supply_entrada(sid):
     d = request.get_json() or {}
     qty = parse_int(d.get("quantidade",1), default=1, minimum=1)
-    s = db.get_or_404(Supply, sid)
+    s = get_supply_for_update(sid)
+    if not s:
+        return jsonify({"error":"Item não encontrado no estoque."}), 404
     s.estoque += qty
     m = SupplyMovement(id=new_id("MOV"), tipo="ENTRADA", ref_id=sid, supply_nome=s.nome,
                        descricao=f"{s.nome}: +{qty}", quantidade=qty, motivo=d.get("motivo","Entrada"))
@@ -65,7 +68,7 @@ def supply_entrada(sid):
     return jsonify(s.to_dict())
 
 
-@app.route("/api/supplies/<sid>/saida", methods=["POST"])
+@bp.route("/api/supplies/<sid>/saida", methods=["POST"])
 @requires("Administrador","Técnico TI")
 def supply_saida(sid):
     d = request.get_json() or {}
@@ -76,7 +79,9 @@ def supply_saida(sid):
 
     if not colab and not ativo_id:
         return jsonify({"error":"Vincule a saída a um colaborador ou ativo de TI."}), 400
-    s = db.get_or_404(Supply, sid)
+    s = get_supply_for_update(sid)
+    if not s:
+        return jsonify({"error":"Item não encontrado no estoque."}), 404
     if s.estoque < qty:
         return jsonify({"error":f"Estoque insuficiente ({s.estoque} disponível)."}), 400
     if colab and not db.session.execute(db.select(Colaborador).filter_by(nome=colab)).scalar_one_or_none():
@@ -95,13 +100,15 @@ def supply_saida(sid):
     return jsonify(s.to_dict())
 
 
-@app.route("/api/supplies/<sid>/devolucao", methods=["POST"])
+@bp.route("/api/supplies/<sid>/devolucao", methods=["POST"])
 @requires("Administrador","Técnico TI")
 def supply_devolucao(sid):
     d = request.get_json() or {}
     colab = clean_text(d.get("colaborador"), 120)
     qty   = parse_int(d.get("quantidade",1), default=1, minimum=1)
-    s = db.get_or_404(Supply, sid)
+    s = get_supply_for_update(sid)
+    if not s:
+        return jsonify({"error":"Item não encontrado no estoque."}), 404
     s.estoque += qty
     m = SupplyMovement(id=new_id("MOV"), tipo="DEVOLUCAO", ref_id=sid, supply_nome=s.nome,
                        descricao=f"{s.nome}: +{qty} ← {colab or 'N/I'}", quantidade=qty, colaborador=colab)
@@ -111,7 +118,7 @@ def supply_devolucao(sid):
     return jsonify(s.to_dict())
 
 
-@app.route("/api/supplies/kit-admissao", methods=["POST"])
+@bp.route("/api/supplies/kit-admissao", methods=["POST"])
 @requires("Administrador","Técnico TI")
 def kit_admissao():
     d = request.get_json() or {}
@@ -120,16 +127,30 @@ def kit_admissao():
     items = d.get("items",[])
     # Valida estoque de todos antes de mover qualquer um
     erros = []
+    requested = {}
     for item in items:
-        s = db.session.get(Supply, item.get("id"))
+        supply_id = clean_text(item.get("id"), 16)
         qty = parse_int(item.get("quantidade",1), default=1, minimum=1)
-        if not s: erros.append(f"Item '{item.get('id')}' não encontrado")
+        if supply_id:
+            requested[supply_id] = requested.get(supply_id, 0) + qty
+        else:
+            erros.append("Item sem identificação.")
+    locked_supplies = {
+        s.id: s for s in db.session.execute(
+            db.select(Supply)
+            .where(Supply.id.in_(sorted(requested)))
+            .with_for_update()
+        ).scalars().all()
+    } if requested else {}
+    for supply_id, qty in requested.items():
+        s = locked_supplies.get(supply_id)
+        if not s: erros.append(f"Item '{supply_id}' não encontrado")
         elif s.estoque < qty: erros.append(f"'{s.nome}': estoque insuficiente ({s.estoque} / {qty} pedido)")
     if erros: return jsonify({"error":"Itens com problema:\n"+"\n".join(erros)}), 400
 
     resultado = []
-    for item in items:
-        s = db.session.get(Supply, item.get("id")); qty = parse_int(item.get("quantidade",1), default=1, minimum=1)
+    for supply_id, qty in requested.items():
+        s = locked_supplies[supply_id]
         s.estoque -= qty
         m = SupplyMovement(id=new_id("MOV"), tipo="SAIDA", ref_id=s.id, supply_nome=s.nome,
                            descricao=f"Kit admissão — {colab}: {s.nome} -{qty}", quantidade=-qty,
@@ -139,4 +160,3 @@ def kit_admissao():
     audit("KIT_ADMISSAO", "insumos", "", f"Kit para {colab}: {len(resultado)} itens")
     db.session.commit()
     return jsonify({"ok":True,"resultado":resultado})
-

@@ -8,6 +8,7 @@ from datetime import timedelta
 from app import _export_route_globals
 
 globals().update(_export_route_globals())
+from routes.blueprint import bp
 
 
 def _send_devolucao_term_pdf(dev, c, empresa, logo_b64, titulo, preambulo, clausulas, declaracao, rodape_txt, ctx, ativos, perifs):
@@ -99,7 +100,7 @@ def _send_devolucao_term_pdf(dev, c, empresa, logo_b64, titulo, preambulo, claus
     return send_file(buf, mimetype="application/pdf", as_attachment=True, download_name=f"devolucao_{safe_filename(dev.colaborador)}_{dev.data_devolucao}.pdf")
 
 
-@app.route("/api/devolucoes/<did>/termo.pdf")
+@bp.route("/api/devolucoes/<did>/termo.pdf")
 @api_auth
 def devolucao_pdf(did):
     """PDF do Termo de Devolução a partir do registro Devolucao (com assinatura digital)."""
@@ -229,7 +230,7 @@ def devolucao_pdf(did):
         return jsonify({"error": f"Erro ao gerar PDF: {exc.__class__.__name__} — {exc}"}), 500
 
 
-@app.route("/api/devolucoes/<did>/laudo", methods=["POST"])
+@bp.route("/api/devolucoes/<did>/laudo", methods=["POST"])
 @requires("Administrador", "Técnico TI")
 def registrar_laudo(did):
     """Técnico registra avaliação dos equipamentos. Dispara e-mail de ciência para o RH."""
@@ -290,7 +291,7 @@ def registrar_laudo(did):
     })
 
 
-@app.route("/api/devolucoes/<did>/laudo", methods=["PUT"])
+@bp.route("/api/devolucoes/<did>/laudo", methods=["PUT"])
 @requires("Administrador")
 def editar_laudo(did):
     """Administrador edita/corrige um laudo já registrado após envio ao RH."""
@@ -357,7 +358,7 @@ def editar_laudo(did):
     })
 
 
-@app.route("/api/devolucoes/<did>/reenviar-rh", methods=["POST"])
+@bp.route("/api/devolucoes/<did>/reenviar-rh", methods=["POST"])
 @requires("Administrador", "Técnico TI")
 def reenviar_laudo_rh(did):
     """Reenvia ou renova o link de ciência do laudo para o RH.
@@ -415,9 +416,11 @@ def reenviar_laudo_rh(did):
     })
 
 
-@app.route("/rh/laudo/<rh_token>", methods=["GET"])
+@bp.route("/rh/laudo/<rh_token>", methods=["GET"])
 def pagina_rh_laudo(rh_token):
     """Página pública para o RH visualizar o laudo e dar ciência (sem login)."""
+    if not check_public_token_rate_limit("rh_laudo", rh_token):
+        return render_template("rh_laudo.html", dev=None, laudo=None, erro="Muitas tentativas. Aguarde um momento.", rh_token=rh_token), 429
     dev = db.session.execute(db.select(Devolucao).filter_by(rh_token=rh_token)).scalar_one_or_none()
     erro = None
     if dev is None:
@@ -437,9 +440,12 @@ def pagina_rh_laudo(rh_token):
     return render_template("rh_laudo.html", dev=dev, laudo=laudo, erro=erro, rh_token=rh_token)
 
 
-@app.route("/rh/laudo/<rh_token>", methods=["POST"])
+@bp.route("/rh/laudo/<rh_token>", methods=["POST"])
 def submeter_ciencia_rh(rh_token):
     """RH dá ciência do laudo. Após aprovação, gera link de assinatura para o colaborador."""
+    if not check_public_token_rate_limit("rh_laudo", rh_token):
+        return render_template("rh_laudo.html", dev=None, laudo=None, rh_token=rh_token,
+                               erro="Muitas tentativas. Aguarde um momento."), 429
     dev = db.session.execute(db.select(Devolucao).filter_by(rh_token=rh_token)).scalar_one_or_none()
     laudo = None
     if dev:
@@ -503,14 +509,14 @@ def submeter_ciencia_rh(rh_token):
                            email_colab_enviado=email_colab_enviado)
 
 
-@app.route("/api/devolucoes", methods=["GET"])
+@bp.route("/api/devolucoes", methods=["GET"])
 @requires("Administrador", "Técnico TI")
 def get_devolucoes():
     devs = db.session.execute(db.select(Devolucao).order_by(Devolucao.data_devolucao.desc())).scalars().all()
     return jsonify([d.to_dict() for d in devs])
 
 
-@app.route("/api/devolucoes/<did>", methods=["GET"])
+@bp.route("/api/devolucoes/<did>", methods=["GET"])
 @requires("Administrador", "Técnico TI")
 def get_devolucao(did):
     d = db.get_or_404(Devolucao, did)
@@ -523,7 +529,7 @@ def get_devolucao(did):
     return jsonify(result)
 
 
-@app.route("/api/devolucoes/<did>/sign-link", methods=["POST"])
+@bp.route("/api/devolucoes/<did>/sign-link", methods=["POST"])
 @requires("Administrador", "Técnico TI")
 def gerar_link_devolucao(did):
     dev = db.get_or_404(Devolucao, did)
@@ -547,8 +553,10 @@ def gerar_link_devolucao(did):
                     "emailEnviado": email_enviado})
 
 
-@app.route("/devolver/<token>", methods=["GET"])
+@bp.route("/devolver/<token>", methods=["GET"])
 def pagina_devolucao(token):
+    if not check_public_token_rate_limit("sign_devolucao", token):
+        return render_template("devolver.html", dev=None, token=token, erro="Muitas tentativas. Aguarde um momento."), 429
     dev = db.session.execute(db.select(Devolucao).filter_by(sign_token=token)).scalar_one_or_none()
     erro = None
     if dev is None:
@@ -562,8 +570,10 @@ def pagina_devolucao(token):
                            cpf_required=bool(colab and colab.cpf))
 
 
-@app.route("/devolver/<token>", methods=["POST"])
+@bp.route("/devolver/<token>", methods=["POST"])
 def submeter_devolucao(token):
+    if not check_public_token_rate_limit("sign_devolucao", token):
+        return render_template("devolver.html", dev=None, token=token, erro="Muitas tentativas. Aguarde um momento."), 429
     dev = db.session.execute(db.select(Devolucao).filter_by(sign_token=token)).scalar_one_or_none()
     if dev is None:
         return render_template("devolver.html", dev=None, token=token, erro="Link inválido.")
@@ -605,7 +615,7 @@ def submeter_devolucao(token):
     return render_template("devolver.html", dev=dev, token=token, sucesso=True, cpf_required=cpf_required)
 
 
-@app.route("/api/devolucoes/<did>/assinatura.png")
+@bp.route("/api/devolucoes/<did>/assinatura.png")
 @api_auth
 def get_assinatura_devolucao(did):
     dev = db.get_or_404(Devolucao, did)

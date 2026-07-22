@@ -7,8 +7,9 @@ pacotes dedicados como models, services e extensions.
 from app import _export_route_globals
 
 globals().update(_export_route_globals())
+from routes.blueprint import bp
 
-@app.route("/api/incidents", methods=["GET"])
+@bp.route("/api/incidents", methods=["GET"])
 @api_auth
 def get_incidents():
     ref = request.args.get("refId")
@@ -16,7 +17,7 @@ def get_incidents():
     return jsonify([i.to_dict() for i in qry.all()])
 
 
-@app.route("/api/incidents", methods=["POST"])
+@bp.route("/api/incidents", methods=["POST"])
 @requires("Administrador","Técnico TI")
 def create_incident():
     d = request.get_json() or {}
@@ -37,7 +38,7 @@ def create_incident():
     db.session.commit(); return jsonify(i.to_dict()), 201
 
 
-@app.route("/api/maintenance", methods=["GET"])
+@bp.route("/api/maintenance", methods=["GET"])
 @api_auth
 def get_maintenance():
     status   = request.args.get("status", "")
@@ -48,7 +49,7 @@ def get_maintenance():
     return jsonify([m.to_dict() for m in db.session.execute(stmt).scalars().all()])
 
 
-@app.route("/api/maintenance", methods=["POST"])
+@bp.route("/api/maintenance", methods=["POST"])
 @requires("Administrador","Técnico TI")
 def create_maintenance():
     d = request.get_json() or {}
@@ -81,13 +82,13 @@ def create_maintenance():
     return jsonify(m.to_dict()), 201
 
 
-@app.route("/api/maintenance/<mid>", methods=["GET"])
+@bp.route("/api/maintenance/<mid>", methods=["GET"])
 @api_auth
 def get_maintenance_order(mid):
     return jsonify(db.get_or_404(MaintenanceOrder, mid).to_dict(include_parts=True))
 
 
-@app.route("/api/maintenance/<mid>", methods=["PUT"])
+@bp.route("/api/maintenance/<mid>", methods=["PUT"])
 @requires("Administrador","Técnico TI")
 def update_maintenance(mid):
     m = db.get_or_404(MaintenanceOrder, mid)
@@ -106,7 +107,7 @@ def update_maintenance(mid):
     return jsonify(m.to_dict(include_parts=True))
 
 
-@app.route("/api/maintenance/<mid>/upload", methods=["POST"])
+@bp.route("/api/maintenance/<mid>/upload", methods=["POST"])
 @requires("Administrador","Técnico TI")
 def upload_maintenance_attachment(mid):
     db.get_or_404(MaintenanceOrder, mid)
@@ -125,7 +126,7 @@ def upload_maintenance_attachment(mid):
     return jsonify({"ok": True, "filename": att.original_name, "attachment": att.to_dict()}), 201
 
 
-@app.route("/api/maintenance/<mid>/parts", methods=["POST"])
+@bp.route("/api/maintenance/<mid>/parts", methods=["POST"])
 @requires("Administrador","Técnico TI")
 def add_maintenance_part(mid):
     m = db.get_or_404(MaintenanceOrder, mid)
@@ -137,7 +138,7 @@ def add_maintenance_part(mid):
     custo_unit  = parse_float(d.get("custoUnitario",0), minimum=0)
     if not supply_id:
         return jsonify({"error":"Supply ID é obrigatório."}), 400
-    s = db.session.get(Supply, supply_id)
+    s = get_supply_for_update(supply_id)
     if not s:
         return jsonify({"error":"Item não encontrado no estoque."}), 404
     if s.estoque < qty:
@@ -156,7 +157,7 @@ def add_maintenance_part(mid):
     return jsonify(m.to_dict(include_parts=True)), 201
 
 
-@app.route("/api/maintenance/<mid>/parts/<pid>", methods=["DELETE"])
+@bp.route("/api/maintenance/<mid>/parts/<pid>", methods=["DELETE"])
 @requires("Administrador","Técnico TI")
 def remove_maintenance_part(mid, pid):
     m = db.get_or_404(MaintenanceOrder, mid)
@@ -165,7 +166,7 @@ def remove_maintenance_part(mid, pid):
     p = db.get_or_404(MaintenancePart, pid)
     if p.maintenance_id != mid:
         return jsonify({"error":"Peça não pertence a esta OS."}), 400
-    s = db.session.get(Supply, p.supply_id)
+    s = get_supply_for_update(p.supply_id)
     if s:
         s.estoque += p.quantidade
         db.session.add(SupplyMovement(
@@ -179,7 +180,7 @@ def remove_maintenance_part(mid, pid):
     return jsonify(m.to_dict(include_parts=True))
 
 
-@app.route("/api/maintenance/<mid>/close", methods=["POST"])
+@bp.route("/api/maintenance/<mid>/close", methods=["POST"])
 @requires("Administrador","Técnico TI")
 def close_maintenance(mid):
     m = db.get_or_404(MaintenanceOrder, mid)

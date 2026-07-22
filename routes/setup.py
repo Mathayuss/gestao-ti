@@ -5,6 +5,7 @@ from urllib.parse import urlsplit
 from app import _export_route_globals
 
 globals().update(_export_route_globals())
+from routes.blueprint import bp
 
 
 def _setup_completed():
@@ -85,11 +86,11 @@ def _render_setup(token="", errors=None, values=None, authorized=True):
         values=values,
         authorized=authorized,
         database=_database_info(),
-        build_version=app.config.get("BUILD_VERSION", "0.1.2-BETA"),
+        build_version=app.config.get("BUILD_VERSION", "1.3.5"),
     )
 
 
-@app.route("/setup", methods=["GET", "POST"])
+@bp.route("/setup", methods=["GET", "POST"])
 def setup_wizard():
     if _setup_completed():
         return redirect(url_for("login_page"))
@@ -238,7 +239,7 @@ def setup_wizard():
     if print_agent:
         return render_template(
             "setup_complete.html",
-            build_version=app.config.get("BUILD_VERSION", "0.1.2-BETA"),
+            build_version=app.config.get("BUILD_VERSION", "1.3.5"),
             printer=print_agent.to_dict(),
             printer_token=print_agent_token,
         )

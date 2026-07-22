@@ -14,11 +14,15 @@ e facilitar a leitura do codigo.
 - `devolucoes.py`: devolucoes, laudo tecnico, ciencia do RH e assinatura de devolucao.
 - `reports.py`: dashboard, alertas, auditoria, movimentos, exportacoes e backups.
 
-Por enquanto os modulos usam `_export_route_globals()` como ponte temporaria para
-reaproveitar modelos, helpers e extensoes ainda definidos em `app.py`. O proximo
-passo natural e mover esses itens para pacotes dedicados, por exemplo:
+Os modulos usam o Blueprint compartilhado `routes.blueprint.bp`, registrado sem
+prefixo de endpoint para preservar compatibilidade com `url_for`, templates e
+links publicos existentes. Por enquanto os modulos ainda usam
+`_export_route_globals()` como ponte temporaria para reaproveitar modelos,
+helpers e extensoes definidos em `app.py`.
+
+O proximo passo natural e mover esses itens para pacotes dedicados, por exemplo:
 
 - `models/`: classes SQLAlchemy.
-- `services/`: regras de negocio, PDF, e-mail, backup e auditoria.
+- `services/`: regras de negocio, backup, ativos, e-mail, configuracoes e renderizacao de templates.
 - `extensions.py`: `db`, `lm`, migrate e integracoes Flask.
 - `config.py`: leitura e normalizacao de variaveis de ambiente.

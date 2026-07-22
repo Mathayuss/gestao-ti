@@ -7,8 +7,9 @@ pacotes dedicados como models, services e extensions.
 from app import _export_route_globals
 
 globals().update(_export_route_globals())
+from routes.blueprint import bp
 
-@app.route("/api/audit-log")
+@bp.route("/api/audit-log")
 @requires("Administrador","Técnico TI")
 def get_audit_log():
     page = int(request.args.get("page",1))
@@ -18,12 +19,12 @@ def get_audit_log():
     return jsonify({"total":total,"page":page,"items":[l.to_dict() for l in logs]})
 
 
-@app.route("/api/alerts")
+@bp.route("/api/alerts")
 @api_auth
 def get_alerts(): return jsonify(compute_alerts())
 
 
-@app.route("/api/dashboard")
+@bp.route("/api/dashboard")
 @api_auth
 def get_dashboard():
     cats = dict(db.session.execute(
@@ -72,7 +73,7 @@ def get_dashboard():
     })
 
 
-@app.route("/api/operational/status")
+@bp.route("/api/operational/status")
 @api_auth
 def operational_status():
     """Resumo operacional para monitoramento da aplicação."""
@@ -114,14 +115,14 @@ def operational_status():
     })
 
 
-@app.route("/api/movements")
+@bp.route("/api/movements")
 @api_auth
 def get_movements():
     movs = db.session.execute(db.select(SupplyMovement).order_by(SupplyMovement.data.desc()).limit(50)).scalars().all()
     return jsonify([m.to_dict() for m in movs])
 
 
-@app.route("/api/export/assets.csv")
+@bp.route("/api/export/assets.csv")
 @requires("Administrador","Técnico TI","Gestor")
 def export_assets_csv():
     rows = [a.to_dict() for a in db.session.execute(db.select(Asset).order_by(Asset.hostname)).scalars().all()]
@@ -131,7 +132,7 @@ def export_assets_csv():
     return csv_response("ativos_ti.csv", rows, headers)
 
 
-@app.route("/api/export/colaboradores.csv")
+@bp.route("/api/export/colaboradores.csv")
 @requires("Administrador","Técnico TI","Gestor")
 def export_colaboradores_csv():
     rows = [c.to_dict() for c in db.session.execute(db.select(Colaborador).order_by(Colaborador.nome)).scalars().all()]
@@ -141,7 +142,7 @@ def export_colaboradores_csv():
     return csv_response("colaboradores_ti.csv", rows, headers)
 
 
-@app.route("/api/export/alocacoes.csv")
+@bp.route("/api/export/alocacoes.csv")
 @requires("Administrador","Técnico TI","Gestor")
 def export_alocacoes_csv():
     rows = [a.to_dict(include_items=False) for a in db.session.execute(db.select(Allocation).order_by(Allocation.data_aloc.desc())).scalars().all()]
@@ -151,7 +152,7 @@ def export_alocacoes_csv():
     return csv_response("alocacoes_ti.csv", rows, headers)
 
 
-@app.route("/api/backup.json")
+@bp.route("/api/backup.json")
 @requires("Administrador")
 def backup_json():
     raw, checksum = _backup_bytes(generated_by=current_user.username, include_audit=_get_backup_config()["include_audit"])
@@ -164,13 +165,13 @@ def backup_json():
     return resp
 
 
-@app.route("/api/backups")
+@bp.route("/api/backups")
 @requires("Administrador")
 def list_backups():
     return jsonify({"config": _get_backup_config(), "files": _list_backup_files()})
 
 
-@app.route("/api/backups/run", methods=["POST"])
+@bp.route("/api/backups/run", methods=["POST"])
 @requires("Administrador")
 def run_backup():
     try:
@@ -183,7 +184,7 @@ def run_backup():
         return jsonify({"error": f"Falha ao gerar backup: {exc}"}), 500
 
 
-@app.route("/api/backups/files/<filename>")
+@bp.route("/api/backups/files/<filename>")
 @requires("Administrador")
 def download_backup_file(filename):
     path = _backup_file_path(filename)
@@ -194,7 +195,7 @@ def download_backup_file(filename):
     return send_file(path, mimetype="application/json", as_attachment=True, download_name=os.path.basename(path))
 
 
-@app.route("/api/backups/files/<filename>", methods=["DELETE"])
+@bp.route("/api/backups/files/<filename>", methods=["DELETE"])
 @requires("Administrador")
 def delete_backup_file(filename):
     path = _backup_file_path(filename)
@@ -206,7 +207,7 @@ def delete_backup_file(filename):
     return jsonify({"ok": True})
 
 
-@app.route("/api/backups/validate", methods=["POST"])
+@bp.route("/api/backups/validate", methods=["POST"])
 @requires("Administrador")
 def validate_backup():
     sha256_actual = None
@@ -234,7 +235,7 @@ def validate_backup():
     return jsonify(result)
 
 
-@app.route("/api/backups/restore/<filename>", methods=["POST"])
+@bp.route("/api/backups/restore/<filename>", methods=["POST"])
 @requires("Administrador")
 def restore_backup_stored(filename):
     path = _backup_file_path(filename)
@@ -260,7 +261,7 @@ def restore_backup_stored(filename):
         return jsonify({"error": f"Falha na restauração: {exc}"}), 500
 
 
-@app.route("/api/backups/restore", methods=["POST"])
+@bp.route("/api/backups/restore", methods=["POST"])
 @requires("Administrador")
 def restore_backup_upload():
     file = request.files.get("file")

@@ -93,13 +93,11 @@ echo "TI Control - instalacao com PostgreSQL"
 echo
 
 APP_PORT="$(prompt_default "Porta web da aplicacao" "5000")"
-POSTGRES_PORT="$(prompt_default "Porta local do PostgreSQL" "5432")"
 POSTGRES_DB="$(prompt_default "Nome do banco" "ticontrol_db")"
 POSTGRES_USER="$(prompt_default "Usuario do banco" "ticontrol")"
 APP_BASE_URL="$(prompt_default "URL publica" "http://localhost:${APP_PORT}")"
 
 validate_port "$APP_PORT" "Porta web"
-validate_port "$POSTGRES_PORT" "Porta PostgreSQL"
 validate_pg_identifier "$POSTGRES_DB" "Nome do banco"
 validate_pg_identifier "$POSTGRES_USER" "Usuario do banco"
 validate_url "$APP_BASE_URL"
@@ -107,11 +105,9 @@ validate_url "$APP_BASE_URL"
 if port_in_use "$APP_PORT"; then
   die "A porta web $APP_PORT ja esta em uso."
 fi
-if port_in_use "$POSTGRES_PORT"; then
-  die "A porta PostgreSQL $POSTGRES_PORT ja esta em uso."
-fi
 
 POSTGRES_PASSWORD="$(random_hex 24)"
+GRAFANA_ADMIN_PASSWORD="$(random_hex 18)"
 SECRET_KEY="$(random_hex 32)"
 SETUP_TOKEN="$(random_hex 18)"
 SESSION_SECURE=0
@@ -127,20 +123,21 @@ SESSION_SECURE=${SESSION_SECURE}
 SHOW_DEMO_CREDENTIALS=0
 AUTO_SEED_DEMO=0
 SERVICE_NAME=ti-control
-BUILD_VERSION=0.1.2-BETA
+BUILD_VERSION=1.3.5
 ENVIRONMENT=local
 SETUP_TOKEN=${SETUP_TOKEN}
 WEB_CONCURRENCY=2
 WEB_THREADS=4
 GUNICORN_TIMEOUT=60
-SELF_UPDATE_ENABLED=1
-SELF_UPDATE_AUTO_RESTART=1
+SELF_UPDATE_ENABLED=0
+SELF_UPDATE_AUTO_RESTART=0
 METRICS_TOKEN=
 SMTP_ENABLED=0
 POSTGRES_DB=${POSTGRES_DB}
 POSTGRES_USER=${POSTGRES_USER}
 POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-POSTGRES_PORT=${POSTGRES_PORT}
+GRAFANA_ADMIN_USER=admin
+GRAFANA_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD}
 EOF
 
 echo

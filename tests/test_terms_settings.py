@@ -1,4 +1,5 @@
 import os
+import tempfile
 import unittest
 
 os.environ.setdefault("SECRET_KEY", "test-secret")
@@ -18,6 +19,10 @@ class TermSettingsTest(unittest.TestCase):
             tic.db.create_all()
 
     def tearDown(self):
+        os.environ.pop("SMTP_PASSWORD", None)
+        os.environ.pop("SMTP_PASSWORD_FILE", None)
+        os.environ.pop("SMTP_HOST", None)
+        os.environ.pop("SMTP_ENABLED", None)
         with tic.app.app_context():
             tic.db.session.remove()
             tic.db.drop_all()
@@ -80,6 +85,26 @@ class TermSettingsTest(unittest.TestCase):
         })
 
         self.assertEqual(rendered, "Olá Ana de TI Control")
+
+    def test_smtp_password_file_overrides_database_password(self):
+        with tempfile.NamedTemporaryFile("w", encoding="utf-8", delete=False) as secret:
+            secret.write("senha-via-secret\n")
+            secret_path = secret.name
+        self.addCleanup(lambda: os.path.exists(secret_path) and os.unlink(secret_path))
+
+        os.environ["SMTP_PASSWORD_FILE"] = secret_path
+        os.environ["SMTP_HOST"] = "smtp.example.com"
+        os.environ["SMTP_ENABLED"] = "1"
+
+        with tic.app.app_context():
+            tic._set_setting("email.source", "env")
+            tic._set_setting("email.password", "senha-do-banco")
+            tic.db.session.commit()
+
+            cfg = tic._get_email_config()
+
+        self.assertEqual(cfg["password"], "senha-via-secret")
+        self.assertEqual(cfg["source"], "env")
 
 
 if __name__ == "__main__":

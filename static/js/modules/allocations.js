@@ -926,19 +926,19 @@ async function openTrocaPeriferico(btn){
   const allocationId=btn.dataset.allocationId;
   const itemId=btn.dataset.itemId;
   const supplyId=btn.dataset.supplyId;
-  const nome=btn.dataset.nome||'PerifÃ©rico';
+  const nome=btn.dataset.nome||'Periférico';
   const quantidade=Math.max(1,parseInt(btn.dataset.quantidade||'1',10)||1);
   const supplies=await api('/supplies');
-  const perifericos=supplies.filter(s=>s.categoria==='PerifÃ©rico');
+  const perifericos=supplies.filter(s=>['Periférico','PerifÃ©rico'].includes(s.categoria));
   const opts=perifericos.length ? perifericos.map(s=>`
     <option value="${escAttr(s.id)}" ${s.id===supplyId?'selected':''}>
       ${esc(s.nome)} - estoque: ${s.estoque}
-    </option>`).join('') : '<option value="">Nenhum perifÃ©rico cadastrado</option>';
+    </option>`).join('') : '<option value="">Nenhum periférico cadastrado</option>';
 
-  openModal('Trocar perifÃ©rico com defeito',`
+  openModal('Trocar periférico com defeito',`
     <div class="info-box amber">
       <strong>Item atual:</strong> ${esc(nome)}<br>
-      O item defeituoso serÃ¡ registrado no histÃ³rico e o substituto sairÃ¡ do estoque.
+      O item defeituoso será registrado no histórico e o substituto sairá do estoque.
     </div>
     <div class="form-grid-2">
       <div class="form-group">
@@ -949,18 +949,18 @@ async function openTrocaPeriferico(btn){
         <label>Motivo</label>
         <select id="tp-motivo">
           <option>Defeito</option>
-          <option>Dano fÃ­sico</option>
+          <option>Dano físico</option>
           <option>Mau funcionamento</option>
           <option>Perda de funcionalidade</option>
         </select>
       </div>
     </div>
     <div class="form-group">
-      <label>PerifÃ©rico substituto</label>
+      <label>Periférico substituto</label>
       <select id="tp-supply">${opts}</select>
     </div>
     <div class="form-group">
-      <label>ObservaÃ§Ã£o</label>
+      <label>Observação</label>
       <textarea id="tp-obs" style="min-height:80px;resize:vertical" placeholder="Ex: mouse sem clique, teclado com tecla quebrada..."></textarea>
     </div>
     <div class="modal-footer">
@@ -971,7 +971,7 @@ async function openTrocaPeriferico(btn){
 }
 
 async function confirmarTrocaPeriferico(allocationId,itemId){
-  if(!$('tp-supply').value){toast('Selecione um perifÃ©rico substituto.','error');return;}
+  if(!$('tp-supply').value){toast('Selecione um periférico substituto.','error');return;}
   const quantidade=parseInt($('tp-qty').value,10)||1;
   await api(`/allocations/${allocationId}/perifericos/${itemId}/troca`,'POST',{
     novoSupplyId:$('tp-supply').value,
