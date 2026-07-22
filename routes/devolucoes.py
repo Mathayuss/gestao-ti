@@ -1,14 +1,46 @@
-"""Rotas Flask extraidas do app.py.
+"""Rotas de devolucoes, laudos tecnicos e assinatura publica."""
+import base64
+import io
+import json
+import uuid
+from datetime import date, datetime, timedelta
 
-Este modulo usa uma ponte temporaria para acessar modelos, helpers e extensoes
-definidos em app.py. Em uma proxima etapa, esses itens podem migrar para
-pacotes dedicados como models, services e extensions.
-"""
-from datetime import timedelta
-from app import _export_route_globals
+from flask import Response, jsonify, render_template, request, send_file
+from flask_login import current_user
 
-globals().update(_export_route_globals())
+from app import (
+    PDF_OK,
+    _get_email_config,
+    _get_setting,
+    _pdf_draw_logo,
+    _render_termo_text,
+    _send_email_async,
+    api_auth,
+    audit,
+    check_public_token_rate_limit,
+    clean_text,
+    cpf_matches,
+    get_app_base_url,
+    json_payload,
+    new_id,
+    parse_float,
+    requires,
+    safe_filename,
+    send_email_laudo_editado_colab,
+    send_email_laudo_editado_rh,
+    send_email_laudo_rh,
+    send_email_link_devolucao,
+    validate_email,
+    app,
+)
+from extensions import db
+from models import Colaborador, Devolucao, LaudoTecnico
 from routes.blueprint import bp
+
+if PDF_OK:
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.units import cm
+    from reportlab.pdfgen import canvas as rl_canvas
 
 
 def _send_devolucao_term_pdf(dev, c, empresa, logo_b64, titulo, preambulo, clausulas, declaracao, rodape_txt, ctx, ativos, perifs):

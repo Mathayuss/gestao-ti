@@ -1,6 +1,7 @@
 import os
 import re
 import unittest
+from pathlib import Path
 
 os.environ.setdefault("SECRET_KEY", "test-secret")
 os.environ["DATABASE_URL"] = "sqlite:///:memory:"
@@ -46,6 +47,18 @@ class AppSmokeTest(unittest.TestCase):
         }:
             self.assertIn(endpoint, endpoints)
         self.assertFalse(any(endpoint.startswith("auth.") for endpoint in endpoints))
+
+    def test_route_modules_do_not_use_global_export_bridge(self):
+        routes_dir = Path(__file__).resolve().parents[1] / "routes"
+        offenders = []
+        for path in routes_dir.glob("*.py"):
+            if path.name in {"__init__.py"}:
+                continue
+            text = path.read_text(encoding="utf-8")
+            if "_export_route_globals" in text or "globals().update" in text:
+                offenders.append(path.name)
+
+        self.assertEqual([], sorted(offenders))
 
     def test_health_endpoints_are_available(self):
         client = tic.app.test_client()

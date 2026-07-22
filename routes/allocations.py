@@ -1,15 +1,51 @@
-"""Rotas Flask extraidas do app.py.
-
-Este modulo usa uma ponte temporaria para acessar modelos, helpers e extensoes
-definidos em app.py. Em uma proxima etapa, esses itens podem migrar para
-pacotes dedicados como models, services e extensions.
-"""
+"""Rotas de alocacoes, termos e assinatura publica."""
 import base64
-from datetime import timedelta
-from app import _export_route_globals
+import io
+import uuid
+from datetime import date, datetime, timedelta
 
-globals().update(_export_route_globals())
+from flask import Response, abort, jsonify, render_template, request, send_file
+from flask_login import current_user
+
+from app import (
+    PDF_OK,
+    QR_OK,
+    _get_setting,
+    _pdf_draw_logo,
+    _render_termo_text,
+    api_auth,
+    app,
+    audit,
+    check_public_token_rate_limit,
+    clean_text,
+    cpf_matches,
+    get_app_base_url,
+    get_assets_for_update,
+    get_supply_for_update,
+    new_id,
+    parse_int,
+    requires,
+    safe_filename,
+    send_email_link_assinatura,
+)
+from extensions import db
+from models import (
+    Allocation,
+    AllocationAsset,
+    AllocationItem,
+    Asset,
+    Colaborador,
+    SupplyMovement,
+)
 from routes.blueprint import bp
+
+if PDF_OK:
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.units import cm
+    from reportlab.pdfgen import canvas as rl_canvas
+
+if QR_OK:
+    import qrcode
 
 
 def _send_allocation_term_pdf(al, aid, empresa, logo_b64, titulo, preambulo, clausulas, rodape_txt, ctx):

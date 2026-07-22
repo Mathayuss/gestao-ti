@@ -2659,11 +2659,6 @@ def _migrate_db():
         pass
 
 
-def _export_route_globals():
-    """Compatibilidade temporaria para modulos de rotas durante a refatoracao."""
-    return {name: value for name, value in globals().items() if not name.startswith("__")}
-
-
 def register_route_modules():
     """Importa modulos de rotas para registrar os endpoints Flask."""
     from routes.blueprint import bp as routes_bp

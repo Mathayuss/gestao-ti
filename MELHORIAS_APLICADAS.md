@@ -8,8 +8,9 @@
 - Criado `services/email_service.py` para concentrar configuração SMTP, leitura de secret file, templates e envio de e-mails.
 - Criado `services/settings_service.py` para centralizar leitura e gravação das configurações persistidas.
 - Criado `services/template_renderer.py` para unificar a renderização de variáveis em termos, PDFs e e-mails.
-- Removida a ponte `_export_route_globals()` de 12 módulos de rota, substituindo dependências implícitas por imports explícitos.
-- A ponte temporária ficou restrita aos módulos mais densos de ativos, alocações, devoluções e termos avulsos, para uma próxima rodada dedicada.
+- Removida a ponte `_export_route_globals()` de todos os módulos de rota, substituindo dependências implícitas por imports explícitos.
+- Removido o helper temporário `_export_route_globals()` do `app.py`.
+- Adicionado teste para impedir regressão no uso da ponte global em `routes/`.
 - Mantidos wrappers de compatibilidade no `app.py`, reduzindo risco para as rotas atuais durante a migração gradual para camada de serviços.
 - Adicionado teste para garantir que o Blueprint compartilhado mantém os nomes legados de endpoints.
 - Validado `py_compile`, `unittest discover -s tests`, smoke de renderização de templates e `git diff --check`.

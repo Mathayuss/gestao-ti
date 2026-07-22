@@ -1,10 +1,42 @@
 """Rotas para termos personalizados, mantendo nomes legados para compatibilidade."""
 import base64
-from datetime import timedelta
-from app import _export_route_globals
+import io
+import json
+import uuid
+from datetime import date, datetime, timedelta
 
-globals().update(_export_route_globals())
+from flask import jsonify, render_template, request, send_file
+from flask_login import current_user
+
+from app import (
+    PDF_OK,
+    _get_setting,
+    _get_termo_avulso_modelo,
+    _get_termos_avulsos_modelos,
+    _pdf_draw_logo,
+    _render_email_template,
+    _render_termo_text,
+    api_auth,
+    app,
+    audit,
+    check_public_token_rate_limit,
+    clean_text,
+    cpf_matches,
+    get_app_base_url,
+    new_id,
+    requires,
+    safe_filename,
+    send_email,
+    validate_email,
+)
+from extensions import db
+from models import Colaborador, TermoAvulso
 from routes.blueprint import bp
+
+if PDF_OK:
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.units import cm
+    from reportlab.pdfgen import canvas as rl_canvas
 
 TIPOS_TERMO_AVULSO = ["VPN", "BYOD", "Confidencialidade", "Outro"]
 

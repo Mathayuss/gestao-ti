@@ -1,14 +1,52 @@
-"""Rotas Flask extraidas do app.py.
-
-Este modulo usa uma ponte temporaria para acessar modelos, helpers e extensoes
-definidos em app.py. Em uma proxima etapa, esses itens podem migrar para
-pacotes dedicados como models, services e extensions.
-"""
-from app import _export_route_globals
+"""Rotas de ativos, perfil publico, QR Code, etiquetas e historico."""
+import base64
+import io
+import os
 import secrets
 
-globals().update(_export_route_globals())
+from flask import jsonify, render_template, request, send_file
+from flask_login import current_user, login_required
+from sqlalchemy.exc import IntegrityError
+
+from app import (
+    PDF_OK,
+    QR_OK,
+    _create_attachment_record,
+    _get_setting,
+    api_auth,
+    app,
+    asset_integrity_error_response,
+    audit,
+    check_public_token_rate_limit,
+    clean_text,
+    get_app_base_url,
+    logger,
+    new_id,
+    parse_bool,
+    proximo_patrimonio,
+    requires,
+    validate_asset_payload,
+)
+from extensions import db
+from models import (
+    Allocation,
+    AllocationAsset,
+    Asset,
+    AuditLog,
+    Incident,
+    MaintenanceOrder,
+    SupplyMovement,
+)
 from routes.blueprint import bp
+from services.asset_service import normalize_asset_category_filter
+
+if PDF_OK:
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.units import cm
+    from reportlab.pdfgen import canvas as rl_canvas
+
+if QR_OK:
+    import qrcode
 
 @bp.route("/")
 @login_required
