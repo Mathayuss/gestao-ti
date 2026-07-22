@@ -6,9 +6,6 @@ from flask_login import current_user
 
 from app import (
     ATTACHMENT_MODULE_BY_ENTITY,
-    _attachment_entity_exists,
-    _attachment_path,
-    _create_attachment_record,
     _profile_allows,
     api_auth,
     audit,
@@ -18,6 +15,11 @@ from app import (
 from extensions import db
 from models import Attachment
 from routes.blueprint import bp
+from services.attachment_service import (
+    attachment_entity_exists,
+    attachment_path,
+    create_attachment_record,
+)
 
 
 ATTACHMENT_ENTITY_LABEL = {
@@ -41,7 +43,7 @@ def list_attachments(entity_type, entity_id):
     entity_id = clean_text(entity_id, 16)
     if entity_type not in ATTACHMENT_ENTITY_LABEL:
         return jsonify({"error": "Tipo de entidade inválido."}), 400
-    if not _attachment_entity_exists(entity_type, entity_id):
+    if not attachment_entity_exists(entity_type, entity_id):
         return jsonify({"error": "Entidade não encontrada."}), 404
     items = db.session.execute(_attachment_query(entity_type, entity_id)).scalars().all()
     return jsonify([a.to_dict() for a in items])
@@ -54,10 +56,10 @@ def upload_attachment(entity_type, entity_id):
     entity_id = clean_text(entity_id, 16)
     if entity_type not in ATTACHMENT_ENTITY_LABEL:
         return jsonify({"error": "Tipo de entidade inválido."}), 400
-    if not _attachment_entity_exists(entity_type, entity_id):
+    if not attachment_entity_exists(entity_type, entity_id):
         return jsonify({"error": "Entidade não encontrada."}), 404
 
-    att, error = _create_attachment_record(
+    att, error = create_attachment_record(
         entity_type,
         entity_id,
         request.files.get("file"),
@@ -79,7 +81,7 @@ def download_attachment(attachment_id):
     module = ATTACHMENT_MODULE_BY_ENTITY.get(att.entity_type)
     if module and not _profile_allows(current_user.perfil, module, "view"):
         return jsonify({"error": "Sem permissão para acessar este anexo."}), 403
-    path = _attachment_path(att.stored_name)
+    path = attachment_path(att.stored_name)
     if not path or not os.path.exists(path):
         return jsonify({"error": "Arquivo não encontrado."}), 404
     return send_file(path, mimetype=att.content_type, as_attachment=True, download_name=att.original_name)
@@ -92,7 +94,7 @@ def delete_attachment(attachment_id):
     module = ATTACHMENT_MODULE_BY_ENTITY.get(att.entity_type)
     if module and not _profile_allows(current_user.perfil, module, "delete"):
         return jsonify({"error": "Sem permissão para remover este anexo."}), 403
-    path = _attachment_path(att.stored_name)
+    path = attachment_path(att.stored_name)
     if path and os.path.exists(path):
         os.remove(path)
     audit("ANEXO_DELETE", ATTACHMENT_ENTITY_LABEL.get(att.entity_type, "anexos"),

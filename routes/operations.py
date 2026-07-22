@@ -7,7 +7,6 @@ from app import (
     MANUT_ENCERRA,
     MANUT_STATUS,
     MANUT_TIPO,
-    _create_attachment_record,
     api_auth,
     audit,
     clean_text,
@@ -28,6 +27,7 @@ from models import (
     SupplyMovement,
 )
 from routes.blueprint import bp
+from services.attachment_service import create_attachment_record
 
 @bp.route("/api/incidents", methods=["GET"])
 @api_auth
@@ -131,7 +131,7 @@ def update_maintenance(mid):
 @requires("Administrador","Técnico TI")
 def upload_maintenance_attachment(mid):
     db.get_or_404(MaintenanceOrder, mid)
-    att, error = _create_attachment_record(
+    att, error = create_attachment_record(
         "maintenance",
         mid,
         request.files.get("file"),

@@ -3,10 +3,11 @@ from datetime import datetime
 
 from flask import jsonify, request
 
-from app import _create_attachment_record, api_auth, audit, clean_text, new_id, requires
+from app import api_auth, audit, clean_text, new_id, requires
 from extensions import db
 from models import License
 from routes.blueprint import bp
+from services.attachment_service import create_attachment_record
 
 
 LICENSE_TYPES = ("Assinatura mensal", "Anual", "Perpétua", "Por uso")
@@ -115,7 +116,7 @@ def update_license(lid):
 @requires("Administrador", "Técnico TI")
 def upload_license_attachment(lid):
     license_obj = db.get_or_404(License, lid)
-    att, error = _create_attachment_record(
+    att, error = create_attachment_record(
         "license",
         lid,
         request.files.get("file"),

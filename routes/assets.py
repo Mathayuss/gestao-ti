@@ -11,7 +11,6 @@ from sqlalchemy.exc import IntegrityError
 from app import (
     PDF_OK,
     QR_OK,
-    _create_attachment_record,
     _get_setting,
     api_auth,
     app,
@@ -39,6 +38,7 @@ from models import (
 )
 from routes.blueprint import bp
 from services.asset_service import normalize_asset_category_filter
+from services.attachment_service import create_attachment_record
 
 if PDF_OK:
     from reportlab.lib.pagesizes import A4
@@ -705,7 +705,7 @@ def update_asset(aid):
 @requires("Administrador","Técnico TI")
 def upload_asset_attachment(aid):
     a = db.get_or_404(Asset, aid)
-    att, error = _create_attachment_record(
+    att, error = create_attachment_record(
         "asset",
         aid,
         request.files.get("file"),

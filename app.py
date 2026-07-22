@@ -16,7 +16,6 @@ warnings.filterwarnings('ignore', message='.*utcnow.*', category=DeprecationWarn
 from functools import wraps
 from flask import (Flask, jsonify, request, render_template, render_template_string,
                    send_file, redirect, url_for, session, Response, g)
-from werkzeug.utils import secure_filename
 from sqlalchemy import func, text
 from sqlalchemy.exc import IntegrityError
 from urllib.parse import urlsplit
@@ -307,6 +306,7 @@ from services.backup_service import (
     parse_backup_schedule_time as service_parse_backup_schedule_time,
     update_backup_config as service_update_backup_config,
 )
+from services import attachment_service
 from services import email_service
 from services import settings_service
 from services.template_renderer import render_text_template as service_render_text_template
@@ -1346,24 +1346,9 @@ BACKUP_FILE_RE = re.compile(r"^backup_ticontrol_\d{8}_\d{6}_(manual|auto|pre_res
 BACKUP_UPLOAD_MAX_BYTES = 20 * 1024 * 1024
 _backup_last_check = 0
 _backup_lock = threading.Lock()
-ATTACHMENT_DIR = os.path.join(app.instance_path, "attachments")
-ATTACHMENT_MAX_BYTES = 8 * 1024 * 1024
-ATTACHMENT_ALLOWED_EXT = {
-    "pdf", "png", "jpg", "jpeg", "webp", "txt", "csv", "doc", "docx", "xls", "xlsx",
-}
-ATTACHMENT_MIME_BY_EXT = {
-    "pdf": {"application/pdf"},
-    "png": {"image/png"},
-    "jpg": {"image/jpeg"},
-    "jpeg": {"image/jpeg"},
-    "webp": {"image/webp"},
-    "txt": {"text/plain"},
-    "csv": {"text/csv", "application/csv", "text/plain", "application/vnd.ms-excel"},
-    "doc": {"application/msword", "application/octet-stream"},
-    "docx": {"application/vnd.openxmlformats-officedocument.wordprocessingml.document", "application/zip", "application/octet-stream"},
-    "xls": {"application/vnd.ms-excel", "application/octet-stream"},
-    "xlsx": {"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "application/zip", "application/octet-stream"},
-}
+ATTACHMENT_MAX_BYTES = attachment_service.ATTACHMENT_MAX_BYTES
+ATTACHMENT_ALLOWED_EXT = attachment_service.ATTACHMENT_ALLOWED_EXT
+ATTACHMENT_MIME_BY_EXT = attachment_service.ATTACHMENT_MIME_BY_EXT
 
 def _parse_backup_schedule_time(value):
     return service_parse_backup_schedule_time(value)
@@ -2136,95 +2121,25 @@ def _restore_from_payload(payload, restored_by="sistema"):
 
 
 def _attachment_entity_exists(entity_type, entity_id):
-    model_map = {
-        "asset": Asset,
-        "maintenance": MaintenanceOrder,
-        "license": License,
-    }
-    model = model_map.get(entity_type)
-    return bool(model and db.session.get(model, entity_id))
+    return attachment_service.attachment_entity_exists(entity_type, entity_id)
 
 
 def _attachment_path(stored_name):
-    safe = secure_filename(stored_name or "")
-    if not safe or safe != stored_name:
-        return None
-    path = os.path.abspath(os.path.join(ATTACHMENT_DIR, safe))
-    base = os.path.abspath(ATTACHMENT_DIR)
-    if not path.startswith(base + os.sep):
-        return None
-    return path
+    return attachment_service.attachment_path(stored_name)
 
 
 def _attachment_ext(filename):
-    if "." not in filename:
-        return ""
-    return filename.rsplit(".", 1)[1].lower()
+    return attachment_service.attachment_ext(filename)
 
 
 def _attachment_magic_matches(ext, data):
-    if ext == "pdf":
-        return data.startswith(b"%PDF-")
-    if ext == "png":
-        return data.startswith(b"\x89PNG\r\n\x1a\n")
-    if ext in {"jpg", "jpeg"}:
-        return data.startswith(b"\xff\xd8\xff")
-    if ext == "webp":
-        return data.startswith(b"RIFF") and data[8:12] == b"WEBP"
-    if ext in {"docx", "xlsx"}:
-        return data.startswith(b"PK\x03\x04")
-    if ext in {"txt", "csv"}:
-        return b"\x00" not in data[:2048]
-    return True
+    return attachment_service.attachment_magic_matches(ext, data)
 
 
 def _create_attachment_record(entity_type, entity_id, file, category="Documento", description=""):
-    if not file or not file.filename:
-        return None, ("Arquivo obrigatório.", 400)
-    original = clean_text(file.filename, 180)
-    ext = _attachment_ext(original)
-    if ext not in ATTACHMENT_ALLOWED_EXT:
-        return None, ("Tipo de arquivo não permitido.", 400)
-    content_length = getattr(file, "content_length", None)
-    if content_length and content_length > ATTACHMENT_MAX_BYTES:
-        return None, ("Arquivo excede o limite de 8 MB.", 400)
-    data = file.read()
-    if not data:
-        return None, ("Arquivo vazio.", 400)
-    if len(data) > ATTACHMENT_MAX_BYTES:
-        return None, ("Arquivo excede o limite de 8 MB.", 400)
-
-    mimetype = file.mimetype or "application/octet-stream"
-    allowed_mimes = ATTACHMENT_MIME_BY_EXT.get(ext, set())
-    if allowed_mimes and mimetype not in allowed_mimes:
-        return None, ("Tipo de arquivo incompatível com a extensão.", 400)
-    if not _attachment_magic_matches(ext, data):
-        return None, ("Conteúdo do arquivo não corresponde ao tipo informado.", 400)
-
-    os.makedirs(ATTACHMENT_DIR, exist_ok=True)
-    att_id = new_id("ATT")
-    safe_name = secure_filename(original) or f"anexo.{ext}"
-    stored_name = f"{att_id}_{safe_name}"
-    path = _attachment_path(stored_name)
-    if not path:
-        return None, ("Nome de arquivo inválido.", 400)
-    with open(path, "wb") as fh:
-        fh.write(data)
-
-    att = Attachment(
-        id=att_id,
-        entity_type=entity_type,
-        entity_id=entity_id,
-        original_name=original,
-        stored_name=stored_name,
-        content_type=mimetype,
-        size=len(data),
-        category=clean_text(category or "Documento", 40),
-        description=clean_text(description or "", 500),
-        uploaded_by=current_user.username,
+    return attachment_service.create_attachment_record(
+        entity_type, entity_id, file, category, description
     )
-    db.session.add(att)
-    return att, None
 
 
 # ═══════════════════════════════════════════════════════════════════════════
