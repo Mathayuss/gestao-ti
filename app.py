@@ -253,6 +253,7 @@ from services.backup_service import (
     update_backup_config as service_update_backup_config,
 )
 from services import attachment_service
+from services import authz_service
 from services import email_service
 from services import settings_service
 from services import validation_service
@@ -442,87 +443,31 @@ def _record_login_success(ip: str):
         db.session.rollback()
 
 
-PERMISSION_MODULE_PREFIXES = (
-    ("/api/assets", "ativos"),
-    ("/api/allocations", "alocacoes"),
-    ("/api/supplies", "insumos"),
-    ("/api/colaboradores", "colaboradores"),
-    ("/api/devolucoes", "colaboradores"),
-    ("/api/licenses", "licencas"),
-    ("/api/maintenance", "manutencao"),
-    ("/api/incidents", "manutencao"),
-    ("/api/audit-campaigns", "auditorias"),
-    ("/api/audit-asset", "auditorias"),
-    ("/api/audit-log", "auditorias"),
-    ("/api/dashboard", "dashboard"),
-    ("/api/alerts", "alertas"),
-    ("/api/movements", "dashboard"),
-    ("/api/system-users", "system_users"),
-    ("/api/settings", "configuracoes"),
-    ("/api/system/update", "configuracoes"),
-    ("/api/backups", "configuracoes"),
-    ("/api/backup.json", "configuracoes"),
-    ("/api/export", "configuracoes"),
-    ("/api/termos", "alocacoes"),
-    ("/api/termos-avulsos", "alocacoes"),
-    ("/api/emprestimos", "alocacoes"),
-)
-
-ATTACHMENT_MODULE_BY_ENTITY = {
-    "asset": "ativos",
-    "maintenance": "manutencao",
-    "license": "licencas",
-}
+PERMISSION_MODULE_PREFIXES = authz_service.PERMISSION_MODULE_PREFIXES
+ATTACHMENT_MODULE_BY_ENTITY = authz_service.ATTACHMENT_MODULE_BY_ENTITY
 
 
 def _permission_module_for_request(path: str):
-    if path.startswith("/api/attachments/"):
-        parts = path.split("/")
-        if len(parts) > 3 and parts[3] != "files":
-            return ATTACHMENT_MODULE_BY_ENTITY.get(parts[3])
-        return None
-    for prefix, module in PERMISSION_MODULE_PREFIXES:
-        if path.startswith(prefix):
-            return module
-    return None
+    return authz_service.permission_module_for_path(path)
 
 
 def _permission_action_for_request(path: str, method: str):
-    method = (method or "GET").upper()
-    if path.startswith("/api/export") or path == "/api/backup.json":
-        return "export"
-    if method == "GET" and path.startswith("/api/backups/files"):
-        return "export"
-    if method == "DELETE":
-        return "delete"
-    if method in {"POST", "PUT", "PATCH"}:
-        return "edit"
-    return "view"
+    return authz_service.permission_action_for_request(path, method)
+
+
+def _configured_profile_permissions():
+    try:
+        return _get_setting("perfil_permissoes", PERFIL_PERMISSOES)
+    except RuntimeError:
+        return PERFIL_PERMISSOES
 
 
 def _profile_permissions(perfil: str):
-    configured = _get_setting("perfil_permissoes", PERFIL_PERMISSOES)
-    if not isinstance(configured, dict):
-        configured = PERFIL_PERMISSOES
-    info = configured.get(perfil) or PERFIL_PERMISSOES.get(perfil) or {}
-    return info if isinstance(info, dict) else {}
+    return authz_service.profile_permissions(perfil, _configured_profile_permissions())
 
 
 def _profile_allows(perfil: str, module: str, action: str):
-    if perfil == "Administrador":
-        return True
-    info = _profile_permissions(perfil)
-    if module and module not in (info.get("modulos") or []):
-        return False
-    if action == "view":
-        return True
-    if action == "edit":
-        return bool(info.get("pode_editar"))
-    if action == "delete":
-        return bool(info.get("pode_excluir"))
-    if action == "export":
-        return bool(info.get("pode_exportar"))
-    return False
+    return authz_service.profile_allows(perfil, module, action, _configured_profile_permissions())
 
 
 def requires(*perfis):
@@ -532,16 +477,16 @@ def requires(*perfis):
         def decorated(*args, **kwargs):
             if not current_user.is_authenticated:
                 return jsonify({"error":"Não autenticado"}), 401
-            if current_user.status != "Ativo":
-                return jsonify({"error":"Conta desativada"}), 403
-            module = _permission_module_for_request(request.path)
-            action = _permission_action_for_request(request.path, request.method)
-            dynamic_allowed = bool(module and _profile_allows(current_user.perfil, module, action))
-            fixed_allowed = not perfis or current_user.perfil in perfis
-            if perfis and not fixed_allowed and not dynamic_allowed:
-                return jsonify({"error":f"Perfil '{current_user.perfil}' sem acesso a esta ação"}), 403
-            if module and not dynamic_allowed:
-                return jsonify({"error":f"Perfil '{current_user.perfil}' sem permissão para {action} em {module}."}), 403
+            allowed, error, status_code, _module, _action = authz_service.authorize_profile(
+                current_user.perfil,
+                current_user.status,
+                request.path,
+                request.method,
+                perfis,
+                _configured_profile_permissions(),
+            )
+            if not allowed:
+                return jsonify({"error": error}), status_code
             return f(*args, **kwargs)
         return decorated
     return decorator

@@ -10,6 +10,7 @@
 - Criado `services/template_renderer.py` para unificar a renderização de variáveis em termos, PDFs e e-mails.
 - Criado `services/attachment_service.py` para centralizar validação segura, gravação e consulta de anexos.
 - Criado `services/validation_service.py` para concentrar normalização de texto, números, booleanos, CPF, e-mail, telefone e nomes seguros de arquivo.
+- Criado `services/authz_service.py` para concentrar mapeamento de módulos, ações e decisões de autorização por perfil/permissão.
 - Criado `config.py` para centralizar `SECRET_KEY`, URL do banco, versão, cookies, flags de startup e configuração de execução local.
 - Aplicadas as variáveis `DATABASE_POOL_SIZE`, `DATABASE_MAX_OVERFLOW` e `DATABASE_POOL_TIMEOUT` para bancos não SQLite.
 - Atualizado `BUILD_VERSION` do `.env.example` para `1.3.5`, mantendo o arquivo `VERSION` como fallback quando não houver override no ambiente.
@@ -18,6 +19,7 @@
 - Adicionado teste para impedir regressão no uso da ponte global em `routes/`.
 - Adicionados testes unitários para validar caminho seguro, magic bytes e persistência de anexos.
 - Adicionados testes unitários para os helpers puros de validação e normalização.
+- Adicionados testes unitários para RBAC, incluindo permissões customizadas, rotas de anexos e decisões por perfil.
 - Adicionados testes unitários para a configuração centralizada, incluindo segredo obrigatório, versão, pool de banco e execução local.
 - Mantidos wrappers de compatibilidade no `app.py`, reduzindo risco para as rotas atuais durante a migração gradual para camada de serviços.
 - Adicionado teste para garantir que o Blueprint compartilhado mantém os nomes legados de endpoints.
