@@ -16,6 +16,8 @@
 - Criado `config.py` para centralizar `SECRET_KEY`, URL do banco, versão, cookies, flags de startup e configuração de execução local.
 - Aplicadas as variáveis `DATABASE_POOL_SIZE`, `DATABASE_MAX_OVERFLOW` e `DATABASE_POOL_TIMEOUT` para bancos não SQLite.
 - Atualizado `BUILD_VERSION` do `.env.example` para `1.3.5`, mantendo o arquivo `VERSION` como fallback quando não houver override no ambiente.
+- A verificação de atualizações pela interface passou a funcionar separada da aplicação automática: é possível consultar o Git quando disponível, mantendo a aplicação bloqueada quando `SELF_UPDATE_ENABLED=0`.
+- Corrigido o estado visual da aba de atualizações para exibir o resultado recém-consultado com `fetch=1`.
 - Removida a ponte `_export_route_globals()` de todos os módulos de rota, substituindo dependências implícitas por imports explícitos.
 - Removido o helper temporário `_export_route_globals()` do `app.py`.
 - Adicionado teste para impedir regressão no uso da ponte global em `routes/`.
@@ -25,6 +27,7 @@
 - Adicionados testes unitários para normalização de configurações, imagens em base64, categorias, aparência e modelos de termos.
 - Adicionados testes unitários para defaults iniciais, defaults demo e isolamento contra mutação entre chamadas.
 - Adicionados testes unitários para a configuração centralizada, incluindo segredo obrigatório, versão, pool de banco e execução local.
+- Adicionados testes para garantir consulta de atualização com aplicação desativada, aplicação habilitada explicitamente e ambiente sem metadados `.git`.
 - Mantidos wrappers de compatibilidade no `app.py`, reduzindo risco para as rotas atuais durante a migração gradual para camada de serviços.
 - Adicionado teste para garantir que o Blueprint compartilhado mantém os nomes legados de endpoints.
 - Validado `py_compile`, `unittest discover -s tests`, smoke de renderização de templates e `git diff --check`.

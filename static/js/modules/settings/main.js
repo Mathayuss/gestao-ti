@@ -16,10 +16,15 @@ async function renderConfiguracoes(){
   }catch(e){
     backupState = {config: cfg.backup || {}, files: []};
   }
-  try{
-    updateState = await api('/system/update/status');
-  }catch(e){
-    updateState = {supported:false, message:'Não foi possível consultar atualização.', currentVersion:APP_VERSION};
+  if(window.TICONTROL_LAST_UPDATE_STATE){
+    updateState = window.TICONTROL_LAST_UPDATE_STATE;
+    window.TICONTROL_LAST_UPDATE_STATE = null;
+  }else{
+    try{
+      updateState = await api('/system/update/status');
+    }catch(e){
+      updateState = {supported:false, message:'Não foi possível consultar atualização.', currentVersion:APP_VERSION};
+    }
   }
   PERFIS_SYS = Object.keys(perfis);
   _settings.categorias = cfg.categorias || [];
@@ -847,7 +852,7 @@ async function renderConfiguracoes(){
         ${updateState.ahead ? `<br><span style="font-size:12px;color:var(--text3)">O servidor possui ${updateState.ahead} commit(s) local(is) não enviado(s) ao remoto — serão substituídos pela versão do repositório ao aplicar.</span>` : ''}
       </div>
       <div class="flex-gap" style="flex-wrap:wrap">
-        <button class="btn btn-default btn-sm" onclick="checkSystemUpdate()" type="button" ${!updateState.supported ? 'disabled' : ''}>Verificar atualizações</button>
+        <button class="btn btn-default btn-sm" onclick="checkSystemUpdate()" type="button">Verificar atualizações</button>
         ${updateState.supported
           ? `<button id="btn-apply-update" class="btn btn-primary btn-sm" onclick="confirmApplySystemUpdate()" type="button" ${!updateState.canApply ? 'disabled' : ''}>Aplicar atualização</button>`
           : `<button class="btn btn-primary btn-sm" onclick="showManualUpdateInstructions()" type="button">Ver instruções</button>`}

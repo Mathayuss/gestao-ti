@@ -132,10 +132,13 @@ def _system_update_status(fetch=False):
     git_path = shutil.which("git")
     has_repo = os.path.isdir(os.path.join(APP_ROOT, ".git"))
     enabled = _self_update_enabled()
-    supported = bool(enabled and git_path and has_repo)
+    supported = bool(git_path and has_repo)
+    apply_supported = bool(enabled and supported)
     current = app.config.get("BUILD_VERSION", "1.3.5")
     status = {
         "supported": supported,
+        "checkSupported": supported,
+        "applySupported": apply_supported,
         "enabled": enabled,
         "gitAvailable": bool(git_path),
         "repositoryAvailable": has_repo,
@@ -155,11 +158,13 @@ def _system_update_status(fetch=False):
         "message": "",
         "manualCommand": ".\\scripts\\update-windows.ps1 ou ./scripts/update-linux.sh",
     }
-    if not enabled:
-        status["message"] = "Atualização pela interface desativada por configuração do ambiente."
-        return status
     if not supported:
-        status["message"] = "Atualização manual pelo servidor. Esta instalação precisa ser reconstruída uma vez para ativar a atualização automática pela interface."
+        if not git_path:
+            status["message"] = "Git não está disponível neste ambiente. Use atualização manual pelo servidor."
+        elif not has_repo:
+            status["message"] = "Metadados .git não estão disponíveis nesta instalação. Use atualização manual pelo servidor."
+        else:
+            status["message"] = "Atualização manual pelo servidor. Esta instalação precisa ser reconstruída uma vez para ativar a consulta pelo repositório."
         return status
 
     status["currentCommit"] = _git_value("rev-parse", "--short", "HEAD")
@@ -183,10 +188,18 @@ def _system_update_status(fetch=False):
             status["ahead"] = int(parts[0])
             status["behind"] = int(parts[1])
             status["updateAvailable"] = status["behind"] > 0
-            status["canApply"] = bool(supported and status["updateAvailable"])
-            if not status["updateAvailable"]:
+            status["canApply"] = bool(apply_supported and status["updateAvailable"])
+            if status["updateAvailable"] and not enabled:
+                status["blockReason"] = "Aplicação pela interface desativada por configuração do ambiente."
+            elif not status["updateAvailable"]:
                 status["blockReason"] = "Nenhuma atualizacao disponivel."
-            status["message"] = "Atualização disponível." if status["updateAvailable"] else "Sistema já está na versão mais recente conhecida."
+            if status["updateAvailable"]:
+                status["message"] = (
+                    "Atualização disponível. A aplicação pela interface está desativada; use o script manual ou habilite SELF_UPDATE_ENABLED=1."
+                    if not enabled else "Atualização disponível."
+                )
+            else:
+                status["message"] = "Sistema já está na versão mais recente conhecida."
     else:
         status["message"] = "Branch atual não possui upstream configurado."
     return status
@@ -432,8 +445,13 @@ def system_update_status():
 @requires("Administrador")
 def system_update_apply():
     status = _system_update_status(fetch=True)
-    if not status["supported"]:
+    if not status["checkSupported"]:
         return jsonify({"error": status["message"], "status": status}), 409
+    if not status["applySupported"]:
+        return jsonify({
+            "error": "Aplicação de atualização pela interface desativada por configuração do ambiente.",
+            "status": status,
+        }), 409
     if not status["updateAvailable"]:
         return jsonify({"error": "Nenhuma atualizacao disponivel no repositorio remoto.", "status": status}), 409
 

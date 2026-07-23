@@ -38,6 +38,7 @@ async function checkSystemUpdate(){
   try{
     toast('Verificando atualizações...');
     const r = await api('/system/update/status?fetch=1');
+    window.TICONTROL_LAST_UPDATE_STATE = r;
     if(r.updateAvailable) toast('Atualização disponível','warning');
     else toast(r.message || 'Nenhuma atualização pendente');
     _cfgTab = 'updates';
@@ -230,4 +231,3 @@ async function confirmRestoreBackupUpload(){
     });
   }catch(e){ toast(e.message,'error'); }
 }
-
