@@ -12,6 +12,7 @@
 - Criado `services/validation_service.py` para concentrar normalização de texto, números, booleanos, CPF, e-mail, telefone e nomes seguros de arquivo.
 - Criado `services/authz_service.py` para concentrar mapeamento de módulos, ações e decisões de autorização por perfil/permissão.
 - Criado `services/settings_schema_service.py` para concentrar normalização de configurações, categorias, aparência, unidades e modelos de termos.
+- Criado `services/initial_settings_service.py` para concentrar defaults de instalação, seed demo e settings legados de termos.
 - Criado `config.py` para centralizar `SECRET_KEY`, URL do banco, versão, cookies, flags de startup e configuração de execução local.
 - Aplicadas as variáveis `DATABASE_POOL_SIZE`, `DATABASE_MAX_OVERFLOW` e `DATABASE_POOL_TIMEOUT` para bancos não SQLite.
 - Atualizado `BUILD_VERSION` do `.env.example` para `1.3.5`, mantendo o arquivo `VERSION` como fallback quando não houver override no ambiente.
@@ -22,6 +23,7 @@
 - Adicionados testes unitários para os helpers puros de validação e normalização.
 - Adicionados testes unitários para RBAC, incluindo permissões customizadas, rotas de anexos e decisões por perfil.
 - Adicionados testes unitários para normalização de configurações, imagens em base64, categorias, aparência e modelos de termos.
+- Adicionados testes unitários para defaults iniciais, defaults demo e isolamento contra mutação entre chamadas.
 - Adicionados testes unitários para a configuração centralizada, incluindo segredo obrigatório, versão, pool de banco e execução local.
 - Mantidos wrappers de compatibilidade no `app.py`, reduzindo risco para as rotas atuais durante a migração gradual para camada de serviços.
 - Adicionado teste para garantir que o Blueprint compartilhado mantém os nomes legados de endpoints.

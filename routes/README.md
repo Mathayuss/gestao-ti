@@ -23,6 +23,6 @@ do `app.py`.
 O proximo passo natural e mover esses itens para pacotes dedicados, por exemplo:
 
 - `models/`: classes SQLAlchemy.
-- `services/`: regras de negocio, autorizacao/RBAC, backup, ativos, anexos, validacoes, e-mail, configuracoes, schemas de settings e renderizacao de templates.
+- `services/`: regras de negocio, autorizacao/RBAC, backup, ativos, anexos, validacoes, e-mail, configuracoes, defaults iniciais, schemas de settings e renderizacao de templates.
 - `extensions.py`: `db`, `lm`, migrate e integracoes Flask.
 - `config.py`: leitura e normalizacao de variaveis de ambiente, versao, cookies e parametros de banco.
