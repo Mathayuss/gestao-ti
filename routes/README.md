@@ -25,4 +25,4 @@ O proximo passo natural e mover esses itens para pacotes dedicados, por exemplo:
 - `models/`: classes SQLAlchemy.
 - `services/`: regras de negocio, backup, ativos, anexos, validacoes, e-mail, configuracoes e renderizacao de templates.
 - `extensions.py`: `db`, `lm`, migrate e integracoes Flask.
-- `config.py`: leitura e normalizacao de variaveis de ambiente.
+- `config.py`: leitura e normalizacao de variaveis de ambiente, versao, cookies e parametros de banco.

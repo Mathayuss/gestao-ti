@@ -21,8 +21,14 @@ from sqlalchemy.exc import IntegrityError
 from urllib.parse import urlsplit
 from flask_login import login_user, logout_user, login_required, current_user
 from flask_wtf.csrf import CSRFError
-from dotenv import load_dotenv
 
+from config import (
+    ALEMBIC_SCHEMA_HEAD,
+    flask_config,
+    load_environment,
+    runtime_server_config,
+    startup_retry_config,
+)
 from extensions import MIGRATE_OK, csrf, db, lm, migrate
 
 try:
@@ -33,19 +39,8 @@ try:
 except ImportError:
     METRICS_OK = False
 
-load_dotenv()
+load_environment()
 logger = logging.getLogger("ti_control")
-
-# Falha rápida se SECRET_KEY não estiver definida explicitamente
-_secret_key = os.environ.get("SECRET_KEY", "")
-if not _secret_key:
-    if os.environ.get("FLASK_DEBUG", "0") == "1":
-        _secret_key = "ticontrol-dev-only-secret-DO-NOT-USE-IN-PROD"
-        logger.warning("SECRET_KEY não definida; usando chave de desenvolvimento insegura")
-    else:
-        raise RuntimeError(
-            "SECRET_KEY não definida. Configure a variável de ambiente SECRET_KEY antes de iniciar em produção."
-        )
 
 # ── PDF (opcional) ────────────────────────────────────────────────────────
 try:
@@ -73,57 +68,8 @@ app = Flask(__name__)
 from werkzeug.middleware.proxy_fix import ProxyFix
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
 
-ALEMBIC_SCHEMA_HEAD = "b7c4d2a93f10"
-
-
-def _version_from_file(default="1.3.5"):
-    version_path = os.path.join(os.path.dirname(__file__), "VERSION")
-    try:
-        with open(version_path, "r", encoding="utf-8") as fh:
-            return fh.read().strip() or default
-    except OSError:
-        return default
-
-
-def _resolved_build_version():
-    file_version = _version_from_file()
-    env_version = (os.environ.get("BUILD_VERSION") or "").strip()
-    return env_version or file_version
-
-_is_production = os.environ.get("ENVIRONMENT", "development") not in ("development", "dev")
-_session_secure = os.environ.get("SESSION_SECURE", "0") == "1"
-
-app.config.update(
-    SECRET_KEY                   = _secret_key,
-    SQLALCHEMY_DATABASE_URI      = os.environ.get("DATABASE_URL", "sqlite:///ticontrol.db"),
-    SQLALCHEMY_TRACK_MODIFICATIONS = False,
-    SQLALCHEMY_ENGINE_OPTIONS    = {
-        "pool_pre_ping": True,
-        "pool_recycle":  300,
-    },
-    JSON_SORT_KEYS               = False,
-    APP_BASE_URL                 = os.environ.get("APP_BASE_URL", "http://localhost").rstrip("/"),
-    SERVICE_NAME                 = os.environ.get("SERVICE_NAME", "ti-control"),
-    BUILD_VERSION                = _resolved_build_version(),
-    ENVIRONMENT                  = os.environ.get("ENVIRONMENT", "development"),
-    # Credenciais de demo: NUNCA mostrar a não ser que explicitamente ativado
-    SHOW_DEMO_CREDENTIALS        = os.environ.get("SHOW_DEMO_CREDENTIALS", "0") == "1",
-    # Session / cookie settings
-    SESSION_COOKIE_HTTPONLY      = True,
-    SESSION_COOKIE_SAMESITE      = "Lax",
-    SESSION_COOKIE_SECURE        = _session_secure,
-    SESSION_COOKIE_NAME          = "ticontrol_session",
-    PERMANENT_SESSION_LIFETIME   = 86400 * 7,
-    # Remember-me cookie
-    REMEMBER_COOKIE_HTTPONLY     = True,
-    REMEMBER_COOKIE_SAMESITE     = "Lax",
-    REMEMBER_COOKIE_SECURE       = _session_secure,
-    REMEMBER_COOKIE_DURATION     = 86400 * 7,
-    MAX_CONTENT_LENGTH           = 16 * 1024 * 1024,
-    WTF_CSRF_CHECK_DEFAULT       = True,
-    AUTO_CREATE_DB              = os.environ.get("AUTO_CREATE_DB", "1") == "1",
-    AUTO_LEGACY_MIGRATIONS      = os.environ.get("AUTO_LEGACY_MIGRATIONS", "1") == "1",
-)
+app.config.update(flask_config(app.root_path))
+_session_secure = app.config["SESSION_COOKIE_SECURE"]
 
 db.init_app(app)
 csrf.init_app(app)
@@ -2562,8 +2508,7 @@ def _run_startup_db_tasks_once():
 
 def _run_startup_db_tasks():
     """Executa bootstrap/migração com retry para tolerar atraso do banco no boot."""
-    retries = int(os.environ.get("DB_STARTUP_RETRIES", "12"))
-    delay = float(os.environ.get("DB_STARTUP_RETRY_DELAY", "2"))
+    retries, delay = startup_retry_config()
     for attempt in range(1, retries + 1):
         try:
             _run_startup_db_tasks_once()
@@ -2595,9 +2540,7 @@ with app.app_context():
     _run_startup_db_tasks()
 
 if __name__ == "__main__":
-    host = os.environ.get("FLASK_HOST", "0.0.0.0")
-    port = int(os.environ.get("FLASK_PORT", "5000"))
-    debug = os.environ.get("FLASK_DEBUG", "1") == "1"
+    host, port, debug = runtime_server_config()
 
     print("\nTI Control — Flask + Auth + Observabilidade")
     print(f"   DB:    {app.config['SQLALCHEMY_DATABASE_URI']}")
