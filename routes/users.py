@@ -87,9 +87,11 @@ def reset_senha(uid):
 @bp.route("/api/system-users/perfis")
 @requires("Administrador")
 def get_perfis():
-    """Retorna perfis — do DB settings se customizados, senão do padrão."""
+    """Retorna perfis mesclando customizacoes antigas com modulos novos do sistema."""
     custom = _get_setting("perfil_permissoes", None)
-    return jsonify(custom if custom else PERFIL_PERMISSOES)
+    source = custom if isinstance(custom, dict) else PERFIL_PERMISSOES
+    perfis = {name: _profile_permissions(name) for name in set(PERFIL_PERMISSOES) | set(source)}
+    return jsonify(dict(sorted(perfis.items())))
 
 
 @bp.route("/api/system-users/perfis/<perfil>", methods=["PUT"])

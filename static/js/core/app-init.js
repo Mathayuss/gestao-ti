@@ -1,6 +1,4 @@
-// ══════════════════════════════════════════════════════════════════════════
 // ALERT BADGE
-// ══════════════════════════════════════════════════════════════════════════
 const state={alertCount:0};
 async function updateAlertBadge(){
   try{
@@ -30,9 +28,7 @@ function toggleHdrUser(e){
 }
 document.addEventListener('click',()=>{ const u=$('hdr-user'); if(u) u.classList.remove('open'); });
 
-// ══════════════════════════════════════════════════════════════════════════
 // INIT
-// ══════════════════════════════════════════════════════════════════════════
 (async()=>{
   // Verifica sessão primeiro — se /api/me retornar 401, o redirect acontece aqui e o resto para
   let me = null;
@@ -76,7 +72,21 @@ document.addEventListener('click',()=>{ const u=$('hdr-user'); if(u) u.classList
   } catch(e){}
   if (_redirectingToLogin) return;
 
-  await navigateTo(moduleFromHash() || moduleFromStorage() || 'dashboard');
+  const stuckTimer = setTimeout(() => {
+    const content = $('content');
+    const onlyPageLoader = content
+      && content.children.length === 1
+      && content.firstElementChild?.classList.contains('loading');
+    if(onlyPageLoader && !_redirectingToLogin){
+      content.innerHTML = '<div class="card" style="padding:20px;color:var(--red-text)"><strong>Falha ao carregar a tela.</strong><div style="margin-top:6px">A aplicação demorou mais que o esperado. Use Ctrl+F5 ou abra diretamente o módulo Compras.</div><button class="btn btn-default btn-sm" style="margin-top:12px" onclick="navigateTo(\'compras\')">Abrir Compras</button></div>';
+    }
+  }, 8000);
+  try {
+    await navigateTo(moduleFromHash() || moduleFromStorage() || 'dashboard');
+  } finally {
+    clearTimeout(stuckTimer);
+  }
   updateAlertBadge();
   setInterval(updateAlertBadge, 30000);
 })();
+

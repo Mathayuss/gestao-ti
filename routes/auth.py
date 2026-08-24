@@ -75,10 +75,14 @@ def do_logout():
 def me():
     permissions = _profile_permissions(current_user.perfil)
     ui_modules = list(permissions.get("modulos") or [])
+    compras_cfg = _get_setting("compras", DEFAULT_COMPRAS_CONFIG) or {}
+    compras_enabled = bool(compras_cfg.get("enabled"))
+    if not compras_enabled and "compras" in ui_modules:
+        ui_modules = [m for m in ui_modules if m != "compras"]
     if current_user.perfil == "Administrador":
         ui_modules = [
             "dashboard", "alertas", "manutencao", "entrada", "ativos",
-            "alocacoes", "insumos", "licencas", "auditorias", "qrcode",
+            *( ["compras"] if compras_enabled else [] ), "alocacoes", "insumos", "licencas", "auditorias", "qrcode",
             "colaboradores", "system_users", "configuracoes",
         ]
     elif "insumos" in ui_modules and "entrada" not in ui_modules:

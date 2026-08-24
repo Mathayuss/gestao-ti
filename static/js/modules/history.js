@@ -1,4 +1,4 @@
-// ══════════════════════════════════════════════════════════════════════════
+﻿// ══════════════════════════════════════════════════════════════════════════
 // HISTÓRICO DO ATIVO
 // ══════════════════════════════════════════════════════════════════════════
 const HIST_COR_MAP = {
@@ -100,14 +100,21 @@ async function viewAssetHistory(aid) {
 }
 
 function filtrarHistorico(filtro) {
-  // destaca botão ativo
-  ['Todos','Alocação','Manutenção','Incidente','Insumo','Sistema'].forEach(f => {
-    const btn = document.getElementById('hf-' + f);
-    if (btn) btn.className = 'btn btn-sm ' + (f === filtro ? 'btn-primary' : 'btn-default');
+  // destaca botao ativo
+  const filtros = [
+    ['todos','Todos',null],
+    ['alocacao','Alocacao','alocacao'],
+    ['manutencao','Manutencao','manutencao'],
+    ['incidente','Incidente','incidente'],
+    ['insumo','Insumo','insumo'],
+    ['sistema','Sistema','auditoria'],
+  ];
+  filtros.forEach(([id, label]) => {
+    const btn = document.getElementById('hf-' + id);
+    if (btn) btn.className = 'btn btn-sm ' + (label === filtro ? 'btn-primary' : 'btn-default');
   });
   const eventos = JSON.parse($('modal-box').dataset.histEventos || '[]');
-  const mapa = {Todos:null,Alocação:'alocacao',Manutenção:'manutencao',
-                Incidente:'incidente',Insumo:'insumo',Sistema:'auditoria'};
+  const mapa = Object.fromEntries(filtros.map(([, label, tipo]) => [label, tipo]));
   const tipo = mapa[filtro];
 
   const HIST_COR_MAP2 = {

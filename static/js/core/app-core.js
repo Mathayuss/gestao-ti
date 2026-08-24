@@ -1,7 +1,7 @@
 // ─── Globals ───────────────────────────────────────────────────────────────
 const $ = id => document.getElementById(id);
-const fmtDate = s => s ? new Date(s.length===10 ? s+'T00:00:00' : s).toLocaleDateString('pt-BR') : '—';
-const fmtDateTime = s => s ? new Date(s).toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'}) : '—';
+const fmtDate = s => s ?new Date(s.length===10 ?s+'T00:00:00' : s).toLocaleDateString('pt-BR') : '—';
+const fmtDateTime = s => s ?new Date(s).toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'}) : '—';
 // URL base: usa window.location.origin (sempre correto) e atualiza com o valor
 // detectado pelo servidor ao carregar as configurações (via /api/settings)
 let APP_BASE_URL = window.location.origin;
@@ -72,15 +72,15 @@ function applyTheme(theme){
   localStorage.setItem('ticontrol-theme', theme);
   const icon = $('theme-icon');
   const label = $('theme-label');
-  if(icon) icon.innerHTML = theme === 'dark' ? ICONS.sun : ICONS.moon;
-  if(label) label.textContent = theme === 'dark' ? 'Claro' : 'Escuro';
+  if(icon) icon.innerHTML = theme === 'dark' ?ICONS.sun : ICONS.moon;
+  if(label) label.textContent = theme === 'dark' ?'Claro' : 'Escuro';
 }
 
 function toggleTheme(){
-  applyTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark');
+  applyTheme(document.documentElement.dataset.theme === 'dark' ?'light' : 'dark');
 }
 
-applyTheme(localStorage.getItem('ticontrol-theme') || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'));
+applyTheme(localStorage.getItem('ticontrol-theme') || (matchMedia('(prefers-color-scheme: dark)').matches ?'dark' : 'light'));
 document.querySelector('.sb-logo-icon').innerHTML = svgIcon('app');
 const sbToggleIcon = $('sb-toggle-icon');
 if(sbToggleIcon) sbToggleIcon.innerHTML = ICONS.menu;
@@ -101,13 +101,11 @@ function toggleSidebar(){
   }
 }
 
-const BADGE_STATUS = {Alocado:'blue',Disponível:'green',Ativo:'green',Manutenção:'amber','Em manutenção':'amber',Inativo:'red',
-                     Assinado:'green',Pendente:'amber','Não gerado':'gray',Encerrado:'gray',
-                     Férias:'blue',Afastado:'amber'};
+const BADGE_STATUS = {'Alocado':'blue','Disponivel':'green','Disponível':'green','Ativo':'green','Manutencao':'amber','Manutenção':'amber','Em manutencao':'amber','Em manutenção':'amber','Inativo':'red','Assinado':'green','Pendente':'amber','Nao gerado':'gray','Não gerado':'gray','Encerrado':'gray','Ferias':'blue','Férias':'blue','Afastado':'amber'};
 const badge = (txt,type) => `<span class="badge badge-${type||(BADGE_STATUS[txt]||'gray')}">${esc(txt)}</span>`;
 
-const PERFIL_COLOR = {Administrador:'red','Técnico TI':'blue',Gestor:'amber',Visualizador:'gray'};
-const STATUS_COLAB_COLOR = {Ativo:'green',Inativo:'red',Férias:'blue',Afastado:'amber'};
+const PERFIL_COLOR = {'Administrador':'red','Tecnico TI':'blue','Técnico TI':'blue','Gestor':'amber','Visualizador':'gray'};
+const STATUS_COLAB_COLOR = {'Ativo':'green','Inativo':'red','Ferias':'blue','Férias':'blue','Afastado':'amber'};
 
 let _colab_cache = [];
 let _termoAvulsoTipos = ['VPN','BYOD','Confidencialidade','Outro'];
@@ -221,42 +219,52 @@ function showSessionExpired(){
 async function api(path, method='GET', body=null) {
   const csrf = document.querySelector('meta[name="csrf-token"]')?.content || '';
   const isFormData = body instanceof FormData;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 20000);
   const opts = {
     method,
-    credentials: 'include',  // garante envio do cookie de sessão
-    headers: isFormData ? {} : {'Content-Type':'application/json'}
+    credentials: 'include',
+    headers: isFormData ?{} : {'Content-Type':'application/json'},
+    signal: controller.signal,
   };
   if (csrf && method !== 'GET') opts.headers['X-CSRFToken'] = csrf;
-  if (body) opts.body = isFormData ? body : JSON.stringify(body);
+  if (body) opts.body = isFormData ?body : JSON.stringify(body);
   let r;
   try {
     r = await fetch('/api'+path, opts);
   } catch(networkErr) {
-    toast('Erro de rede: ' + networkErr.message, 'error');
-    throw networkErr;
+    const msg = networkErr.name === 'AbortError' ?'Tempo esgotado ao carregar ' + path : 'Erro de rede: ' + networkErr.message;
+    toast(msg, 'error');
+    throw new Error(msg);
+  } finally {
+    clearTimeout(timeout);
   }
   if (r.status === 401) {
     if (!_redirectingToLogin) {
       _redirectingToLogin = true;
       showSessionExpired();
-      toast('Sessão expirada — redirecionando para login...', 'error');
+      toast('Sessao expirada - redirecionando para login...', 'error');
       setTimeout(() => { window.location.replace('/login'); }, 1200);
     }
     return null;
   }
   if (r.status === 403) {
     const j = await r.json().catch(() => ({}));
-    toast(j.error || 'Sem permissão para esta ação', 'error');
+    toast(j.error || 'Sem permissao para esta acao', 'error');
     throw new Error(j.error || '403');
   }
   let json;
-  try { json = await r.json(); } catch(e) { throw new Error('Resposta inválida do servidor'); }
+  try { json = await r.json(); } catch(e) { throw new Error('Resposta invalida do servidor'); }
   if (r.status === 400 && json.code === 'csrf_expired') {
-    toast(json.error || 'Sessão expirada. Recarregando...', 'error');
+    toast(json.error || 'Sessao expirada. Recarregando...', 'error');
     setTimeout(() => window.location.reload(), 900);
     throw new Error(json.error || 'CSRF expirado');
   }
-  if (!r.ok) throw new Error(json.error || `Erro ${r.status}`);
+  if (!r.ok) {
+    const msg = json.error || `Erro ${r.status}`;
+    toast(msg, 'error');
+    throw new Error(msg);
+  }
   return json;
 }
 
@@ -359,6 +367,7 @@ const PAGE_TITLES = {dashboard:'Dashboard',alertas:'Central de Alertas',insumos:
   ativos:'Ativos de TI',alocacoes:'Alocações & Termos Digitais',qrcode:'QR Code & Etiquetas',
   auditorias:'Campanhas de Auditoria',
   manutencao:'Manutenção de Ativos',
+  compras:'Compras & Reposição',
   licencas:'Controle de Licenças',colaboradores:'Colaboradores',system_users:'Usuários do Sistema',configuracoes:'Configurações'};
 const NAV_STORAGE_KEY = 'ticontrol-current-module';
 let _currentUser = null;
@@ -379,18 +388,18 @@ function firstAllowedModule(){
 
 function moduleFromHash(){
   const mod = decodeURIComponent((window.location.hash || '').replace(/^#/, ''));
-  return isAllowedModule(mod) ? mod : null;
+  return isAllowedModule(mod) ?mod : null;
 }
 
 function moduleFromStorage(){
   const mod = localStorage.getItem(NAV_STORAGE_KEY);
-  return isAllowedModule(mod) ? mod : null;
+  return isAllowedModule(mod) ?mod : null;
 }
 
 function applyProfileNavigation(me){
   _currentUser = me || null;
-  const modules = Array.isArray(me?.uiModules) ? me.uiModules.filter(isValidModule) : Object.keys(PAGE_TITLES);
-  _allowedModules = new Set(modules.length ? modules : ['dashboard']);
+  const modules = Array.isArray(me?.uiModules) ?me.uiModules.filter(isValidModule) : Object.keys(PAGE_TITLES);
+  _allowedModules = new Set(modules.length ?modules : ['dashboard']);
   document.body.dataset.perfil = me?.perfil || '';
 
   document.querySelectorAll('.nav-item').forEach(btn=>{
@@ -421,7 +430,7 @@ function setActiveModule(mod){
 }
 
 async function navigateTo(mod, {updateHash=true}={}){
-  const next = isAllowedModule(mod) ? mod : firstAllowedModule();
+  const next = isAllowedModule(mod) ?mod : firstAllowedModule();
   setActiveModule(next);
   localStorage.setItem(NAV_STORAGE_KEY, next);
   if(updateHash && window.location.hash !== '#'+encodeURIComponent(next)){
@@ -457,17 +466,22 @@ async function render(mod){
     else if(mod==='qrcode')   await renderQRCode();
     else if(mod==='auditorias') await renderAuditorias();
     else if(mod==='manutencao') await renderManutencao();
+    else if(mod==='compras') await renderCompras();
     else if(mod==='licencas') await renderLicencas();
     else if(mod==='alertas')  await renderAlertas();
     else if(mod==='colaboradores') await renderColaboradores();
     else if(mod==='system_users')  await renderSystemUsers();
     else if(mod==='configuracoes')  await renderConfiguracoes();
     const content = $('content');
-    if(content && content.querySelector('.loading') && !_redirectingToLogin){
+    const onlyPageLoader = content
+      && content.children.length === 1
+      && content.firstElementChild?.classList.contains('loading');
+    if(onlyPageLoader && !_redirectingToLogin){
       content.innerHTML='<div class="card" style="padding:20px;color:var(--text2)">Não foi possível carregar esta tela. Atualize a página e tente novamente.</div>';
     }
   }catch(e){
-    if(_redirectingToLogin) return;  // ignore errors during logout redirect
-    $('content').innerHTML=`<div class="card" style="color:var(--red-text);padding:20px">Atenção ${esc(e.message)}</div>`;
+    if(_redirectingToLogin) return;
+    console.error('Falha ao renderizar módulo', mod, e);
+    $('content').innerHTML=`<div class="card" style="color:var(--red-text);padding:20px"><strong>Atenção</strong><div style="margin-top:6px">${esc(e.message || 'Não foi possível carregar esta tela.')}</div><button class="btn btn-default btn-sm" style="margin-top:12px" onclick="window.location.reload()">Recarregar</button></div>`;
   }
 }

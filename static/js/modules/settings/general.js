@@ -127,7 +127,7 @@ function updateLoginPreview(){
   const pv  = $('ap-login-preview');
   const box = $('ap-login-preview-box');
   if(!pv || !box) return;
-  const transp  = parseInt($('ap-box-transp')?.value ?? '0') || 0;
+  const transp  = parseInt($('ap-box-transp')?.value ? '0') || 0;
   const opacity = ((100 - transp) / 100).toFixed(2);
   const bg = _apLoginPreviewBg || _settings?.aparencia?.bg_login || '';
   pv.style.backgroundImage = bg ? `url(${bg})` : 'none';

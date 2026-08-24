@@ -41,7 +41,7 @@ function termPreviewCtx(){
   };
 }
 function renderTermTextPreview(text, ctx){
-  return esc(String(text||'').replace(/\{(\w+)\}/g, (_,k)=>ctx[k] ?? `{${k}}`)).replace(/\n/g,'<br>');
+  return esc(String(text||'').replace(/\{(\w+)\}/g, (_,k)=>ctx[k] ? `{${k}}`)).replace(/\n/g,'<br>');
 }
 function termPreviewFields(kind, ctx){
   if(kind==='td') return [['Colaborador',ctx.colaborador],['Setor / Unidade',`${ctx.setor} / ${ctx.unidade}`],['Itens','Notebook Dell Latitude 5440; Mouse sem fio Logitech']];

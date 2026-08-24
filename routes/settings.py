@@ -15,6 +15,7 @@ from flask_login import current_user, login_required
 from app import (
     CATEGORIAS_DEFAULT,
     CATEGORIAS_INSUMOS_DEFAULT,
+    DEFAULT_COMPRAS_CONFIG,
     SETTING_NORMALIZERS,
     _clean_list_setting,
     _get_backup_config,
@@ -237,6 +238,7 @@ def get_settings():
         "patrimonio_prefixo": _get_setting("patrimonio.prefixo", "TI"),
         "app_base_url":       get_app_base_url(),
         "app_base_url_saved": _get_setting("app.base_url", "") or "",
+        "compras":      _get_setting("compras", DEFAULT_COMPRAS_CONFIG),
     })
 
 

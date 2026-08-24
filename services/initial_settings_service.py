@@ -12,6 +12,14 @@ from services.settings_schema_service import (
 from services.validation_service import clean_text
 
 
+
+DEFAULT_COMPRAS_CONFIG = {
+    "enabled": False,
+    "auto_send_to_procurement": False,
+    "notify_email": False,
+    "default_cost_centers": [],
+}
+
 def company_defaults(empresa=None):
     empresa = empresa if isinstance(empresa, dict) else {}
     return {
@@ -138,6 +146,8 @@ def initial_settings_defaults(empresa=None):
         "categorias": CATEGORIAS_DEFAULT,
         "categorias_insumos": CATEGORIAS_INSUMOS_DEFAULT,
         "categorias_compat": {},
+        "compras": DEFAULT_COMPRAS_CONFIG,
+        "compras": DEFAULT_COMPRAS_CONFIG,
         "categorias_config": categorias_config_default(),
         "perfil_permissoes": PERFIL_PERMISSOES,
         "aparencia": {

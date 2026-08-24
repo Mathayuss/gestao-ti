@@ -1,6 +1,4 @@
-// ══════════════════════════════════════════════════════════════════════════
 // CONFIGURAÇÕES
-// ══════════════════════════════════════════════════════════════════════════
 
 async function renderConfiguracoes(){
   const [cfg, perfis, sysUsers, printPrinters] = await Promise.all([
@@ -46,25 +44,25 @@ async function renderConfiguracoes(){
   const cfg_ap     = cfg.aparencia            || {};
   const cfg_pat_prefixo = cfg.patrimonio_prefixo || 'TI';
   const cfg_public_url  = cfg.app_base_url_saved || '';
-  const backupFiles = Array.isArray(backupState.files) ? backupState.files : [];
+  const backupFiles = Array.isArray(backupState.files) ?backupState.files : [];
   const backupFreqLabel = {daily:'Diário', weekly:'Semanal', monthly:'Mensal'};
   const backupWeekdayLabel = ['Domingo','Segunda-feira','Terça-feira','Quarta-feira','Quinta-feira','Sexta-feira','Sábado'];
   const backupScheduleTime = cfg_backup.schedule_time || '02:00';
-  const backupWeeklyDay = Number.isFinite(Number(cfg_backup.weekly_day)) ? Number(cfg_backup.weekly_day) : 1;
+  const backupWeeklyDay = Number.isFinite(Number(cfg_backup.weekly_day)) ?Number(cfg_backup.weekly_day) : 1;
   const backupMonthlyDay = Math.max(1, Math.min(31, Number(cfg_backup.monthly_day) || 1));
   const backupScheduleLabel = cfg_backup.frequency === 'weekly'
-    ? `${backupWeekdayLabel[backupWeeklyDay] || 'Segunda-feira'} às ${backupScheduleTime}`
+    ?`${backupWeekdayLabel[backupWeeklyDay] || 'Segunda-feira'} às ${backupScheduleTime}`
     : (cfg_backup.frequency === 'monthly'
-      ? `Dia ${backupMonthlyDay} às ${backupScheduleTime}`
+      ?`Dia ${backupMonthlyDay} às ${backupScheduleTime}`
       : `Todos os dias às ${backupScheduleTime}`);
   const updateBadge = updateState.supported
-    ? (updateState.updateAvailable ? badge('Disponível','amber') : badge('OK','green'))
+    ?(updateState.updateAvailable ?badge('Disponível','amber') : badge('OK','green'))
     : badge('Manual','blue');
   const updateApplyHint = updateState.supported
-    ? (updateState.canApply ? 'Atualização pronta para aplicar.' : (updateState.blockReason || (updateState.updateAvailable ? 'Verifique os bloqueios antes de aplicar.' : 'Nenhuma atualização disponível.')))
+    ?(updateState.canApply ?'Atualização pronta para aplicar.' : (updateState.blockReason || (updateState.updateAvailable ?'Verifique os bloqueios antes de aplicar.' : 'Nenhuma atualização disponível.')))
     : 'Atualização automática indisponível neste ambiente.';
   const updateDetails = updateState.supported
-    ? `${esc(updateState.branch||'branch')} · ${esc(updateState.currentCommit||updateState.currentVersion||'?')} · atrás ${updateState.behind||0} · à frente ${updateState.ahead||0}`
+    ?`${esc(updateState.branch||'branch')} · ${esc(updateState.currentCommit||updateState.currentVersion||'?')} · atrás ${updateState.behind||0} · à frente ${updateState.ahead||0}`
     : `Execute no servidor: <span class="mono">${esc(updateState.manualCommand || './scripts/update-linux.sh')}</span>`;
   const tplAss = cfg_tpl.assinatura || {};
   const tplPacoteTermos = cfg_tpl.pacote_termos || {};
@@ -172,6 +170,7 @@ async function renderConfiguracoes(){
     ['termos',    'Termos'],
     ['agentes',   'Agentes'],
     ['backup',    'Backup'],
+    ['compras',   'Compras'],
     ['updates',   'Atualizações'],
   ];
   const tabBar = `<div class="cfg-tab-bar" style="display:flex;gap:0;margin-bottom:20px;border-bottom:2px solid var(--border);overflow-x:auto">
@@ -192,7 +191,7 @@ async function renderConfiguracoes(){
           <label>Logo da Empresa</label>
           <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:8px">
             ${empresa.logo_base64
-              ? `<div style="padding:6px 10px;background:#fff;border:1px solid var(--border);border-radius:var(--r);display:inline-flex;align-items:center;gap:8px">
+              ?`<div style="padding:6px 10px;background:#fff;border:1px solid var(--border);border-radius:var(--r);display:inline-flex;align-items:center;gap:8px">
                    <img id="logo-current" src="${empresa.logo_base64}" style="height:28px;object-fit:contain;max-width:120px">
                  </div>
                  <button class="btn btn-danger btn-sm" onclick="removeLogo()" type="button">Remover logo</button>`
@@ -348,7 +347,7 @@ async function renderConfiguracoes(){
         </div>
       </div>
       <div id="cats-insumos-list">
-        ${_buildCatsInsumoHtml(_settings.categorias_insumos && _settings.categorias_insumos.length ? _settings.categorias_insumos : cfg.categorias_insumos || [])}
+        ${_buildCatsInsumoHtml(_settings.categorias_insumos && _settings.categorias_insumos.length ?_settings.categorias_insumos : cfg.categorias_insumos || [])}
       </div>
     </div>
     <div class="card" style="grid-column:span 2">
@@ -379,7 +378,7 @@ async function renderConfiguracoes(){
           <label>Favicon do Sistema (ícone da aba do navegador)</label>
           <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:8px">
             ${cfg_ap.favicon
-              ? `<div style="padding:6px 10px;background:#fff;border:1px solid var(--border);border-radius:var(--r);display:inline-flex;align-items:center;gap:8px">
+              ?`<div style="padding:6px 10px;background:#fff;border:1px solid var(--border);border-radius:var(--r);display:inline-flex;align-items:center;gap:8px">
                    <img src="${cfg_ap.favicon}" style="height:28px;width:28px;object-fit:contain">
                  </div>
                  <button class="btn btn-danger btn-sm" onclick="removeFaviconSistema()" type="button">Remover favicon</button>`
@@ -400,7 +399,7 @@ async function renderConfiguracoes(){
         <label>Imagem de fundo</label>
         <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:8px">
           ${cfg_ap.bg_login
-            ? `<div style="padding:4px;background:#fff;border:1px solid var(--border);border-radius:var(--r);display:inline-flex">
+            ?`<div style="padding:4px;background:#fff;border:1px solid var(--border);border-radius:var(--r);display:inline-flex">
                  <img src="${cfg_ap.bg_login}" style="height:48px;width:80px;object-fit:cover;border-radius:4px">
                </div>
                <button class="btn btn-danger btn-sm" onclick="removeBgLogin()" type="button">Remover fundo</button>`
@@ -509,7 +508,7 @@ async function renderConfiguracoes(){
       </div>
       <div class="info-box blue" style="margin-bottom:14px">
         Configure e ative o SMTP diretamente pela aplicação. A senha salva pela tela fica armazenada no banco da aplicação; use senha de app quando o provedor exigir.
-        ${cfg_email.password_configurado ? '<span style="color:var(--green-text);font-weight:600;margin-left:8px">Senha configurada</span>' : '<span style="color:var(--red-text);font-weight:600;margin-left:8px">Senha não configurada</span>'}
+        ${cfg_email.password_configurado ?'<span style="color:var(--green-text);font-weight:600;margin-left:8px">Senha configurada</span>' : '<span style="color:var(--red-text);font-weight:600;margin-left:8px">Senha não configurada</span>'}
       </div>
       <div class="form-grid-2">
         <div class="form-group"><label>Servidor SMTP</label><input id="email-host" value="${esc(cfg_email.host||'')}" placeholder="smtp.gmail.com"></div>
@@ -525,7 +524,7 @@ async function renderConfiguracoes(){
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap">
         <input type="checkbox" id="email-tls" ${cfg_email.tls!==false?'checked':''} style="width:auto;margin-left:16px">
         <label for="email-tls" style="margin:0;font-size:13px">Usar TLS/STARTTLS</label>
-        ${cfg_email.password_configurado ? '<input type="checkbox" id="email-clear-password" style="width:auto;margin-left:16px"><label for="email-clear-password" style="margin:0;font-size:13px;color:var(--red-text)">Apagar senha salva</label>' : ''}
+        ${cfg_email.password_configurado ?'<input type="checkbox" id="email-clear-password" style="width:auto;margin-left:16px"><label for="email-clear-password" style="margin:0;font-size:13px;color:var(--red-text)">Apagar senha salva</label>' : ''}
       </div>
       <div class="flex-gap">
         <button class="btn btn-primary btn-sm" onclick="saveEmailCfg()">Salvar E-mail</button>
@@ -579,7 +578,7 @@ async function renderConfiguracoes(){
     })),
   ];
   const termModelCard = model => {
-    const clauseCount = Array.isArray(model.cfg?.clausulas) ? model.cfg.clausulas.length : 0;
+    const clauseCount = Array.isArray(model.cfg?.clausulas) ?model.cfg.clausulas.length : 0;
     const title = model.cfg?.titulo || `Termo de ${model.title}`;
     return `<article class="term-template-card" data-term-kind="${escAttr(model.kind)}">
       <div class="term-template-top">
@@ -592,13 +591,13 @@ async function renderConfiguracoes(){
       <div class="term-template-desc" title="${escAttr(title)}">${esc(title)}</div>
       <div class="term-template-meta">
         ${badge(`${clauseCount} cláusula${clauseCount===1?'':'s'}`, model.color)}
-        ${badge(model.avulso ? 'Modelo personalizado' : 'Padrão do sistema','gray')}
+        ${badge(model.avulso ?'Modelo personalizado' : 'Padrão do sistema','gray')}
       </div>
       <div class="term-template-actions">
         <button class="btn btn-primary btn-sm" type="button" onclick="editTermConfig(${jsArg(model.kind)})">${inlineIcon('edit')} Editar</button>
         <button class="btn btn-default btn-sm" type="button" onclick="previewTermConfig(${jsArg(model.kind)})">${inlineIcon('eye')} Prévia</button>
         <button class="btn btn-default btn-sm" type="button" onclick="loadTermExample(${jsArg(model.kind)})">${inlineIcon('clipboard')} Exemplo</button>
-        ${model.avulso ? `<button class="btn btn-danger btn-sm btn-icon" type="button" title="Remover modelo" onclick="removeTipoTermoConfig(${jsArg(model.tipo)})">${svgIcon('trash')}</button>` : ''}
+        ${model.avulso ?`<button class="btn btn-danger btn-sm btn-icon" type="button" title="Remover modelo" onclick="removeTipoTermoConfig(${jsArg(model.tipo)})">${svgIcon('trash')}</button>` : ''}
       </div>
     </article>`;
   };
@@ -735,6 +734,11 @@ async function renderConfiguracoes(){
     </div>
   </div>`;
 
+  const panelCompras = `<div id="cfg-panel-compras" style="display:none">
+    <div id="purchase-settings-panel">
+      <div class="card"><div class="cfg-panel-loading">Carregando configuração de compras...</div></div>
+    </div>
+  </div>`;
   const panelBackup = `<div id="cfg-panel-backup" style="display:none">
     <div class="card">
       <div class="flex-between" style="margin-bottom:12px;gap:14px;align-items:flex-start;flex-wrap:wrap">
@@ -754,7 +758,7 @@ async function renderConfiguracoes(){
       <div class="grid-3" style="margin-bottom:16px">
         <div style="border:1px solid var(--border);border-radius:var(--r);padding:12px;background:var(--bg3)">
           <div style="font-size:11px;color:var(--text3);font-weight:700;text-transform:uppercase;margin-bottom:4px">Última execução</div>
-          <div style="font-size:14px;font-weight:700;color:var(--text)">${cfg_backup.last_run ? fmtDateTime(cfg_backup.last_run) : 'Nunca executado'}</div>
+          <div style="font-size:14px;font-weight:700;color:var(--text)">${cfg_backup.last_run ?fmtDateTime(cfg_backup.last_run) : 'Nunca executado'}</div>
         </div>
         <div style="border:1px solid var(--border);border-radius:var(--r);padding:12px;background:var(--bg3)">
           <div style="font-size:11px;color:var(--text3);font-weight:700;text-transform:uppercase;margin-bottom:4px">Status</div>
@@ -835,7 +839,7 @@ async function renderConfiguracoes(){
         </div>
         <div style="border:1px solid var(--border);border-radius:var(--r);padding:12px;background:var(--bg3)">
           <div style="font-size:11px;color:var(--text3);font-weight:700;text-transform:uppercase;margin-bottom:4px">Versão disponível</div>
-          <div style="font-size:14px;font-weight:700;color:var(--text)">${esc(updateState.availableVersion || (updateState.updateAvailable ? 'Disponível no remoto' : updateState.currentVersion || APP_VERSION || 'local'))}</div>
+          <div style="font-size:14px;font-weight:700;color:var(--text)">${esc(updateState.availableVersion || (updateState.updateAvailable ?'Disponível no remoto' : updateState.currentVersion || APP_VERSION || 'local'))}</div>
         </div>
         <div style="border:1px solid var(--border);border-radius:var(--r);padding:12px;background:var(--bg3)">
           <div style="font-size:11px;color:var(--text3);font-weight:700;text-transform:uppercase;margin-bottom:4px">${updateState.supported?'Repositório':'Modo'}</div>
@@ -848,13 +852,13 @@ async function renderConfiguracoes(){
       </div>
       <div class="info-box blue" style="margin-bottom:14px">
         ${esc(updateState.message || 'Clique em Verificar atualizações para consultar o repositório remoto.')}
-        ${updateState.dirty ? '<br><span style="font-size:12px;color:var(--amber-text)">Atenção: há alterações locais no servidor — serão descartadas e substituídas pela versão do repositório ao aplicar.</span>' : ''}
-        ${updateState.ahead ? `<br><span style="font-size:12px;color:var(--text3)">O servidor possui ${updateState.ahead} commit(s) local(is) não enviado(s) ao remoto — serão substituídos pela versão do repositório ao aplicar.</span>` : ''}
+        ${updateState.dirty ?'<br><span style="font-size:12px;color:var(--amber-text)">Atenção: há alterações locais no servidor — serão descartadas e substituídas pela versão do repositório ao aplicar.</span>' : ''}
+        ${updateState.ahead ?`<br><span style="font-size:12px;color:var(--text3)">O servidor possui ${updateState.ahead} commit(s) local(is) não enviado(s) ao remoto — serão substituídos pela versão do repositório ao aplicar.</span>` : ''}
       </div>
       <div class="flex-gap" style="flex-wrap:wrap">
         <button class="btn btn-default btn-sm" onclick="checkSystemUpdate()" type="button">Verificar atualizações</button>
         ${updateState.supported
-          ? `<button id="btn-apply-update" class="btn btn-primary btn-sm" onclick="confirmApplySystemUpdate()" type="button" ${!updateState.canApply ? 'disabled' : ''}>Aplicar atualização</button>`
+          ?`<button id="btn-apply-update" class="btn btn-primary btn-sm" onclick="confirmApplySystemUpdate()" type="button" ${!updateState.canApply ?'disabled' : ''}>Aplicar atualização</button>`
           : `<button class="btn btn-primary btn-sm" onclick="showManualUpdateInstructions()" type="button">Ver instruções</button>`}
       </div>
       <div style="margin-top:14px;font-size:12px;color:var(--text3)">
@@ -864,24 +868,27 @@ async function renderConfiguracoes(){
   </div>`;
 
   const panelAgentes = renderPrintAgentsPanel(printPrinters);
-  $('content').innerHTML = tabBar + panelGeral + panelOperacao + panelAparencia + panelPerfis + panelEmail + panelTermos + panelAgentes + panelBackup + panelUpdates;
+  $('content').innerHTML = tabBar + panelGeral + panelOperacao + panelAparencia + panelPerfis + panelEmail + panelTermos + panelAgentes + panelCompras + panelBackup + panelUpdates;
   cfgTab(_cfgTab);
+  if (typeof renderPurchaseSettingsPanel === "function") {
+    await renderPurchaseSettingsPanel(cfg.compras || {});
+  }
 }
 
 function cfgTab(tab){
   _cfgTab = tab;
   const panels = {
-    geral: 'grid', operacao: 'grid', aparencia: 'block', perfis: 'block', email: 'block', termos: 'flex', agentes: 'block', backup: 'block', updates: 'block'
+    geral: 'grid', operacao: 'grid', aparencia: 'block', perfis: 'block', email: 'block', termos: 'flex', agentes: 'block', compras: 'block', backup: 'block', updates: 'block'
   };
   Object.keys(panels).forEach(t=>{
     const panel = document.getElementById('cfg-panel-'+t);
     const btn   = document.getElementById('cfg-tab-'+t);
     if(!panel||!btn) return;
     const active = t===tab;
-    panel.style.display        = active ? panels[t] : 'none';
-    btn.style.color            = active ? 'var(--blue)' : 'var(--text2)';
-    btn.style.borderBottomColor = active ? 'var(--blue)' : 'transparent';
-    btn.style.fontWeight       = active ? '700' : '600';
+    panel.style.display        = active ?panels[t] : 'none';
+    btn.style.color            = active ?'var(--blue)' : 'var(--text2)';
+    btn.style.borderBottomColor = active ?'var(--blue)' : 'transparent';
+    btn.style.fontWeight       = active ?'700' : '600';
   });
   if(tab==='termos') setTimeout(()=>initTermsPanel(), 0);
 }

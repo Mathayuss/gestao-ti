@@ -1,4 +1,4 @@
-import os
+﻿import os
 import re
 import unittest
 from pathlib import Path
@@ -82,7 +82,7 @@ class AppSmokeTest(unittest.TestCase):
         response = tic.app.test_client().get("/api/assets", headers={"Accept": "application/json"})
 
         self.assertEqual(response.status_code, 401)
-        self.assertEqual(response.get_json()["error"], "Não autenticado")
+        self.assertEqual(response.get_json()["error"], "N\u00e3o autenticado")
 
     def test_asset_qr_uses_disabled_by_default_tokenized_public_page(self):
         client = tic.app.test_client()
@@ -160,3 +160,4 @@ class AppSmokeTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+

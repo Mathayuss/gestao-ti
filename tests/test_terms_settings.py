@@ -59,7 +59,7 @@ class TermSettingsTest(unittest.TestCase):
         with tic.app.app_context():
             _, error = tic._normalize_termos_avulsos_modelos({"VPN": {"clausulas": "texto solto"}})
 
-            self.assertEqual(error, "Cláusulas do termo 'VPN' precisam ser uma lista.")
+        self.assertEqual(error, "Cl\u00e1usulas do termo 'VPN' precisam ser uma lista.")
 
     def test_email_template_single_brace_tags_are_rendered(self):
         with tic.app.app_context():

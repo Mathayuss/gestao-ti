@@ -1,4 +1,4 @@
-"""Modelos SQLAlchemy do TI Control."""
+﻿"""Modelos SQLAlchemy do TI Control."""
 import json
 from datetime import date, datetime
 
@@ -688,13 +688,13 @@ class TermoAvulso(db.Model):
 PERFIL_PERMISSOES = {
     "Administrador": {
         "label":"Acesso total ao sistema","cor":"red",
-        "modulos":["dashboard","ativos","insumos","colaboradores","alocacoes",
+        "modulos":["dashboard","ativos","insumos","compras","colaboradores","alocacoes",
                    "auditorias","qrcode","licencas","alertas","manutencao","system_users","configuracoes"],
         "pode_editar":True,"pode_excluir":True,"pode_exportar":True,
     },
     "Técnico TI": {
         "label":"Gestão operacional de TI","cor":"blue",
-        "modulos":["dashboard","ativos","insumos","alocacoes","auditorias","qrcode","alertas","colaboradores","manutencao"],
+        "modulos":["dashboard","ativos","insumos","compras","alocacoes","auditorias","qrcode","alertas","colaboradores","manutencao"],
         "pode_editar":True,"pode_excluir":False,"pode_exportar":True,
     },
     "Gestor": {
@@ -736,3 +736,4 @@ __all__ = [
     "SystemUser",
     "TermoAvulso",
 ]
+

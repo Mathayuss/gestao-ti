@@ -159,6 +159,8 @@ def observability_after_request(response):
     response.headers.setdefault("X-XSS-Protection", "1; mode=block")
     response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
     response.headers.setdefault("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
+    if request.endpoint == "static" and app.config.get("ENVIRONMENT") in {"local", "development"}:
+        response.headers["Cache-Control"] = "no-store, max-age=0"
     response.headers.setdefault(
         "Content-Security-Policy",
         "default-src 'self'; script-src 'self' 'unsafe-inline'; "
@@ -885,6 +887,30 @@ def _normalize_categorias_compat_setting(value):
     return settings_schema_service.normalize_categorias_compat_setting(value)
 
 
+
+DEFAULT_COMPRAS_CONFIG = {
+    "enabled": False,
+    "auto_send_to_procurement": False,
+    "notify_email": False,
+    "default_cost_centers": [],
+}
+
+
+def _normalize_compras_setting(value):
+    if not isinstance(value, dict):
+        return None, "Configuracao de compras precisa ser um objeto."
+    current = _get_setting("compras", DEFAULT_COMPRAS_CONFIG) or {}
+    result = {**DEFAULT_COMPRAS_CONFIG, **(current if isinstance(current, dict) else {})}
+    for key in ("enabled", "auto_send_to_procurement", "notify_email"):
+        if key in value:
+            result[key] = parse_bool(value.get(key), default=bool(result.get(key)))
+    if "default_cost_centers" in value:
+        centers = _clean_list_setting(value.get("default_cost_centers"), 80)
+        if centers is None:
+            return None, "Centros de custo de compras precisam ser uma lista."
+        result["default_cost_centers"] = centers
+    return result, None
+
 SETTING_NORMALIZERS = {
     "empresa": _normalize_empresa_setting,
     "alertas": _normalize_alertas_setting,
@@ -900,6 +926,7 @@ SETTING_NORMALIZERS = {
     "patrimonio.prefixo": _normalize_patrimonio_prefixo,
     "termo_emprestimo": lambda v: _normalize_termo_setting("termo_emprestimo", v),
     "termo_vpn": lambda v: _normalize_termo_setting("termo_vpn", v),
+    "compras": _normalize_compras_setting,
 }
 
 
@@ -1958,10 +1985,10 @@ def register_route_modules():
     from routes import (
         setup, auth, assets, supplies, colaboradores, allocations,
         licenses, operations, users, settings, devolucoes, reports, audit_campaigns, attachments,
-        termos_avulsos, print_jobs,
+        termos_avulsos, print_jobs, purchases,
     )
     app.register_blueprint(routes_bp, name="")
-    return (setup, auth, assets, supplies, colaboradores, allocations, licenses, operations, users, settings, devolucoes, reports, audit_campaigns, attachments, termos_avulsos, print_jobs)
+    return (setup, auth, assets, supplies, colaboradores, allocations, licenses, operations, users, settings, devolucoes, reports, audit_campaigns, attachments, termos_avulsos, print_jobs, purchases)
 
 register_route_modules()
 

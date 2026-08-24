@@ -1,9 +1,9 @@
-// ══════════════════════════════════════════════════════════════════════════
+﻿// ══════════════════════════════════════════════════════════════════════════
 // USUÁRIOS DO SISTEMA
 // ══════════════════════════════════════════════════════════════════════════
 let PERFIS_SYS=['Administrador','Técnico TI','Gestor','Visualizador'];
 const PERFIL_COR={Administrador:'red','Técnico TI':'blue',Gestor:'amber',Visualizador:'gray'};
-const MODULO_LABEL={dashboard:'Dashboard',entrada:'Entrada de Itens',ativos:'Ativos de TI',insumos:'Insumos & Periféricos',colaboradores:'Colaboradores',alocacoes:'Alocações',auditorias:'Auditorias',qrcode:'QR Code',licencas:'Licenças',alertas:'Alertas',manutencao:'Manutenção',system_users:'Usuários do Sistema',configuracoes:'Configurações'};
+const MODULO_LABEL={dashboard:'Dashboard',entrada:'Entrada de Itens',ativos:'Ativos de TI',insumos:'Insumos & Periféricos',compras:'Compras & Reposicao',colaboradores:'Colaboradores',alocacoes:'Alocações',auditorias:'Auditorias',qrcode:'QR Code',licencas:'Licenças',alertas:'Alertas',manutencao:'Manutenção',system_users:'Usuários do Sistema',configuracoes:'Configurações'};
 
 async function renderSystemUsers(){
   const [data, perfisData] = await Promise.all([api('/system-users'), api('/system-users/perfis')]);
@@ -239,4 +239,6 @@ async function savePerfilPerms(perfil){
   closeModal();
   renderConfiguracoes();
 }
+
+
 

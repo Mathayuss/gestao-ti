@@ -929,7 +929,7 @@ async function openTrocaPeriferico(btn){
   const nome=btn.dataset.nome||'Periférico';
   const quantidade=Math.max(1,parseInt(btn.dataset.quantidade||'1',10)||1);
   const supplies=await api('/supplies');
-  const perifericos=supplies.filter(s=>['Periférico','PerifÃ©rico'].includes(s.categoria));
+  const perifericos=supplies.filter(s=>String(s.categoria||'').toLowerCase().includes('perif'));
   const opts=perifericos.length ? perifericos.map(s=>`
     <option value="${escAttr(s.id)}" ${s.id===supplyId?'selected':''}>
       ${esc(s.nome)} - estoque: ${s.estoque}

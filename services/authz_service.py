@@ -6,6 +6,7 @@ PERMISSION_MODULE_PREFIXES = (
     ("/api/assets", "ativos"),
     ("/api/allocations", "alocacoes"),
     ("/api/supplies", "insumos"),
+    ("/api/purchases", "compras"),
     ("/api/colaboradores", "colaboradores"),
     ("/api/devolucoes", "colaboradores"),
     ("/api/licenses", "licencas"),
@@ -64,8 +65,22 @@ def permission_action_for_request(path, method):
 
 def profile_permissions(perfil, configured_permissions=None):
     configured = configured_permissions if isinstance(configured_permissions, dict) else PERFIL_PERMISSOES
-    info = configured.get(perfil) or PERFIL_PERMISSOES.get(perfil) or {}
-    return info if isinstance(info, dict) else {}
+    defaults = PERFIL_PERMISSOES.get(perfil) or {}
+    saved = configured.get(perfil) or {}
+    if not isinstance(defaults, dict):
+        defaults = {}
+    if not isinstance(saved, dict):
+        saved = {}
+    info = {**defaults, **saved}
+    default_modules = defaults.get("modulos") if isinstance(defaults.get("modulos"), list) else []
+    saved_modules = saved.get("modulos") if isinstance(saved.get("modulos"), list) else []
+    merged_modules = list(saved_modules or default_modules)
+    for module in default_modules:
+        if module not in merged_modules:
+            merged_modules.append(module)
+    if merged_modules:
+        info["modulos"] = merged_modules
+    return info
 
 
 def profile_allows(perfil, module, action, configured_permissions=None):

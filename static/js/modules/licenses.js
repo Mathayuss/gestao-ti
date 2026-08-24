@@ -1,8 +1,8 @@
 // ══════════════════════════════════════════════════════════════════════════
 // LICENÇAS
 // ══════════════════════════════════════════════════════════════════════════
-function licenseUnitCost(l){return Number(l.custoUnitario ?? l.custo ?? 0);}
-function licenseTotalCost(l){return Number(l.custoTotal ?? (licenseUnitCost(l) * Number(l.total || 0)));}
+function licenseUnitCost(l){return Number(l.custoUnitario ? l.custo ? 0);}
+function licenseTotalCost(l){return Number(l.custoTotal ? (licenseUnitCost(l) * Number(l.total || 0)));}
 function licenseMonthlyCost(l){
   if(l.custoMensal !== undefined) return Number(l.custoMensal || 0);
   return (l.tipo === 'Assinatura mensal' || l.tipo === 'Assinatura') ? licenseTotalCost(l) : 0;
